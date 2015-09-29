@@ -1,0 +1,26 @@
+TODO
+- templates (mako)
+    * header, footer
+    * user info
+    * version
+- "all correct" button
+- file import
+- twitter integration
+- document collections
+- classification management
+- batch processing
+- richer classifier info
+    * number of examples observed
+    * estimated accuracy
+- user authentication
+- user authorization
+
+DONE
+- use classify, instead of score
+- fix arrays [] passed to cherrypy
+- db abstraction
+- examples db
+- serious db engine (mongodb-NO, sqlite-NO, sqlalchemy+postgres)
+- FIXED missing cascade on labels (switched to postgres)
+- richer classifier info
+    * last update

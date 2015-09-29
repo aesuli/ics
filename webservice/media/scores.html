@@ -1,0 +1,213 @@
+<html>
+<head>
+    <title>Classification service</title>
+    <link rel="stylesheet" href="media/style.css" />
+    <link rel="stylesheet" href="media/jquery-ui-themes-1.11.4/themes/ui-lightness/jquery-ui.min.css" />
+    <script type="text/javascript" src="media/jquery-2.1.4.min.js"></script>
+     <script type="text/javascript" src="media/utility.js"></script>
+    <script type="text/javascript" src="media/jquery-ui-1.11.4/jquery-ui.min.js"></script>
+    <script type="text/javascript">
+       update_interval=10000
+       delay_interval=500
+        last_update = 0
+        function timed_update() {
+            now = Date.now();
+            if(now-last_update>update_interval)
+                update();
+            setTimeout(timed_update,update_interval);
+        }
+
+        function update() {
+            last_update = Date.now();
+            $.ajax({
+                type:'POST',
+                url:'/service/',
+                dataType: 'json',
+                success: function(msg) {
+                    $('#classifiers_list div .classifier_name').each(function(i,item) {
+                        var found = false;
+                        for(var i = 0;i<msg.length;++i) {
+                            if($(item).text()==msg[i]) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if(!found) {
+                            $('#suggestions_'+$(item).text()).remove();
+                            $(item).parent().remove();
+                        }
+                    });
+                    if(msg.length==0) {
+                        $('#classifiers_list').html('<div class="padded ui-widget-header ui-corner-all">No classifiers available</div>');
+                    }
+                    else {
+                        if($('#gotclassifiers').length==0)
+                            $('#classifiers_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
+                        for(var i = 0;i<msg.length;++i) {
+                            if($('#classifier_'+msg[i]).length==0) {
+                                $('#classifiers_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i]+'\'><div class=\'inline padded ui-corner-all classifier_name\'>'+msg[i]+'</div><div class=\'del_button_'+msg[i]+' right\'>Delete</div><div class=\'use_button_'+msg[i]+' right\'>Use</div></div>');
+                                $('.use_button_'+msg[i]).button({ icons: {primary:'ui-icon-check'} });
+                                $('.use_button_'+msg[i]).click(function() {
+                                    $(this).siblings('.classifier_name').toggleClass('ui-state-highlight');
+                                    classify(true);
+                                });
+                                $('.del_button_'+msg[i]).button({ icons: {primary:'ui-icon-trash'} });
+                                $('.del_button_'+msg[i]).click(delete_classifier);
+                                var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i]+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all">'+msg[i]+'</div><div id="scores_'+msg[i]+'"></div></div>');
+                                suggestion_div.hide();
+                                $('#suggestions').append(suggestion_div);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function create_classifier() {
+            name = $("#name").val();
+            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            classesString = $("#classes").val();
+            if(!classesString.match(/^[a-zA-Z0-9_,]+$/)) {
+                custom_alert("The names of classes can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            classes = classesString.split(',');
+            var data = {name: name, classes: classes} ;
+            $.ajax({
+                type: "POST",
+                url: "/service/create",
+                data: data,
+                success: update,
+                error: function(errMsg) {
+                    custom_alert(errMsg.responseText);
+                }
+            });
+            return false ;
+        };
+
+        function delete_classifier() {
+            var classifier_name = $(this).siblings('.classifier_name').text();
+            $.ajax({
+                type:'POST',
+                url:'/service/delete',
+                data: { name : classifier_name },
+                success: function () {update(); classify(true);}
+            });
+        };
+
+        last_text = ""
+        function classify(force) {
+            text = $("#textbox").val();
+            if(text!=last_text || force) {
+                last_text = text;
+                $('#classifiers_list div .ui-state-highlight').each(function(i,item) {
+                    var classifier_name = $(item).text();
+                    $('#suggestions_'+classifier_name).show();
+                    $.ajax({
+                        type:'POST',
+                            url:'/service/score',
+                            data: { name: classifier_name, X: [text] },
+                            dataType: 'json',
+                            success: function(msg) {
+                                var scores = msg[0];
+                                var sorted_scores = Object.keys(scores).map(function(key) {
+                                    return [key, scores[key]];
+                                });
+                                sorted_scores.sort(function(first, second) {
+                                    var diff = second[1] - first[1];
+                                    if(diff!=0)
+                                        return diff;
+                                     return first[0].localeCompare(second[0]);
+                                });
+                                var scores_div = jQuery('<div id="scores" class="padded"></div>');
+                                for(var i = 0;i<sorted_scores.length;++i) {
+                                    var scoreline = jQuery('<p class="scoreline"><span>'+sorted_scores[i][0]+'</span><span>'+sorted_scores[i][1]+'</span></p>');
+                                    (function() {
+                                        var class_name = sorted_scores[i][0];
+                                        scoreline.click(function(){
+                                            $.ajax({
+                                                type:'POST',
+                                                url:'/service/update',
+                                                data: { name: classifier_name, X: [last_text], y: [class_name] },
+                                                success: function(msg) {
+                                                    classify(true);
+                                                }
+                                            });
+                                        });
+                                    }());
+                                    scores_div.append(scoreline);
+                                }
+                                $('#scores_'+classifier_name).html(scores_div);
+                            }
+                    });
+                });
+                $('#classifiers_list div :not(.ui-state-highlight)').each(function(i,item) {
+                    var classifier_name = $(item).text();
+                    $('#suggestions_'+classifier_name).hide();
+                });
+            }
+        }
+        $( document ).ready(function() {
+            $("#textbox").keyup(function() {delay(function() {
+                classify(false)
+            },delay_interval);})
+
+            $("#create_classifier").submit(create_classifier);
+
+            //$('#force_update').button().click(update);
+
+            $( "#nav #menu" ).menu();//{position: {at: "left bottom"}});
+
+            timed_update();
+        });
+    </script>
+</head>
+    <body>
+        <div id="screen" class="ui-widget-content">
+            <div id="header" class="ui-widget-content">
+                <div id="title" class="padded ui-widget ui-widget-header">
+                    Interactive Classification System
+                </div>
+                <div id="nav">
+                    <ul id="menu">
+                       <li><a href="/app">Main</a></li>
+                       <li><a href="/app/about">About</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div id="main" class="padded ui-widget ui-widget-content">
+                <div id="sidebar">
+                    <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
+                    </div>
+                    <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
+                    </div>-->
+                    <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
+                        <div class="padded ui-widget-header ui-corner-all">Create a classifier:</div>
+                        <form id="create_classifier" class="margined" action="#" method="post">
+                            <p>
+                            <label for="name">Name:</label>
+                            <input type="text" id="name" /> </p>
+                            <p>
+                            <label for="classes">Classes (comma separated):</label>
+                            <input type="text" id="classes" /> </p>
+                            <p><label></label>
+                            <input type="submit" value="Create" />
+                            </p>
+                        </form>
+                    </div>
+                </div>
+                <div id="center" class="margined">
+                    <div class="padded ui-widget-header ui-corner-all">Classify text:</div>
+                        <textarea id="textbox" class="textbox margined" placeholder="Text to code"></textarea>
+                    <div id="suggestions" class="margined padded ui-widget-content suggestion-container"></div>
+                </div>
+            </div>
+            <div id="footer" class="padded ui-widget ui-widget-content">
+                &copy; 2015 Andrea Esuli
+            </div>
+        </div>
+    </body>
+</html>
