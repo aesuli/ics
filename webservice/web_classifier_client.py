@@ -1,9 +1,12 @@
 import os
 import cherrypy
+from mako.template import Template
+from mako.lookup import TemplateLookup
 
 __author__ = 'Andrea Esuli'
 
 MEDIA_DIR = os.path.join(os.path.abspath('.'), 'media')
+lookup = TemplateLookup(directories=[MEDIA_DIR])
 
 class WebClassifierClient(object):
     def __enter__(self):
@@ -14,15 +17,18 @@ class WebClassifierClient(object):
 
     @cherrypy.expose
     def index(self):
-        return open(os.path.join(MEDIA_DIR, 'index.html'))
+        template = lookup.get_template('index.html')
+        return template.render()
 
     @cherrypy.expose
     def scores(self):
-        return open(os.path.join(MEDIA_DIR, 'scores.html'))
+        template = lookup.get_template('scores.html')
+        return template.render()
 
     @cherrypy.expose
     def about(self):
-        return open(os.path.join(MEDIA_DIR, 'about.html'))
+        template = lookup.get_template('about.html')
+        return template.render()
 
     @cherrypy.expose
     def version(self):

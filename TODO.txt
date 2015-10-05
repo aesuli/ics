@@ -1,26 +1,47 @@
 TODO
-- templates (mako)
-    * header, footer
-    * user info
-    * version
-- "all correct" button
-- file import
-- twitter integration
 - document collections
+    * creation
+    * deletion
+    * classification
+- store source of classification (user/classifier -> which one?)
+- file import
+    * unlabeled collection upload
+    * labeled collection upload
+- file export
+    * collection download with classification
+- twitter integration
+- optimize db use
+    * return feedback classifications for known docs
+- switch to angular.js
+- memory problems:
+    * 64 bit fixes it?
+    * queue of update/classification requests to save memory?
 - classification management
 - batch processing
 - richer classifier info
     * number of examples observed
     * estimated accuracy
+- templates (mako)
+    * footer
+    * user info
+    * version
 - user authentication
 - user authorization
 
 DONE
+- document collections
+    * definition in db
+- optimize db use
+    * remove text duplication
+    * use ids not string for classifiers and classes
+- templates (mako)
+    * header
+- "all correct" button
 - use classify, instead of score
 - fix arrays [] passed to cherrypy
 - db abstraction
 - examples db
 - serious db engine (mongodb-NO, sqlite-NO, sqlalchemy+postgres)
-- FIXED missing cascade on labels (switched to postgres)
+- fix missing cascade on labels (switched to postgres)
 - richer classifier info
     * last update
