@@ -3,7 +3,7 @@ import datetime
 import random
 import time
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, PrimaryKeyConstraint, Text, \
-    create_engine, PickleType
+    create_engine, PickleType, UniqueConstraint
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, deferred, relationship
@@ -29,12 +29,12 @@ class Classifier(Base):
 
 class Label(Base):
     __tablename__ = 'label'
-    id = Column(Integer(), unique=True)
+    id = Column(Integer(), primary_key=True)
     name = Column(String(50), nullable=False)
     classifier_id = Column(Integer(), ForeignKey('classifier.id', onupdate="CASCADE", ondelete="CASCADE"),
                            nullable=False)
     classifier = relationship('Classifier', backref='labels')
-    __table_args__ = (PrimaryKeyConstraint('classifier_id', 'name'), {})
+    __table_args__ = (UniqueConstraint('classifier_id', 'name'), {})
 
     def __init__(self, name, classifier_id):
         self.name = name
@@ -62,10 +62,10 @@ class Document(Base):
     text = Column(Text())
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
 
-    def __init__(self, text, collection_id, external_id=None):
+    def __init__(self, text, dataset_id, external_id=None):
         self.text = text
-        self.collection_id = collection_id
-        self.external_id = None
+        self.dataset_id = dataset_id
+        self.external_id = external_id
 
 
 class Classification(Base):
@@ -189,7 +189,7 @@ class SQLAlchemyDB(object):
                     document = session.query(Document).filter(Document.text == content).first()
                     if document is None:
                         raise ie
-            classifier_id = session.query(Classifier.id).filter(Classifier.name == name).first()
+            classifier_id = session.query(Classifier.id).filter(Classifier.name == name).first()[0]
             label_id = session.query(Label.id).filter(Label.classifier_id == classifier_id).filter(
                 Label.name == label).first()[0]
             classification = Classification(document.id, label_id)
