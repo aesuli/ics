@@ -1,5 +1,5 @@
 TODO
-- document collections
+- document datasets
     * creation
     * deletion
     * classification
@@ -29,7 +29,7 @@ TODO
 - user authorization
 
 DONE
-- document collections
+- document datasets
     * definition in db
 - optimize db use
     * remove text duplication
