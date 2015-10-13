@@ -15,7 +15,7 @@
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'/service/',
+                url:'/service/datasets/',
                 dataType: 'json',
                 success: function(msg) {
                     $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
@@ -70,7 +70,7 @@
                                             $('#suggestions\\_'+classifier_name).hide();
                                             $.ajax({
                                                 type:'POST',
-                                                url:'/service/update',
+                                                url:'/service/datasets/update',
                                                 data: { name: classifier_name, X: [last_text], y: [class_name] },
                                                 success: function(msg) {
                                                     $('#suggestions_'+classifier_name).hide();
@@ -124,7 +124,7 @@
             var data = {name: name, classes: classes} ;
             $.ajax({
                 type: "POST",
-                url: "/service/create",
+                url: "/service/datasets/create",
                 data: data,
                 success: update,
                 error: function(errMsg) {
@@ -140,7 +140,7 @@
             $('#suggestions\\_'+name).hide();
             $.ajax({
                 type:'POST',
-                url:'/service/delete',
+                url:'/service/datasets/delete',
                 data: { name : classifier_name },
                 success: function () {update(); classify(true);},
                 failure: function () {
@@ -161,7 +161,7 @@
                     if($('#suggestions\\_'+classifier_name).is(':visible')) {
                         $.ajax({
                             type:'POST',
-                                url:'/service/classify',
+                                url:'/service/datasets/classify',
                                 data: { name: classifier_name, X: [text] },
                                 dataType: 'json',
                                 success: function(msg) {
@@ -197,8 +197,6 @@
 
 <div id="main" class="padded ui-widget ui-widget-content">
     <div id="sidebar">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
-        </div>
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
@@ -217,8 +215,7 @@
         </div>
     </div>
     <div id="center" class="margined">
-        <div class="padded ui-widget-header ui-corner-all">Classify text:</div>
-            <textarea id="textbox" class="textbox margined" placeholder="Text to code"></textarea>
-        <div id="suggestions" class="margined padded ui-widget-content suggestion-container"></div>
+        <div class="margined ui-corner-all ui-widget ui-widget-content" id="datasets_list">
+        </div>
     </div>
 </div>

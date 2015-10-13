@@ -7,11 +7,10 @@ __author__ = 'Andrea Esuli'
 
 
 class WebClassifierCollection(object):
-    def __init__(self, name):
-        self._name = name
+    def __init__(self, db_connection_string):
+        self._db_connection_string = db_connection_string
         try:
-            # self._db = SQLAlchemyDB('sqlite:///%s' % name)
-            self._db = SQLAlchemyDB('postgresql://wcc:wcc@localhost:5432/%s' % (name))
+            self._db = SQLAlchemyDB(db_connection_string)
         except Exception as e:
             print(e)
             raise e
@@ -70,7 +69,7 @@ class WebClassifierCollection(object):
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
         clf = OnlineClassifier(name, classes, average=20)
-        self._db.create_classifier_model(name, classes, clf)
+        self._db.create_classifier(name, classes, clf)
         return 'Ok'
 
     @cherrypy.expose
@@ -146,7 +145,13 @@ class WebClassifierCollection(object):
                 return 'Must specify a vector of strings (X)'
         X = numpy.atleast_1d(X)
         clf = self._db.get_classifier_model(name)
-        return [[y] for y in clf.predict(X)]
+        return [[y] for y in [self._classify(name, clf, x) for x in X]]
+
+    def _classify(self, classifier_name, model, x):
+        label = self._db.get_label(classifier_name, x)
+        if label is not None:
+            return label
+        return model.predict([x])[0]
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -175,9 +180,9 @@ class WebClassifierCollection(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.0.1"
+        return "0.1.0"
 
 
 if __name__ == "__main__":
-    with WebClassifierCollection('test.db') as wcc:
+    with WebClassifierCollection('sqlite:///%s' % 'test.db') as wcc:
         cherrypy.quickstart(wcc, '/service')

@@ -1,3 +1,4 @@
+import csv
 import cherrypy
 from cherrypy.lib import cptools
 import numpy
@@ -8,11 +9,10 @@ __author__ = 'Andrea Esuli'
 
 
 class WebDatasetCollection(object):
-    def __init__(self, name):
-        self._name = name
+    def __init__(self, db_connection_string):
+        self._db_connection_string = db_connection_string
         try:
-            # self._db = SQLAlchemyDB('sqlite:///%s' % name)
-            self._db = SQLAlchemyDB('postgresql://wcc:wcc@localhost:5432/%s' % (name))
+            self._db = SQLAlchemyDB(db_connection_string)
         except Exception as e:
             print(e)
             raise e
@@ -36,6 +36,7 @@ class WebDatasetCollection(object):
             dataset_info['name'] = name
             dataset_info['created'] = self._db.get_dataset_creation_time(name)
             dataset_info['updated'] = self._db.get_dataset_last_update_time(name)
+            dataset_info['size'] = self._db.get_dataset_size(name)
             result.append(dataset_info)
         return result
 
@@ -47,7 +48,7 @@ class WebDatasetCollection(object):
     @cherrypy.expose
     def upload(self, **data):
         try:
-            name = data['name']
+            dataset_name = data['name']
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a name'
@@ -57,8 +58,14 @@ class WebDatasetCollection(object):
             cherrypy.response.status = 400
             return 'Must upload a file'
 
-        for line in file.file:
-            self._db.create_document(name, line)
+        if not  self._db.dataset_exists(dataset_name):
+            self._db.create_dataset(dataset_name)
+
+        reader = csv.reader(file.file)
+        for row in reader:
+            document_name = row[0]
+            content = row[1]
+            self._db.create_document(dataset_name, document_name, content)
 
         return 'Ok'
 
@@ -75,29 +82,32 @@ class WebDatasetCollection(object):
     @cherrypy.expose
     def download(self, name):
         # TODO
-        clf = self._db.get_classifier_model(name)
-        return cptools.serveFile(path, "application/x-download",
-                                 "attachment", os.path.basename(path))
+        raise NotImplementedError()
+        # clf = self._db.get_classifier_model(name)
+        # return cptools.serveFile(path, "application/x-download",
+        #                          "attachment", os.path.basename(path))
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def classify(self, **data):
-        try:
-            name = data['name']
-        except KeyError:
-            cherrypy.response.status = 400
-            return 'Must specify a name'
-        try:
-            X = data['X']
-        except KeyError:
-            try:
-                X = data['X[]']
-            except KeyError:
-                cherrypy.response.status = 400
-                return 'Must specify a vector of strings (X)'
-        X = numpy.atleast_1d(X)
-        clf = self._db.get_classifier_model(name)
-        return [[y] for y in clf.predict(X)]
+        # TODO
+        raise NotImplementedError()
+        # try:
+        #     name = data['name']
+        # except KeyError:
+        #     cherrypy.response.status = 400
+        #     return 'Must specify a name'
+        # try:
+        #     X = data['X']
+        # except KeyError:
+        #     try:
+        #         X = data['X[]']
+        #     except KeyError:
+        #         cherrypy.response.status = 400
+        #         return 'Must specify a vector of strings (X)'
+        # X = numpy.atleast_1d(X)
+        # clf = self._db.get_classifier_model(name)
+        # return [[y] for y in clf.predict(X)]
 
     @cherrypy.expose
     def version(self):
@@ -105,5 +115,5 @@ class WebDatasetCollection(object):
 
 
 if __name__ == "__main__":
-    with WebDatasetCollection('test.db') as wcc:
+    with WebDatasetCollection('sqlite:///%s' % 'test.db') as wcc:
         cherrypy.quickstart(wcc, '/service')

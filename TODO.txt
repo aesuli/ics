@@ -1,17 +1,13 @@
 TODO
-- document datasets
-    * creation
-    * deletion
-    * classification
-- store source of classification (user/classifier -> which one?)
 - file import
     * unlabeled collection upload
     * labeled collection upload
+- create classifiers from labeled examples
+- document datasets
+    * classification
 - file export
     * collection download with classification
 - twitter integration
-- optimize db use
-    * return feedback classifications for known docs
 - switch to angular.js
 - memory problems:
     * 64 bit fixes it?
@@ -26,12 +22,16 @@ TODO
     * user info
     * version
 - user authentication
+- store source of classification (which user?)
 - user authorization
 
 DONE
 - document datasets
     * definition in db
+    * creation
+    * deletion
 - optimize db use
+    * return feedback classifications for human-labeled docs
     * remove text duplication
     * use ids not string for classifiers and classes
 - templates (mako)
