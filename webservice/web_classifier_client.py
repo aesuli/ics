@@ -17,12 +17,22 @@ class WebClassifierClient(object):
 
     @cherrypy.expose
     def index(self):
-        template = lookup.get_template('index.html')
+        template = lookup.get_template('typeandlabel.html')
         return template.render()
 
     @cherrypy.expose
-    def scores(self):
-        template = lookup.get_template('scores.html')
+    def typeandlabel(self):
+        template = lookup.get_template('typeandlabel.html')
+        return template.render()
+
+    @cherrypy.expose
+    def classifiers(self):
+        template = lookup.get_template('classifiers.html')
+        return template.render()
+
+    @cherrypy.expose
+    def datasets(self):
+        template = lookup.get_template('datasets.html')
         return template.render()
 
     @cherrypy.expose

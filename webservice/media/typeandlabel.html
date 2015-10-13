@@ -15,7 +15,7 @@
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'/service/',
+                url:'/service/classifiers/',
                 dataType: 'json',
                 success: function(msg) {
                     $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
@@ -70,7 +70,7 @@
                                             $('#suggestions\\_'+classifier_name).hide();
                                             $.ajax({
                                                 type:'POST',
-                                                url:'/service/update',
+                                                url:'/service/classifiers/update',
                                                 data: { name: classifier_name, X: [last_text], y: [class_name] },
                                                 success: function(msg) {
                                                     $('#suggestions_'+classifier_name).hide();
@@ -124,7 +124,7 @@
             var data = {name: name, classes: classes} ;
             $.ajax({
                 type: "POST",
-                url: "/service/create",
+                url: "/service/classifiers/create",
                 data: data,
                 success: update,
                 error: function(errMsg) {
@@ -140,7 +140,7 @@
             $('#suggestions\\_'+name).hide();
             $.ajax({
                 type:'POST',
-                url:'/service/delete',
+                url:'/service/classifiers/delete',
                 data: { name : classifier_name },
                 success: function () {update(); classify(true);},
                 failure: function () {
@@ -161,7 +161,7 @@
                     if($('#suggestions\\_'+classifier_name).is(':visible')) {
                         $.ajax({
                             type:'POST',
-                                url:'/service/classify',
+                                url:'/service/classifiers/classify',
                                 data: { name: classifier_name, X: [text] },
                                 dataType: 'json',
                                 success: function(msg) {
