@@ -134,3 +134,7 @@ input { display: table-cell; }
     background-color: lightgray;
     background-image: none;
 }
+
+.small {
+ font-size:60%;
+}

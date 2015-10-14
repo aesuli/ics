@@ -1,7 +1,7 @@
 TODO
 - file import
-    * unlabeled collection upload
     * labeled collection upload
+- classification jobs page
 - create classifiers from labeled examples
 - document datasets
     * classification
@@ -26,6 +26,8 @@ TODO
 - user authorization
 
 DONE
+- file import
+    * unlabeled collection upload
 - document datasets
     * definition in db
     * creation
