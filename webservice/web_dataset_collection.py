@@ -1,4 +1,5 @@
 import csv
+from io import TextIOWrapper
 import cherrypy
 from cherrypy.lib import cptools
 import numpy
@@ -61,7 +62,7 @@ class WebDatasetCollection(object):
         if not  self._db.dataset_exists(dataset_name):
             self._db.create_dataset(dataset_name)
 
-        reader = csv.reader(file.file)
+        reader = csv.reader(TextIOWrapper(file.file))
         for row in reader:
             document_name = row[0]
             content = row[1]

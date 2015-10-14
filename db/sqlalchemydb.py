@@ -2,11 +2,11 @@ from contextlib import contextmanager
 import datetime
 import random
 import time
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, PrimaryKeyConstraint, Text, \
-    create_engine, PickleType, UniqueConstraint, desc, exists
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
+    UniqueConstraint, desc, exists
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, deferred, relationship
+from sqlalchemy.orm import scoped_session, deferred, relationship, configure_mappers
 from sqlalchemy.orm.session import sessionmaker
 
 __author__ = 'Andrea Esuli'
@@ -46,7 +46,7 @@ class Dataset(Base):
     id = Column(Integer(), primary_key=True)
     name = Column(String(50), unique=True)
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
-    last_updated = Column(DateTime(timezone=True), onupdate=datetime.datetime.now)
+    last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
     def __init__(self, name):
         self.name = name
@@ -60,7 +60,7 @@ class Document(Base):
                         nullable=False)
     dataset = relationship('Dataset', backref='documents')
     text = Column(Text())
-    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
     def __init__(self, text, dataset_id, external_id=None):
         self.text = text
@@ -91,6 +91,7 @@ class SQLAlchemyDB(object):
         engine = create_engine(name)
         Base.metadata.create_all(engine)
         self._sessionmaker = scoped_session(sessionmaker(bind=engine))
+        configure_mappers()
         self._preload_data()
 
     def _preload_data(self):
@@ -174,22 +175,19 @@ class SQLAlchemyDB(object):
 
     def create_training_example(self, classifier_name, content, label):
         with self.session_scope() as session:
+            training_dataset = session.query(Dataset).filter(
+                Dataset.name == SQLAlchemyDB.INTERNAL_TRAINING_DATASET).first()
             document = session.query(Document).filter(Document.text == content).filter(
-                Dataset.name == SQLAlchemyDB.INTERNAL_TRAINING_DATASET).filter(
-                Dataset.id == Document.dataset_id).first()
+                training_dataset.id == Document.dataset_id).first()
             if document is None:
                 try:
-                    dataset_id = \
-                        session.query(Dataset.id).filter(
-                            Dataset.name == SQLAlchemyDB.INTERNAL_TRAINING_DATASET).scalar()
-                    document = Document(content, dataset_id)
+                    document = Document(content, training_dataset.id)
                     session.add(document)
                     session.flush()
                 except IntegrityError as ie:
                     session.rollback()
                     document = session.query(Document).filter(Document.text == content).filter(
-                        Dataset.name == SQLAlchemyDB.INTERNAL_TRAINING_DATASET).filter(
-                        Dataset.id == Document.dataset_id).first()
+                        training_dataset.id == Document.dataset_id).first()
                     if document is None:
                         raise ie
             label_id = session.query(Label.id).filter(Classifier.name == classifier_name).filter(
@@ -197,6 +195,7 @@ class SQLAlchemyDB(object):
                 Label.name == label).scalar()
             classification = Classification(document.id, label_id)
             session.add(classification)
+            training_dataset.last_updated = datetime.datetime.now()
 
     def get_label(self, classifier_name, content):
         with self.session_scope() as session:
@@ -208,7 +207,7 @@ class SQLAlchemyDB(object):
     def dataset_names(self):
         with self.session_scope() as session:
             return list(
-                session.query(Classifier.name).filter(Classifier.name != SQLAlchemyDB.INTERNAL_TRAINING_DATASET))
+                session.query(Dataset.name).filter(Dataset.name != SQLAlchemyDB.INTERNAL_TRAINING_DATASET))
 
     def dataset_exists(self, name):
         with self.session_scope() as session:
@@ -235,15 +234,20 @@ class SQLAlchemyDB(object):
 
     def get_dataset_size(self, name):
         with self.session_scope() as session:
-            return session.query(Dataset.documents).filter(Dataset.name == name).count()
+            return session.query(Dataset.documents).filter(Dataset.name == name).filter(
+                Document.dataset_id == Dataset.id).count()
 
     def create_document(self, dataset_name, external_id, content):
         with self.session_scope() as session:
-            dataset_id = \
-                session.query(Dataset.id).filter(
-                    Dataset.name == dataset_name).scalar()
-            document = Document(content, dataset_id, external_id)
-            session.add(document)
+            dataset = session.query(Dataset).filter(Dataset.name == dataset_name).first()
+            document = session.query(Document).filter(Document.dataset_id == dataset.id).filter(
+                Document.external_id == external_id).first()
+            if document is None:
+                document = Document(content, dataset.id, external_id)
+                session.add(document)
+            else:
+                document.text = content
+            dataset.last_updated = datetime.datetime.now()
 
 
 
