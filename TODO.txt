@@ -1,4 +1,9 @@
 TODO
+- strip input strings
+- "classifiers" page
+    * simple list, info and deletion
+    * accuracy estimates
+- "browse and label" page
 - file import
     * labeled collection upload
 - classification jobs page
@@ -6,7 +11,12 @@ TODO
 - document datasets
     * classification
 - file export
-    * collection download with classification
+    * examples for a classifier
+    * dataset download
+    * dataset download with classification
+- logging
+- versioning
+- backup of deleted data
 - twitter integration
 - switch to angular.js
 - memory problems:
@@ -26,6 +36,7 @@ TODO
 - user authorization
 
 DONE
+- confirm on delete
 - file import
     * unlabeled collection upload
 - document datasets

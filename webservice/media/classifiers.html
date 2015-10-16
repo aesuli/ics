@@ -1,8 +1,7 @@
 <%inherit file="base.html" />
 <%block name="head">
     <script type="text/javascript">
-       update_interval=10000
-       delay_interval=500
+        update_interval=10000
         last_update = 0
         function timed_update() {
             now = Date.now();
@@ -15,7 +14,7 @@
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'/service/classifier/',
+                url:'/service/classifiers/',
                 dataType: 'json',
                 success: function(msg) {
                     $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
@@ -27,82 +26,36 @@
                             }
                         }
                         if(!found) {
-                            $('#suggestions\\_'+$(item).text()).remove();
                             $(item).parent().remove();
                         }
                     });
                     if(msg.length==0) {
-                        $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifiers available</div>');
+                        $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifier available</div>');
                     }
                     else {
                         if($('#gotclassifiers').length==0)
-                            $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
+                            $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
+                            var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div><div class=\'del_button_'+msg[i].name+' right\'>Delete</div><div class=\'download_button_'+msg[i].name+' right\'>Download training set</div><div class=\'upload_button_'+msg[i].name+' right\'>Select for upload</div><div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div><div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div></div>');
                             if($('#classifier\\_'+msg[i].name).length==0) {
-                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div><div class=\'del_button_'+msg[i].name+' right\'>Delete</div><div class=\'use_button_'+msg[i].name+' right\'>Use</div></div>');
-                                $('.use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-star'} });
-                                $('.use\\_button\\_'+msg[i].name).click(
-                                    (function() {
-                                        var classifier_name = msg[i].name;
-                                        return function() {
-                                            var item = $(this).siblings('.classifier\\_name');
-                                            item.toggleClass('ui-state-highlight');
-                                            if(item.hasClass('ui-state-highlight')) {
-                                                $('#suggestions\\_'+classifier_name).show();
-                                                classify(true);
-                                            }
-                                            else {
-                                                $('#suggestions\\_'+classifier_name).hide();
-                                            }
-                                        }
-                                })());
-                                $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
-                                $('.del\\_button\\_'+msg[i].name).click(delete_classifier);
-                                var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all">'+msg[i].name+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
-                                suggestion_div.hide();
-                                $('#suggestions').append(suggestion_div);
-                                for(var j = 0;j<msg[i].classes.length;++j) {
-                                    var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].classes[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].classes[j]+'</div>');
-                                    (function() {
-                                        var class_name = ''+msg[i].classes[j];
-                                        var classifier_name = ''+msg[i].name;
-                                        scoreline.click(function(){
-                                            $('#suggestions\\_'+classifier_name).hide();
-                                            $.ajax({
-                                                type:'POST',
-                                                url:'/service/classifier/update',
-                                                data: { name: classifier_name, X: [last_text], y: [class_name] },
-                                                success: function(msg) {
-                                                    $('#suggestions_'+classifier_name).hide();
-                                                },
-                                                failure: function(msg) {
-                                                    custom_alert(msg);
-                                                    $('#suggestions\\_'+classifier_name).show();
-                                                }
-                                            });
-                                        });
-                                    }());
-                                    $('#assignments\\_'+msg[i].name).append(scoreline);
-                                }
-                                var skipline = jQuery('<div class="skip ui-corner-all margined morepadded">skip</div>');
-                                skipline.click((function () {
+                                $('#classifiers\\_list').append(classifierdiv)
+                            }
+                            else {
+                                $('#classifier\\_'+msg[i].name).replaceWith(classifierdiv)
+                            }
+                            $('.upload\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
+                            $('.upload\\_button\\_'+msg[i].name).click(
+                                (function() {
                                     var classifier_name = msg[i].name;
                                     return function() {
-                                        $('#suggestions\\_'+classifier_name).hide();
-                                    };
-                                })());
-                                $('#assignments\\_'+msg[i].name).append(skipline);
-                            }
-                        }
-                        if($('#all\\_correct').length==0) {
-                            all_correct = jQuery('<div id="all_correct" class="right">All Correct</div>');
-                            all_correct.button({ icons: {primary:'ui-icon-check'} });
-                            all_correct.click(function() {
-                                $('#suggestions div div .assigned').each(function(i,item) {
-                                    item.click();
-                                });
-                            });
-                            $('#suggestions').append(all_correct);
+                                        $('#name\\_single').val(classifier_name);
+                                        $('#classifier\\_upload\\_single').effect("bounce", {'distance':'5', 'times':'2'}, 200)
+                                    }
+                            })());
+                            $('.download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                            $('.download\\_button\\_'+msg[i].name).click(download_classifier);
+                            $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
+                            $('.del\\_button\\_'+msg[i].name).click(delete_classifier);
                         }
                     }
                 }
@@ -134,71 +87,94 @@
             return false ;
         };
 
+        function upload_examples_single() {
+            name = $("#name_single").val();
+            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            if($('#dataFile_single')[0].files.length!=1) {
+                custom_alert("Must select one file.");
+                return false;
+            }
+            var data = new FormData()
+            data.append("file", $('#dataFile_single')[0].files[0]);
+            data.append("name", name);
+            $.ajax({
+                type: "POST",
+                url: "/service/classifiers/upload_single",
+                data: data,
+                enctype: 'multipart/form-data',
+                processData: false,
+                contentType: false,
+                success: update,
+                error: function(errMsg) {
+                    custom_alert(errMsg.responseText);
+                }
+            });
+            return false ;
+        };
+
+        function upload_examples_multi() {
+            if($('#dataFile_multi')[0].files.length!=1) {
+                custom_alert("Must select one file.");
+                return false;
+            }
+            var data = new FormData()
+            data.append("file", $('#dataFile_multi')[0].files[0]);
+            $.ajax({
+                type: "POST",
+                url: "/service/classifiers/upload_multi",
+                data: data,
+                enctype: 'multipart/form-data',
+                processData: false,
+                contentType: false,
+                success: update,
+                error: function(errMsg) {
+                    custom_alert(errMsg.responseText);
+                }
+            });
+            return false ;
+        };
+
         function delete_classifier() {
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return;
             var classifier_name = $(this).siblings('.classifier\\_name').text();
-            $('#classifier\\_'+name).hide();
-            $('#suggestions\\_'+name).hide();
+            $('#classifier\\_'+classifier_name).hide();
             $.ajax({
                 type:'POST',
-                url:'/service/classifier/delete',
+                url:'/service/classifiers/delete',
                 data: { name : classifier_name },
-                success: function () {update(); classify(true);},
+                success: function () {update(); },
                 failure: function () {
-                    $('#classifier\\_'+name).show();
-                    if($('#classifier\\_label\\_'+name).hasClass('ui-state-highlight'))
-                        $('#suggestions\\_'+name).show();
+                    $('#classifier\\_'+classifier_name).show();
                 }
             });
         };
 
-        last_text = ""
-        function classify(force) {
-            text = $("#textbox").val();
-            if(text!=last_text || force) {
-                last_text = text;
-                $('#classifiers\\_list div .ui-state-highlight').each(function(i,item) {
-                    var classifier_name = $(item).text();
-                    if($('#suggestions\\_'+classifier_name).is(':visible')) {
-                        $.ajax({
-                            type:'POST',
-                                url:'/service/classifier/classify',
-                                data: { name: classifier_name, X: [text] },
-                                dataType: 'json',
-                                success: function(msg) {
-                                    var assigned = msg[0][0];
-                                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned')
-                                    $('#assignments_'+classifier_name).children('.scoreline').addClass('not_relevant')
-                                    $('#suggestion\\_'+classifier_name+'\\_'+assigned).removeClass('not_relevant')
-                                    $('#suggestion\\_'+classifier_name+'\\_'+assigned).addClass('assigned')
-                                }
-                        });
-                    }
-                });
-                $('#classifiers\\_list div :not(.ui-state-highlight)').each(function(i,item) {
-                    var classifier_name = $(item).text();
-                    $('#suggestions\\_'+classifier_name).hide();
-                });
-            }
-        }
-        $( document ).ready(function() {
-            $("#textbox").keyup(function() {delay(function() {
-                $('div[id^=suggestions\\_').show()
-                classify(false);
-            },delay_interval);})
+        function download_classifier() {
+            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var form = $('<form></form>').attr('action', '/service/classifiers/download').attr('method', 'post');
+            form.append($("<input></input>").attr('type', 'hidden').attr('name', 'name').attr('value', classifier_name));
+            form.appendTo('body').submit().remove();
+        };
 
+        $( document ).ready(function() {
+
+            $("#upload\\_form\\_single").submit(upload_examples_single);
+            $("#upload\\_form\\_multi").submit(upload_examples_multi);
             $("#create\\_classifier").submit(create_classifier);
 
             //$('#force\\_update').button().click(update);
 
             timed_update();
         });
-    </script>
+</script>
 </%block>
 
 <div id="main" class="padded ui-widget ui-widget-content">
     <div id="sidebar">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
-        </div>
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
@@ -215,10 +191,27 @@
                 </p>
             </form>
         </div>
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_upload_single">
+            <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to a single classifier (create if missing):</div>
+            <form enctype="multipart/form-data" id="upload_form_single" class="margined" action="#" method="post">
+                <p><label for="name">Classifier name:</label><input type="text" id="name_single"/></p>
+
+                <p><label>Data file:</label><input type="file" id="dataFile_single"/></p>
+
+                <p><label></label><input type="submit" value="Upload"/></p>
+            </form>
+        </div>
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_upload_multi">
+            <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to many classifiers (create if missing):</div>
+            <form enctype="multipart/form-data" id="upload_form_multi" class="margined" action="#" method="post">
+                <p><label>Data file:</label><input type="file" id="dataFile_multi"/></p>
+
+                <p><label></label><input type="submit" value="Upload"/></p>
+            </form>
+        </div>
     </div>
-    <div id="center" class="margined">
-        <div class="padded ui-widget-header ui-corner-all">Classify text:</div>
-            <textarea id="textbox" class="textbox margined" placeholder="Text to code"></textarea>
-        <div id="suggestions" class="margined padded ui-widget-content suggestion-container"></div>
+    <div id="center">
+        <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
+        </div>
     </div>
 </div>
