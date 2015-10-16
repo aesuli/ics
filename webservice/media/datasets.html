@@ -1,8 +1,7 @@
 <%inherit file="base.html" />
 <%block name="head">
 <script type="text/javascript">
-       update_interval=10000
-       delay_interval=500
+        update_interval=10000
         last_update = 0
         function timed_update() {
             now = Date.now();
@@ -27,7 +26,6 @@
                             }
                         }
                         if(!found) {
-                            $('#suggestions\\_'+$(item).text()).remove();
                             $(item).parent().remove();
                         }
                     });
@@ -38,14 +36,14 @@
                         if($('#gotdatasets').length==0)
                             $('#datasets\\_list').html('<div id="gotdatasets" class="padded ui-widget-header ui-corner-all">Avalilable datasets:</div>');
                         for(var i = 0;i<msg.length;++i) {
-                            var datasetdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'dataset_'+msg[i].name+'\'><div id=\'dataset_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all dataset_name\'>'+msg[i].name+'</div><div class=\'del_button_'+msg[i].name+' right\'>Delete</div><div class=\'upload_button_'+msg[i].name+' right\'>Select for upload</div><div class="small margined">Size: '+msg[i].size+'</div><div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div></div>');
+                            var datasetdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'dataset_'+msg[i].name+'\'><div id=\'dataset_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all dataset_name\'>'+msg[i].name+'</div><div class=\'del_button_'+msg[i].name+' right\'>Delete</div><div class=\'download_button_'+msg[i].name+' right\'>Download dataset</div><div class=\'upload_button_'+msg[i].name+' right\'>Select for upload</div><div class="small margined">Size: '+msg[i].size+'</div><div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div></div>');
                             if($('#dataset\\_'+msg[i].name).length==0) {
                                 $('#datasets\\_list').append(datasetdiv)
                             }
                             else {
                                 $('#dataset\\_'+msg[i].name).replaceWith(datasetdiv)
                             }
-                            $('.upload\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-plus'} });
+                            $('.upload\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
                             $('.upload\\_button\\_'+msg[i].name).click(
                                 (function() {
                                     var dataset_name = msg[i].name;
@@ -54,6 +52,8 @@
                                         $('#dataset\\_upload').effect("bounce", {'distance':'5', 'times':'2'}, 200)
                                     }
                             })());
+                            $('.download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                            $('.download\\_button\\_'+msg[i].name).click(download_dataset);
                             $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
                             $('.del\\_button\\_'+msg[i].name).click(delete_dataset);
                         }
@@ -91,16 +91,27 @@
         };
 
         function delete_dataset() {
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return;
             var dataset_name = $(this).siblings('.dataset\\_name').text();
-            $('#dataset\\_'+name).hide();
+            $('#dataset\\_'+dataset_name).hide();
             $.ajax({
                 type:'POST',
                 url:'/service/datasets/delete',
                 data: { name : dataset_name },
                 success: function () {update(); },
                 failure: function () {
-                    $('#dataset\\_'+name).show();
+                    $('#dataset\\_'+dataset_name).show();
                 }
+            });
+        };
+
+        function download_dataset() {
+            var dataset_name = $(this).siblings('.dataset\\_name').text();
+            $.ajax({
+                type:'POST',
+                url:'/service/datasets/download',
+                data: { name : dataset_name }
             });
         };
 
@@ -123,7 +134,7 @@
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="dataset_upload">
-            <div class="padded ui-widget-header ui-corner-all">Upload to a dataset (create if missing):</div>
+            <div class="padded ui-widget-header ui-corner-all">Upload documents to a dataset (create if missing):</div>
             <form enctype="multipart/form-data" id="upload_form" class="margined" action="#" method="post">
                 <p><label for="name">Dataset name:</label><input type="text" id="name"/></p>
 
@@ -133,7 +144,7 @@
             </form>
         </div>
     </div>
-    <div id="center" class="margined">
+    <div id="center">
         <div class="margined ui-corner-all ui-widget ui-widget-content" id="datasets_list">
         </div>
     </div>

@@ -135,18 +135,20 @@
         };
 
         function delete_classifier() {
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return false;
             var classifier_name = $(this).siblings('.classifier\\_name').text();
-            $('#classifier\\_'+name).hide();
-            $('#suggestions\\_'+name).hide();
+            $('#classifier\\_'+classifier_name).hide();
+            $('#suggestions\\_'+classifier_name).hide();
             $.ajax({
                 type:'POST',
                 url:'/service/classifiers/delete',
                 data: { name : classifier_name },
                 success: function () {update(); classify(true);},
                 failure: function () {
-                    $('#classifier\\_'+name).show();
-                    if($('#classifier\\_label\\_'+name).hasClass('ui-state-highlight'))
-                        $('#suggestions\\_'+name).show();
+                    $('#classifier\\_'+classifier_name).show();
+                    if($('#classifier\\_label\\_'+classifier_name).hasClass('ui-state-highlight'))
+                        $('#suggestions\\_'+classifier_name).show();
                 }
             });
         };
@@ -216,7 +218,7 @@
             </form>
         </div>
     </div>
-    <div id="center" class="margined">
+    <div id="center">
         <div class="padded ui-widget-header ui-corner-all">Classify text:</div>
             <textarea id="textbox" class="textbox margined" placeholder="Text to code"></textarea>
         <div id="suggestions" class="margined padded ui-widget-content suggestion-container"></div>

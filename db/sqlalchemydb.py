@@ -2,6 +2,7 @@ from contextlib import contextmanager
 import datetime
 import random
 import time
+import traceback
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
     UniqueConstraint, desc, exists
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -20,7 +21,7 @@ class Classifier(Base):
     name = Column(String(50), unique=True)
     model = deferred(Column(PickleType(), nullable=False))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
-    last_updated = Column(DateTime(timezone=True), onupdate=datetime.datetime.now)
+    last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
     def __init__(self, name, model):
         self.name = name
@@ -248,6 +249,11 @@ class SQLAlchemyDB(object):
             else:
                 document.text = content
             dataset.last_updated = datetime.datetime.now()
+
+    def get_classifier_examples_count(self, name):
+        with self.session_scope() as session:
+            return session.query(Classification.id).filter(Classifier.name == name).filter(
+                Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).count()
 
 
 

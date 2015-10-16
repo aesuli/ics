@@ -1,9 +1,16 @@
+import csv
+from io import TextIOWrapper
+import os
 import cherrypy
+from cherrypy.lib.static import serve_download
 import numpy
 from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB
+from webservice.util import get_fully_portable_file_name
 
 __author__ = 'Andrea Esuli'
+
+DOWNLOAD_DIR = os.path.join(os.path.abspath('.'), 'downloads')
 
 
 class WebClassifierCollection(object):
@@ -35,6 +42,7 @@ class WebClassifierCollection(object):
             classifier_info['classes'] = self._db.get_classifier_classes(name)
             classifier_info['created'] = self._db.get_classifier_creation_time(name)
             classifier_info['updated'] = self._db.get_classifier_last_update_time(name)
+            classifier_info['size'] = self._db.get_classifier_examples_count(name)
             result.append(classifier_info)
         return result
 
@@ -56,6 +64,8 @@ class WebClassifierCollection(object):
         if type(classes) is not list:
             cherrypy.response.status = 400
             return 'Must specify at least two classes'
+        name = str.strip(name)
+        classes = map(str.strip, classes)
         classes = list(set(classes))
         if len(classes) < 2:
             cherrypy.response.status = 400
@@ -98,6 +108,10 @@ class WebClassifierCollection(object):
         X = numpy.atleast_1d(X)
         y = numpy.atleast_1d(y)
 
+        name = str.strip(name)
+        X = map(str.strip, X)
+        y = map(str.strip, y)
+
         if len(X) != len(y):
             cherrypy.response.status = 400
             return 'Must specify the same numbers of strings and labels'
@@ -126,6 +140,57 @@ class WebClassifierCollection(object):
     def classes(self, name):
         clf = self._db.get_classifier_model(name)
         return list(clf.classes())
+
+    @cherrypy.expose
+    def download(self, name):
+        filename = 'training data %s %s.csv' % (name, self._db.get_classifier_last_update_time(name))
+        filename = get_fully_portable_file_name(filename)
+        fullpath = os.path.join(DOWNLOAD_DIR, filename)
+        if not os.path.isfile(fullpath):
+            with open(fullpath, 'w') as file:
+                #TODO write header
+                #TODO write data
+
+        return serve_download(fullpath)
+
+    @cherrypy.expose
+    def upload_single(self, **data):
+        try:
+            classifier_name = data['name']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a name'
+        try:
+            file = data['file']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must upload a file'
+
+        # TODO parse header
+        # TODO get classes
+        classes = list(set(classes))
+        if len(classes) < 2:
+            cherrypy.response.status = 400
+            return 'Must specify at least two classes'
+
+        clf = OnlineClassifier(classifier_name, classes, average=20)
+
+        if not self._db.classifier_exists(classifier_name):
+            self._db.create_classifier(classifier_name, classes, clf)
+
+        reader = csv.reader(TextIOWrapper(file.file))
+        for row in reader:
+            document_name = row[0]
+            content = row[1]
+            # TODO get label
+            self._db.create_document(classifier_name, document_name, content)
+
+        return 'Ok'
+
+    @cherrypy.expose
+    def upload_multi(self, **data):
+        # TODO
+        raise NotImplementedError()
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
