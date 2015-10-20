@@ -1,19 +1,19 @@
 TODO
-- strip input strings
-- "classifiers" page
-    * simple list, info and deletion
-    * accuracy estimates
 - "browse and label" page
-- file import
-    * labeled collection upload
-- classification jobs page
-- create classifiers from labeled examples
 - document datasets
     * classification
 - file export
-    * examples for a classifier
-    * dataset download
     * dataset download with classification
+- cleaning
+    * purge unreferenced documents
+    * periodically clean download directory
+- enqueue uploaded datasets for background processing
+- classification management
+- batch processing
+- check for sql/js/etc code injection
+- "classifiers" page
+    * accuracy estimates
+- classification jobs page
 - logging
 - versioning
 - backup of deleted data
@@ -22,8 +22,6 @@ TODO
 - memory problems:
     * 64 bit fixes it?
     * queue of update/classification requests to save memory?
-- classification management
-- batch processing
 - richer classifier info
     * number of examples observed
     * estimated accuracy
@@ -36,9 +34,17 @@ TODO
 - user authorization
 
 DONE
+- strip input strings
+- "classifiers" page
+    * simple list, info and deletion
 - confirm on delete
+- create classifiers from labeled examples
 - file import
     * unlabeled collection upload
+    * labeled collection upload
+- file export
+    * examples for a classifier
+    * dataset download
 - document datasets
     * definition in db
     * creation

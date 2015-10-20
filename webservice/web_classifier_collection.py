@@ -1,5 +1,6 @@
 import csv
 from io import TextIOWrapper
+import json
 import os
 import cherrypy
 from cherrypy.lib.static import serve_download
@@ -109,8 +110,8 @@ class WebClassifierCollection(object):
         y = numpy.atleast_1d(y)
 
         name = str.strip(name)
-        X = map(str.strip, X)
-        y = map(str.strip, y)
+        X = numpy.asanyarray([x.strip() for x in X])
+        y = numpy.asanyarray([label.strip() for label in y])
 
         if len(X) != len(y):
             cherrypy.response.status = 400
@@ -143,54 +144,69 @@ class WebClassifierCollection(object):
 
     @cherrypy.expose
     def download(self, name):
+        if not self._db.classifier_exists(name):
+            cherrypy.response.status = 404
+            return '%s does not exits' % name
         filename = 'training data %s %s.csv' % (name, self._db.get_classifier_last_update_time(name))
         filename = get_fully_portable_file_name(filename)
         fullpath = os.path.join(DOWNLOAD_DIR, filename)
         if not os.path.isfile(fullpath):
-            with open(fullpath, 'w') as file:
-                #TODO write header
-                #TODO write data
+            header = {}
+            header['name'] = name
+            header['classes'] = self._db.get_classifier_classes(name)
+            try:
+                with open(fullpath, 'w') as file:
+                    writer = csv.writer(file, lineterminator='\n')
+                    writer.writerow([json.dumps([header])])
+                    counter = 0
+                    for classification in self._db.get_classifier_examples(name):
+                        writer.writerow([counter, classification.document.text,
+                                         '%s:%s' % (name, classification.label.name)])
+                        counter += 1
+            except:
+                os.unlink(filename)
 
         return serve_download(fullpath)
 
     @cherrypy.expose
-    def upload_single(self, **data):
-        try:
-            classifier_name = data['name']
-        except KeyError:
-            cherrypy.response.status = 400
-            return 'Must specify a name'
+    def upload(self, **data):
         try:
             file = data['file']
         except KeyError:
             cherrypy.response.status = 400
             return 'Must upload a file'
 
-        # TODO parse header
-        # TODO get classes
-        classes = list(set(classes))
-        if len(classes) < 2:
-            cherrypy.response.status = 400
-            return 'Must specify at least two classes'
+        file = TextIOWrapper(file.file)
+        reader = csv.reader(file)
+        header = json.loads(next(reader)[0])
 
-        clf = OnlineClassifier(classifier_name, classes, average=20)
+        active_classifiers = set()
 
-        if not self._db.classifier_exists(classifier_name):
-            self._db.create_classifier(classifier_name, classes, clf)
+        for classifier_definition in header:
+            classifier_name = classifier_definition['name']
+            active_classifiers.add(classifier_name)
+            classes = classifier_definition['classes']
+            if not self._db.classifier_exists(classifier_name):
+                if len(classes) < 2:
+                    cherrypy.response.status = 400
+                    return 'Must specify at least two classes for classifier \'%s\'' % classifier_name
+                clf = OnlineClassifier(classifier_name, classes, average=20)
+                self._db.create_classifier(classifier_name, classes, clf)
+            else:
+                if not len(set(self._db.get_classifier_classes(classifier_name)).intersection(classes)) == len(classes):
+                    cherrypy.response.status = 400
+                    return 'Existing classifier \'%s\' uses a different set of classes than input file' % classifier_name
 
-        reader = csv.reader(TextIOWrapper(file.file))
+
         for row in reader:
-            document_name = row[0]
-            content = row[1]
-            # TODO get label
-            self._db.create_document(classifier_name, document_name, content)
+            text = row[1]
+            classifiers_labels = row[2:]
+            for classifier_label in classifiers_labels:
+                classifier_name, label = classifier_label.split(':')
+                if classifier_name in active_classifiers:
+                    self.update(name=classifier_name, X=text, y=label)
 
         return 'Ok'
-
-    @cherrypy.expose
-    def upload_multi(self, **data):
-        # TODO
-        raise NotImplementedError()
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -245,7 +261,7 @@ class WebClassifierCollection(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.1.0"
+        return "0.2.0 (db: %s)" % self._db.version()
 
 
 if __name__ == "__main__":
