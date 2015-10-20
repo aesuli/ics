@@ -42,7 +42,7 @@ class WebClassifierClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.0.1"
+        return "0.1.0"
 
 config = {'/media':
                 {'tools.staticdir.on': True,

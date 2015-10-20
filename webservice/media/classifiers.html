@@ -36,22 +36,13 @@
                         if($('#gotclassifiers').length==0)
                             $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
-                            var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div><div class=\'del_button_'+msg[i].name+' right\'>Delete</div><div class=\'download_button_'+msg[i].name+' right\'>Download training set</div><div class=\'upload_button_'+msg[i].name+' right\'>Select for upload</div><div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div><div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div></div>');
+                            var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div><div class=\'del_button_'+msg[i].name+' right\'>Delete</div><div class=\'download_button_'+msg[i].name+' right\'>Download training set</div><div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div><div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div></div>');
                             if($('#classifier\\_'+msg[i].name).length==0) {
                                 $('#classifiers\\_list').append(classifierdiv)
                             }
                             else {
                                 $('#classifier\\_'+msg[i].name).replaceWith(classifierdiv)
                             }
-                            $('.upload\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
-                            $('.upload\\_button\\_'+msg[i].name).click(
-                                (function() {
-                                    var classifier_name = msg[i].name;
-                                    return function() {
-                                        $('#name\\_single').val(classifier_name);
-                                        $('#classifier\\_upload\\_single').effect("bounce", {'distance':'5', 'times':'2'}, 200)
-                                    }
-                            })());
                             $('.download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
                             $('.download\\_button\\_'+msg[i].name).click(download_classifier);
                             $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
@@ -77,7 +68,7 @@
             var data = {name: name, classes: classes} ;
             $.ajax({
                 type: "POST",
-                url: "/service/classifier/create",
+                url: "/service/classifiers/create",
                 data: data,
                 success: update,
                 error: function(errMsg) {
@@ -87,49 +78,21 @@
             return false ;
         };
 
-        function upload_examples_single() {
-            name = $("#name_single").val();
-            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            if($('#dataFile_single')[0].files.length!=1) {
+        function upload_examples() {
+            if($('#dataFile')[0].files.length!=1) {
                 custom_alert("Must select one file.");
                 return false;
             }
             var data = new FormData()
-            data.append("file", $('#dataFile_single')[0].files[0]);
-            data.append("name", name);
+            data.append("file", $('#dataFile')[0].files[0]);
             $.ajax({
                 type: "POST",
-                url: "/service/classifiers/upload_single",
+                url: "/service/classifiers/upload",
                 data: data,
                 enctype: 'multipart/form-data',
                 processData: false,
                 contentType: false,
-                success: update,
-                error: function(errMsg) {
-                    custom_alert(errMsg.responseText);
-                }
-            });
-            return false ;
-        };
-
-        function upload_examples_multi() {
-            if($('#dataFile_multi')[0].files.length!=1) {
-                custom_alert("Must select one file.");
-                return false;
-            }
-            var data = new FormData()
-            data.append("file", $('#dataFile_multi')[0].files[0]);
-            $.ajax({
-                type: "POST",
-                url: "/service/classifiers/upload_multi",
-                data: data,
-                enctype: 'multipart/form-data',
-                processData: false,
-                contentType: false,
-                success: update,
+                success: function () {update(); },
                 error: function(errMsg) {
                     custom_alert(errMsg.responseText);
                 }
@@ -162,8 +125,7 @@
 
         $( document ).ready(function() {
 
-            $("#upload\\_form\\_single").submit(upload_examples_single);
-            $("#upload\\_form\\_multi").submit(upload_examples_multi);
+            $("#upload\\_form").submit(upload_examples);
             $("#create\\_classifier").submit(create_classifier);
 
             //$('#force\\_update').button().click(update);
@@ -191,20 +153,10 @@
                 </p>
             </form>
         </div>
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_upload_single">
-            <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to a single classifier (create if missing):</div>
-            <form enctype="multipart/form-data" id="upload_form_single" class="margined" action="#" method="post">
-                <p><label for="name">Classifier name:</label><input type="text" id="name_single"/></p>
-
-                <p><label>Data file:</label><input type="file" id="dataFile_single"/></p>
-
-                <p><label></label><input type="submit" value="Upload"/></p>
-            </form>
-        </div>
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_upload_multi">
-            <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to many classifiers (create if missing):</div>
-            <form enctype="multipart/form-data" id="upload_form_multi" class="margined" action="#" method="post">
-                <p><label>Data file:</label><input type="file" id="dataFile_multi"/></p>
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_upload">
+            <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to classifiers (create if missing):</div>
+            <form enctype="multipart/form-data" id="upload_form" class="margined" action="#" method="post">
+                <p><label>Data file:</label><input type="file" id="dataFile"/></p>
 
                 <p><label></label><input type="submit" value="Upload"/></p>
             </form>

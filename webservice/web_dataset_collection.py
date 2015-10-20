@@ -112,7 +112,7 @@ class WebDatasetCollection(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.0.1"
+        return "0.0.2 (db: %s)" % self._db.version()
 
 
 if __name__ == "__main__":

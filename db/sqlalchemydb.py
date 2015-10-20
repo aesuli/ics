@@ -76,7 +76,7 @@ class Classification(Base):
                          nullable=False)
     document = relationship('Document', backref='classifications')
     label_id = Column(Integer(), ForeignKey('label.id', onupdate='CASCADE', ondelete='CASCADE'), nullable=False)
-    label = relationship('Label', backref='labels')
+    label = relationship('Label', backref='classifications')
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
 
     def __init__(self, document_id, label_id):
@@ -145,7 +145,7 @@ class SQLAlchemyDB(object):
 
     def get_classifier_classes(self, name):
         with self.session_scope() as session:
-            return list(session.query(Label.name).join(Label.classifier).filter(Classifier.name == name))
+            return list(x for (x,) in session.query(Label.name).join(Label.classifier).filter(Classifier.name == name))
 
     def get_classifier_creation_time(self, name):
         with self.session_scope() as session:
@@ -177,9 +177,9 @@ class SQLAlchemyDB(object):
     def create_training_example(self, classifier_name, content, label):
         with self.session_scope() as session:
             training_dataset = session.query(Dataset).filter(
-                Dataset.name == SQLAlchemyDB.INTERNAL_TRAINING_DATASET).first()
+                Dataset.name == SQLAlchemyDB.INTERNAL_TRAINING_DATASET).one()
             document = session.query(Document).filter(Document.text == content).filter(
-                training_dataset.id == Document.dataset_id).first()
+                training_dataset.id == Document.dataset_id).first()  # TODO one_or_none()
             if document is None:
                 try:
                     document = Document(content, training_dataset.id)
@@ -188,14 +188,25 @@ class SQLAlchemyDB(object):
                 except IntegrityError as ie:
                     session.rollback()
                     document = session.query(Document).filter(Document.text == content).filter(
-                        training_dataset.id == Document.dataset_id).first()
+                        training_dataset.id == Document.dataset_id).one()
                     if document is None:
                         raise ie
             label_id = session.query(Label.id).filter(Classifier.name == classifier_name).filter(
                 Label.classifier_id == Classifier.id).filter(
                 Label.name == label).scalar()
-            classification = Classification(document.id, label_id)
-            session.add(classification)
+
+            classification = session.query(Classification).filter(Classification.document_id == document.id).join(
+                Classification.label).filter(Classifier.name == classifier_name).filter(
+                Label.classifier_id == Classifier.id)
+
+            classification = classification.first()  # TODO one_or_none()
+
+            if classification is None:
+                classification = Classification(document.id, label_id)
+                session.add(classification)
+            else:
+                classification.label_id = label_id
+
             training_dataset.last_updated = datetime.datetime.now()
 
     def get_label(self, classifier_name, content):
@@ -240,9 +251,9 @@ class SQLAlchemyDB(object):
 
     def create_document(self, dataset_name, external_id, content):
         with self.session_scope() as session:
-            dataset = session.query(Dataset).filter(Dataset.name == dataset_name).first()
+            dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
             document = session.query(Document).filter(Document.dataset_id == dataset.id).filter(
-                Document.external_id == external_id).first()
+                Document.external_id == external_id).first()  # TODO one_or_none()
             if document is None:
                 document = Document(content, dataset.id, external_id)
                 session.add(document)
@@ -255,5 +266,11 @@ class SQLAlchemyDB(object):
             return session.query(Classification.id).filter(Classifier.name == name).filter(
                 Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).count()
 
+    def get_classifier_examples(self, name):
+        with self.session_scope() as session:
+            return session.query(Classification).filter(Classifier.name == name).filter(
+                Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id)
 
+    def version(self):
+        return "0.0.1"
 
