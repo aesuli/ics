@@ -271,6 +271,12 @@ class SQLAlchemyDB(object):
             return session.query(Classification).filter(Classifier.name == name).filter(
                 Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id)
 
+    def get_dataset_documents(self, name):
+        with self.session_scope() as session:
+            return session.query(Document).filter(Dataset.name == name).filter(
+                Document.dataset_id == Dataset.id)
+
     def version(self):
-        return "0.0.1"
+        return "0.1.0"
+
 

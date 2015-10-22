@@ -2,27 +2,55 @@ import os
 import cherrypy
 from mako.template import Template
 from mako.lookup import TemplateLookup
+from db.sqlalchemydb import SQLAlchemyDB
 
 __author__ = 'Andrea Esuli'
 
 MEDIA_DIR = os.path.join(os.path.abspath('.'), 'media')
-lookup = TemplateLookup(directories=[MEDIA_DIR])
+CSS_DIR = os.path.join(MEDIA_DIR, 'css')
+JS_DIR = os.path.join(MEDIA_DIR, 'js')
+TEMPLATE_DIR = os.path.join(MEDIA_DIR, 'template')
+lookup = TemplateLookup(directories=[TEMPLATE_DIR])
 
 class WebClassifierClient(object):
+    def __init__(self, db_connection_string):
+        self._db_connection_string = db_connection_string
+        try:
+            self._db = SQLAlchemyDB(db_connection_string)
+        except Exception as e:
+            print(e)
+            raise e
+
+    def close(self):
+        self._db.close()
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        return True
+        self.close()
+        return False
+
 
     @cherrypy.expose
     def index(self):
-        template = lookup.get_template('typeandlabel.html')
+        template = lookup.get_template('browseandlabel.html')
         return template.render()
 
     @cherrypy.expose
     def typeandlabel(self):
         template = lookup.get_template('typeandlabel.html')
+        return template.render()
+
+    @cherrypy.expose
+    def browseandlabel(self,name=None):
+        if name is None:
+            raise cherrypy.HTTPRedirect('/datasets')
+
+        if not self._db.dataset_exists(name):
+            raise cherrypy.HTTPRedirect('/datasets')
+
+        template = lookup.get_template('browseandlabel.html')
         return template.render()
 
     @cherrypy.expose
@@ -42,14 +70,19 @@ class WebClassifierClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.1.0"
+        return "0.2.0"
 
-config = {'/media':
+config = {
+          '/css':
                 {'tools.staticdir.on': True,
-                 'tools.staticdir.dir': MEDIA_DIR,
-                }
+                 'tools.staticdir.dir': CSS_DIR,
+                },
+          '/js':
+                {'tools.staticdir.on': True,
+                 'tools.staticdir.dir': JS_DIR,
+                },
         }
 
 if __name__ == "__main__":
-    with WebClassifierClient() as wcc:
+    with WebClassifierClient('sqlite:///%s' % 'test.db') as wcc:
         cherrypy.quickstart(wcc, '/app', config = config)

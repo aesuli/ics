@@ -8,8 +8,9 @@ TODO
     * purge unreferenced documents
     * periodically clean download directory
 - enqueue uploaded datasets for background processing
-- classification management
 - batch processing
+    * classification
+    * training with uploaded examples
 - check for sql/js/etc code injection
 - "classifiers" page
     * accuracy estimates
@@ -33,8 +34,10 @@ TODO
 - store source of classification (which user?)
 - user authorization
 
-DONE
+TOMONITOR
 - strip input strings
+
+DONE
 - "classifiers" page
     * simple list, info and deletion
 - confirm on delete
