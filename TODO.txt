@@ -1,5 +1,4 @@
 TODO
-- "browse and label" page
 - document datasets
     * classification
 - file export
@@ -38,6 +37,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- "browse and label" page
 - "classifiers" page
     * simple list, info and deletion
 - confirm on delete

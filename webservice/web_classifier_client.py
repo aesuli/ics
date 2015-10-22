@@ -34,7 +34,7 @@ class WebClassifierClient(object):
 
     @cherrypy.expose
     def index(self):
-        template = lookup.get_template('browseandlabel.html')
+        template = lookup.get_template('datasets.html')
         return template.render()
 
     @cherrypy.expose

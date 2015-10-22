@@ -16,8 +16,8 @@
             $.ajax({
                 type:'POST',
                 url:'/service/classifiers/',
-                dataType: 'json',
-                success: function(msg) {
+                dataType: 'json'})
+            .done(function(msg) {
                     $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
                         var found = false;
                         for(var i = 0;i<msg.length;++i) {
@@ -48,19 +48,19 @@
                                             var item = $(this).siblings('.classifier\\_name');
                                             item.toggleClass('ui-state-highlight');
                                             if(item.hasClass('ui-state-highlight')) {
-                                                $('#suggestions\\_'+classifier_name).show();
+                                                $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
                                                 classify(true);
                                             }
                                             else {
-                                                $('#suggestions\\_'+classifier_name).hide();
+                                                $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
+                                                check_autobrowse();
                                             }
                                         }
                                 })());
                                 $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
                                 $('.del\\_button\\_'+msg[i].name).click(delete_classifier);
                                 var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all">'+msg[i].name+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
-                                suggestion_div.hide();
-                                $('#suggestions').append(suggestion_div);
+                                suggestion_div.appendTo('#pool');
                                 for(var j = 0;j<msg[i].classes.length;++j) {
                                     var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].classes[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].classes[j]+'</div>');
                                     (function() {
@@ -71,14 +71,14 @@
                                             $.ajax({
                                                 type:'POST',
                                                 url:'/service/classifiers/update',
-                                                data: { name: classifier_name, X: [last_text], y: [class_name] },
-                                                success: function(msg) {
-                                                    $('#suggestions_'+classifier_name).hide();
-                                                },
-                                                failure: function(msg) {
+                                                data: { name: classifier_name, X: [last_text], y: [class_name] }})
+                                            .done(function() {
+                                                    $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
+                                                    check_autobrowse();
+                                                })
+                                            .fail(function(msg) {
                                                     custom_alert(msg);
                                                     $('#suggestions\\_'+classifier_name).show();
-                                                }
                                             });
                                         });
                                     }());
@@ -88,14 +88,25 @@
                                 skipline.click((function () {
                                     var classifier_name = msg[i].name;
                                     return function() {
-                                        $('#suggestions\\_'+classifier_name).hide();
+                                        $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
                                     };
                                 })());
                                 $('#assignments\\_'+msg[i].name).append(skipline);
                             }
                         }
+                        if($('#skip\\_all').length==0) {
+                            skip_all = jQuery('<div id="skip_all" class="right">Skip all</div>');
+                            skip_all.button({ icons: {primary:'ui-icon-minus'} });
+                            skip_all.click(function() {
+                                $('#suggestions div div .skip').each(function(i,item) {
+                                    item.click();
+                                });
+                                check_autobrowse();
+                            });
+                            $('#suggestions').append(skip_all);
+                        }
                         if($('#all\\_correct').length==0) {
-                            all_correct = jQuery('<div id="all_correct" class="right">All Correct</div>');
+                            all_correct = jQuery('<div id="all_correct" class="right">All correct</div>');
                             all_correct.button({ icons: {primary:'ui-icon-check'} });
                             all_correct.click(function() {
                                 $('#suggestions div div .assigned').each(function(i,item) {
@@ -105,7 +116,6 @@
                             $('#suggestions').append(all_correct);
                         }
                     }
-                }
             });
         }
 
@@ -125,11 +135,10 @@
             $.ajax({
                 type: "POST",
                 url: "/service/classifiers/create",
-                data: data,
-                success: update,
-                error: function(errMsg) {
+                data: data})
+            .done(update)
+            .fail(function(errMsg) {
                     custom_alert(errMsg.responseText);
-                }
             });
             return false ;
         };
@@ -144,12 +153,13 @@
                 type:'POST',
                 url:'/service/classifiers/delete',
                 data: { name : classifier_name },
-                success: function () {update(); classify(true);},
-                failure: function () {
+            })
+            .done(function () {
+                update(); classify(true);
+            })
+            .fail(function () {
                     $('#classifier\\_'+classifier_name).show();
-                    if($('#classifier\\_label\\_'+classifier_name).hasClass('ui-state-highlight'))
                         $('#suggestions\\_'+classifier_name).show();
-                }
             });
         };
 
@@ -158,35 +168,29 @@
             text = $("#textbox").val();
             if(text!=last_text || force) {
                 last_text = text;
-                $('#classifiers\\_list div .ui-state-highlight').each(function(i,item) {
+                $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                     var classifier_name = $(item).text();
-                    if($('#suggestions\\_'+classifier_name).is(':visible')) {
                         $.ajax({
                             type:'POST',
                                 url:'/service/classifiers/classify',
                                 data: { name: classifier_name, X: [text] },
-                                dataType: 'json',
-                                success: function(msg) {
+                        dataType: 'json'})
+                    .done(function(msg) {
                                     var assigned = msg[0][0];
                                     $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned')
                                     $('#assignments_'+classifier_name).children('.scoreline').addClass('not_relevant')
                                     $('#suggestion\\_'+classifier_name+'\\_'+assigned).removeClass('not_relevant')
                                     $('#suggestion\\_'+classifier_name+'\\_'+assigned).addClass('assigned')
-                                }
                         });
-                    }
-                });
-                $('#classifiers\\_list div :not(.ui-state-highlight)').each(function(i,item) {
-                    var classifier_name = $(item).text();
-                    $('#suggestions\\_'+classifier_name).hide();
                 });
             }
         }
         $( document ).ready(function() {
-            $("#textbox").keyup(function() {delay(function() {
-                $('div[id^=suggestions\\_').show()
+            $("#textbox").on("input",function() {
+            delay(function() {
+                $('#classifiers\\_list div div.ui-state-highlight').each(function(){$('#suggestions\\_'+$(this).text()).detach().appendTo('#suggestions').show();});
                 classify(false);
-            },delay_interval);})
+            },delay_interval);});
 
             $("#create\\_classifier").submit(create_classifier);
 
@@ -222,5 +226,7 @@
         <div class="padded ui-widget-header ui-corner-all">Classify text:</div>
             <textarea id="textbox" class="textbox margined" placeholder="Text to code"></textarea>
         <div id="suggestions" class="margined padded ui-widget-content suggestion-container"></div>
+            <div id="pool" style="display:none;"></div>
+        </div>
     </div>
 </div>

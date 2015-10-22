@@ -64,7 +64,7 @@ class WebDatasetCollection(object):
             cherrypy.response.status = 400
             return 'Must upload a file'
 
-        if not  self._db.dataset_exists(dataset_name):
+        if not self._db.dataset_exists(dataset_name):
             self._db.create_dataset(dataset_name)
 
         reader = csv.reader(TextIOWrapper(file.file))
@@ -110,12 +110,36 @@ class WebDatasetCollection(object):
         return serve_download(fullpath)
 
     @cherrypy.expose
+    def size(self, name):
+        if not self._db.dataset_exists(name):
+            cherrypy.response.status = 404
+            return '\'%s\' does not exits' % name
+        return str(self._db.get_dataset_size(name))
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def document(self, name, position):
+        if not self._db.dataset_exists(name):
+            cherrypy.response.status = 404
+            return '\'%s\' does not exits' % name
+        document = self._db.get_dataset_document(name, position)
+        if document is not None:
+            result = {}
+            result['external_id'] = document.external_id
+            result['text'] = document.text
+            result['created'] = str(document.creation)
+            return result
+        else:
+            cherrypy.response.status = 404
+            return 'Position %i does not exits in \'%s\'' % (position, name)
+
+    @cherrypy.expose
     @cherrypy.tools.json_out()
     def classify(self, **data):
         # TODO
         raise NotImplementedError()
         # try:
-        #     name = data['name']
+        # name = data['name']
         # except KeyError:
         #     cherrypy.response.status = 400
         #     return 'Must specify a name'
