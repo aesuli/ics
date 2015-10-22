@@ -1,12 +1,17 @@
 import csv
 from io import TextIOWrapper
+import os
 import cherrypy
 from cherrypy.lib import cptools
+from cherrypy.lib.static import serve_download
 import numpy
 from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB
+from webservice.util import get_fully_portable_file_name
 
 __author__ = 'Andrea Esuli'
+
+DOWNLOAD_DIR = os.path.join(os.path.abspath('.'), 'downloads')
 
 
 class WebDatasetCollection(object):
@@ -63,6 +68,11 @@ class WebDatasetCollection(object):
             self._db.create_dataset(dataset_name)
 
         reader = csv.reader(TextIOWrapper(file.file))
+        first_row = next(reader)
+        if len(first_row) > 1:
+            document_name = first_row[0]
+            content = first_row[1]
+            self._db.create_document(dataset_name, document_name, content)
         for row in reader:
             document_name = row[0]
             content = row[1]
@@ -82,11 +92,22 @@ class WebDatasetCollection(object):
 
     @cherrypy.expose
     def download(self, name):
-        # TODO
-        raise NotImplementedError()
-        # clf = self._db.get_classifier_model(name)
-        # return cptools.serveFile(path, "application/x-download",
-        #                          "attachment", os.path.basename(path))
+        if not self._db.dataset_exists(name):
+            cherrypy.response.status = 404
+            return '\'%s\' does not exits' % name
+        filename = 'dataset %s %s.csv' % (name, self._db.get_dataset_last_update_time(name))
+        filename = get_fully_portable_file_name(filename)
+        fullpath = os.path.join(DOWNLOAD_DIR, filename)
+        if not os.path.isfile(fullpath):
+            try:
+                with open(fullpath, 'w') as file:
+                    writer = csv.writer(file, lineterminator='\n')
+                    for document in self._db.get_dataset_documents(name):
+                        writer.writerow([document.external_id, document.text])
+            except:
+                os.unlink(filename)
+
+        return serve_download(fullpath)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

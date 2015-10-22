@@ -80,7 +80,7 @@
 
         function upload_examples() {
             if($('#dataFile')[0].files.length!=1) {
-                custom_alert("Must select one file.");
+                custom_alert("Must select a file.");
                 return false;
             }
             var data = new FormData()
@@ -129,6 +129,8 @@
             $("#create\\_classifier").submit(create_classifier);
 
             //$('#force\\_update').button().click(update);
+            $( "input[type=submit]" ).button();
+            $( "input[type=file]" ).button();
 
             timed_update();
         });
