@@ -2,7 +2,7 @@ from contextlib import contextmanager
 import datetime
 import random
 import time
-import traceback
+import threading
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
     UniqueConstraint, desc, exists
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -85,8 +85,9 @@ class Classification(Base):
 
 
 class SQLAlchemyDB(object):
-    MAXRETRY = 3
-    INTERNAL_TRAINING_DATASET = '_internal_training_dataset'
+    _MAXRETRY = 3
+    _INTERNAL_TRAINING_DATASET = '_internal_training_dataset'
+    _TRAINING_EXAMPLE_CREATION_LOCK = threading.Lock()
 
     def __init__(self, name):
         engine = create_engine(name)
@@ -97,8 +98,8 @@ class SQLAlchemyDB(object):
 
     def _preload_data(self):
         with self.session_scope() as session:
-            if not session.query(exists().where(Dataset.name == SQLAlchemyDB.INTERNAL_TRAINING_DATASET)).scalar():
-                session.add(Dataset(SQLAlchemyDB.INTERNAL_TRAINING_DATASET))
+            if not session.query(exists().where(Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET)).scalar():
+                session.add(Dataset(SQLAlchemyDB._INTERNAL_TRAINING_DATASET))
 
     def __enter__(self):
         return self
@@ -171,26 +172,27 @@ class SQLAlchemyDB(object):
                     session.rollback()
                     time.sleep(random.uniform(0.1, 1))
                     ++retries
-                    if retries == SQLAlchemyDB.MAXRETRY:
+                    if retries == SQLAlchemyDB._MAXRETRY:
                         raise e
 
     def create_training_example(self, classifier_name, content, label):
         with self.session_scope() as session:
             training_dataset = session.query(Dataset).filter(
-                Dataset.name == SQLAlchemyDB.INTERNAL_TRAINING_DATASET).one()
-            document = session.query(Document).filter(Document.text == content).filter(
-                training_dataset.id == Document.dataset_id).first()  # TODO one_or_none()
-            if document is None:
-                try:
+                Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET).one()
+            with SQLAlchemyDB._TRAINING_EXAMPLE_CREATION_LOCK:
+                document = session.query(Document).filter(Document.text == content).filter(
+                    training_dataset.id == Document.dataset_id).first()  # TODO one_or_none()
+                if document is None:
                     document = Document(content, training_dataset.id)
                     session.add(document)
-                    session.flush()
-                except IntegrityError as ie:
-                    session.rollback()
-                    document = session.query(Document).filter(Document.text == content).filter(
-                        training_dataset.id == Document.dataset_id).one()
-                    if document is None:
-                        raise ie
+                training_dataset.last_updated = document.creation
+                session.commit()
+
+        with self.session_scope() as session:
+            training_dataset = session.query(Dataset).filter(
+                Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET).one()
+            document = session.query(Document).filter(Document.text == content).filter(
+                training_dataset.id == Document.dataset_id).first()  # TODO one_or_none()
             label_id = session.query(Label.id).filter(Classifier.name == classifier_name).filter(
                 Label.classifier_id == Classifier.id).filter(
                 Label.name == label).scalar()
@@ -207,7 +209,6 @@ class SQLAlchemyDB(object):
             else:
                 classification.label_id = label_id
 
-            training_dataset.last_updated = datetime.datetime.now()
 
     def get_label(self, classifier_name, content):
         with self.session_scope() as session:
@@ -219,7 +220,7 @@ class SQLAlchemyDB(object):
     def dataset_names(self):
         with self.session_scope() as session:
             return list(
-                session.query(Dataset.name).filter(Dataset.name != SQLAlchemyDB.INTERNAL_TRAINING_DATASET))
+                session.query(Dataset.name).filter(Dataset.name != SQLAlchemyDB._INTERNAL_TRAINING_DATASET))
 
     def dataset_exists(self, name):
         with self.session_scope() as session:
@@ -231,7 +232,7 @@ class SQLAlchemyDB(object):
             session.add(dataset)
 
     def delete_dataset(self, name):
-        if name == SQLAlchemyDB.INTERNAL_TRAINING_DATASET:
+        if name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET:
             return
         with self.session_scope() as session:
             session.query(Dataset).filter(Dataset.name == name).delete()
@@ -275,6 +276,13 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(Document).filter(Dataset.name == name).filter(
                 Document.dataset_id == Dataset.id)
+
+    def get_dataset_document(self, name, position):
+        with self.session_scope() as session:
+            document = session.query(Document).filter(Dataset.name == name).filter(
+                Document.dataset_id == Dataset.id).offset(int(position)).first()
+            session.expunge(document)
+            return document
 
     def version(self):
         return "0.1.0"
