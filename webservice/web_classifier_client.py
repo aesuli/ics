@@ -1,6 +1,5 @@
 import os
 import cherrypy
-from mako.template import Template
 from mako.lookup import TemplateLookup
 from db.sqlalchemydb import SQLAlchemyDB
 
@@ -14,12 +13,7 @@ lookup = TemplateLookup(directories=[TEMPLATE_DIR])
 
 class WebClassifierClient(object):
     def __init__(self, db_connection_string):
-        self._db_connection_string = db_connection_string
-        try:
-            self._db = SQLAlchemyDB(db_connection_string)
-        except Exception as e:
-            print(e)
-            raise e
+        self._db = SQLAlchemyDB(db_connection_string)
 
     def close(self):
         self._db.close()
