@@ -1,27 +1,23 @@
 import csv
-from io import TextIOWrapper
 import os
+import shutil
+from uuid import uuid4
 import cherrypy
-from cherrypy.lib import cptools
 from cherrypy.lib.static import serve_download
-import numpy
-from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB
-from webservice.util import get_fully_portable_file_name
+from webservice.util import get_fully_portable_file_name, logged_call
 
 __author__ = 'Andrea Esuli'
 
 DOWNLOAD_DIR = os.path.join(os.path.abspath('.'), 'downloads')
+UPLOAD_DIR = os.path.join(os.path.abspath('.'), 'uploads')
 
 
 class WebDatasetCollection(object):
-    def __init__(self, db_connection_string):
+    def __init__(self, db_connection_string, background_processor):
         self._db_connection_string = db_connection_string
-        try:
-            self._db = SQLAlchemyDB(db_connection_string)
-        except Exception as e:
-            print(e)
-            raise e
+        self._db = SQLAlchemyDB(db_connection_string)
+        self._background_processor = background_processor
 
     def close(self):
         self._db.close()
@@ -67,16 +63,13 @@ class WebDatasetCollection(object):
         if not self._db.dataset_exists(dataset_name):
             self._db.create_dataset(dataset_name)
 
-        reader = csv.reader(TextIOWrapper(file.file))
-        first_row = next(reader)
-        if len(first_row) > 1:
-            document_name = first_row[0]
-            content = first_row[1]
-            self._db.create_document(dataset_name, document_name, content)
-        for row in reader:
-            document_name = row[0]
-            content = row[1]
-            self._db.create_document(dataset_name, document_name, content)
+        filename = 'dataset %s %s.csv' % (dataset_name, uuid4())
+        filename = get_fully_portable_file_name(filename)
+        fullpath = os.path.join(UPLOAD_DIR, filename)
+        with open(fullpath, 'wb') as outfile:
+            shutil.copyfileobj(file.file, outfile)
+
+        self._background_processor.put(_create_documents, (self._db_connection_string, dataset_name, fullpath))
 
         return 'Ok'
 
@@ -141,10 +134,10 @@ class WebDatasetCollection(object):
         # try:
         # name = data['name']
         # except KeyError:
-        #     cherrypy.response.status = 400
-        #     return 'Must specify a name'
+        # cherrypy.response.status = 400
+        # return 'Must specify a name'
         # try:
-        #     X = data['X']
+        # X = data['X']
         # except KeyError:
         #     try:
         #         X = data['X[]']
@@ -157,7 +150,23 @@ class WebDatasetCollection(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.0.2 (db: %s)" % self._db.version()
+        return "0.1.1 (db: %s)" % self._db.version()
+
+
+@logged_call
+def _create_documents(db_connection_string, dataset_name, filename):
+    with SQLAlchemyDB(db_connection_string) as db:
+        with open(filename, 'r') as file:
+            reader = csv.reader(file)
+            first_row = next(reader)
+            if len(first_row) > 1:
+                document_name = first_row[0]
+                content = first_row[1]
+                db.create_document(dataset_name, document_name, content)
+            for row in reader:
+                document_name = row[0]
+                content = row[1]
+                db.create_document(dataset_name, document_name, content)
 
 
 if __name__ == "__main__":

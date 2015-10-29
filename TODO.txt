@@ -6,15 +6,13 @@ TODO
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
-- enqueue uploaded datasets for background processing
-- batch processing
+- batch/background processing
     * classification
     * training with uploaded examples
 - check for sql/js/etc code injection
 - "classifiers" page
     * accuracy estimates
 - classification jobs page
-- logging
 - versioning
 - backup of deleted data
 - twitter integration
@@ -37,6 +35,9 @@ TOMONITOR
 - strip input strings
 
 DONE
+-logging
+- batch/background processing
+    * upload
 - "browse and label" page
 - "classifiers" page
     * simple list, info and deletion
