@@ -1,20 +1,24 @@
 import csv
-from io import TextIOWrapper
 import json
 import os
 import shutil
 from uuid import uuid4
+
 import cherrypy
 from cherrypy.lib.static import serve_download
 import numpy
+
 from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB
-from webservice.util import get_fully_portable_file_name, logged_call
+from util.lock import FileLock
+from util.util import get_fully_portable_file_name, logged_call, logged_call_with_args
+
 
 __author__ = 'Andrea Esuli'
 
 DOWNLOAD_DIR = os.path.join(os.path.abspath('.'), 'downloads')
 UPLOAD_DIR = os.path.join(os.path.abspath('.'), 'uploads')
+LOCKS_DIR = os.path.join(os.path.abspath('.'), 'locks')
 
 
 class WebClassifierCollection(object):
@@ -79,8 +83,7 @@ class WebClassifierCollection(object):
             if self._db.classifier_exists(name):
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
-        clf = OnlineClassifier(name, classes, average=20)
-        self._db.create_classifier(name, classes, clf)
+        _create_model(self._db_connection_string, name, classes)
         return 'Ok'
 
     @cherrypy.expose
@@ -117,8 +120,8 @@ class WebClassifierCollection(object):
             cherrypy.response.status = 400
             return 'Must specify the same numbers of strings and labels'
 
-        # TODO fix clashes on updating the same classifier
-        self._background_processor.put(_update, (self._db_connection_string, name, X, y))
+        self._background_processor.put(_update_model, (self._db_connection_string, name, X, y))
+        self._background_processor.put(_update_trainingset, (self._db_connection_string, name, X, y))
 
         return 'Ok'
 
@@ -182,20 +185,26 @@ class WebClassifierCollection(object):
             reader = csv.reader(file)
             header = json.loads(next(reader)[0])
 
+            active_classifiers = set()
+
             for classifier_definition in header:
                 classifier_name = classifier_definition['name']
+                active_classifiers.add(classifier_name)
                 classes = classifier_definition['classes']
                 if not self._db.classifier_exists(classifier_name):
                     if len(classes) < 2:
                         cherrypy.response.status = 400
                         return 'Must specify at least two classes for classifier \'%s\'' % classifier_name
+                    self._background_processor.put(_create_model, (self._db_connection_string, classifier_name, classes))
                 else:
                     if not len(set(self._db.get_classifier_classes(classifier_name)).intersection(classes)) == len(
                             classes):
                         cherrypy.response.status = 400
                         return 'Existing classifier \'%s\' uses a different set of classes than input file' % classifier_name
 
-        self._background_processor.put(_update_from_file, (self._db_connection_string, fullpath))
+        for classifier_name in active_classifiers:
+            self._background_processor.put(_update_from_file, (_update_model, self._db_connection_string, fullpath, classifier_name))
+            self._background_processor.put(_update_from_file, (_update_trainingset, self._db_connection_string, fullpath, classifier_name))
 
         return 'Ok'
 
@@ -223,7 +232,9 @@ class WebClassifierCollection(object):
         label = self._db.get_label(classifier_name, x)
         if label is not None:
             return label
-        return model.predict([x])[0]
+        if model is not None:
+            return model.predict([x])[0]
+        return None
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -259,66 +270,67 @@ MAX_BATCH_SIZE = 1000
 
 
 @logged_call
-def _update(db_connection_string, name, X, y):
+def _update_trainingset(db_connection_string, name, X, y):
     with SQLAlchemyDB(db_connection_string) as db:
-        for (content, label) in zip(X, y):
-            db.create_training_example(name, content, label)
-
-        clf = db.get_classifier_model(name)
-        clf.partial_fit(X, y)
-        db.update_classifier_model(name, clf)
+        with _lock_trainingset(name):
+            for (content, label) in zip(X, y):
+                db.create_training_example(name, content, label)
 
 
 @logged_call
-def _update_from_file(db_connection_string, filename):
+def _update_model(db_connection_string, name, X, y):
     with SQLAlchemyDB(db_connection_string) as db:
-        with open(filename) as file:
-            reader = csv.reader(file)
-            header = json.loads(next(reader)[0])
+        with _lock_model(name):
+            clf = db.get_classifier_model(name)
+            clf.partial_fit(X, y)
+            db.update_classifier_model(name, clf)
 
-            active_classifiers = set()
 
-            for classifier_definition in header:
-                classifier_name = classifier_definition['name']
-                active_classifiers.add(classifier_name)
-                classes = classifier_definition['classes']
-                if not db.classifier_exists(classifier_name):
-                    if len(classes) < 2:
-                        return 'Must specify at least two classes for classifier \'%s\'' % classifier_name
-                    clf = OnlineClassifier(classifier_name, classes, average=20)
-                    db.create_classifier(classifier_name, classes, clf)
-                else:
-                    if not len(set(db.get_classifier_classes(classifier_name)).intersection(classes)) == len(classes):
-                        return 'Existing classifier \'%s\' uses a different set of classes than input file' % classifier_name
-
-        for classifier_name in active_classifiers:
-            with open(filename) as file:
-                reader = csv.reader(file)
-                next(reader)
+@logged_call_with_args
+def _update_from_file(update_function, db_connection_string, filename, classifier_name):
+    with open(filename) as file:
+        reader = csv.reader(file)
+        next(reader)
+        X = []
+        y = []
+        for row in reader:
+            if len(row) < 3:
+                continue
+            text = row[1]
+            classifiers_labels = row[2:]
+            for classifier_label in classifiers_labels:
+                try:
+                    example_classifier_name, label = classifier_label.split(':')
+                except:
+                    continue
+                if example_classifier_name == classifier_name:
+                    X.append(text)
+                    y.append(label)
+                    break
+            if len(X) >= MAX_BATCH_SIZE:
+                update_function(db_connection_string, classifier_name, X, y)
                 X = []
                 y = []
-                for row in reader:
-                    if len(row) < 3:
-                        continue
-                    text = row[1]
-                    classifiers_labels = row[2:]
-                    for classifier_label in classifiers_labels:
-                        try:
-                            example_classifier_name, label = classifier_label.split(':')
-                        except:
-                            continue
-                        if example_classifier_name == classifier_name:
-                            X.append(text)
-                            y.append(label)
-                            break
-                    if len(X) >= MAX_BATCH_SIZE:
-                        _update(db_connection_string, classifier_name, X, y)
-                        X = []
-                        y = []
-                if len(X) > 0:
-                    _update(db_connection_string, classifier_name, X, y)
-                    X = []
-                    y = []
+        if len(X) > 0:
+            update_function(db_connection_string, classifier_name, X, y)
+            X = []
+            y = []
+
+@logged_call_with_args
+def _create_model(db_connection_string, name, classes):
+    with _lock_trainingset(name), _lock_model(name):
+        with SQLAlchemyDB(db_connection_string) as db:
+            if not db.classifier_exists(name):
+                clf = OnlineClassifier(name, classes, average=20)
+                db.create_classifier(name, classes, clf)
+
+
+def _lock_model(name):
+    return FileLock(os.path.join(LOCKS_DIR,'%s.model.lock'%name))
+
+
+def _lock_trainingset(name):
+    return FileLock(os.path.join(LOCKS_DIR,'%s.trainingset.lock'%name))
 
 
 if __name__ == "__main__":

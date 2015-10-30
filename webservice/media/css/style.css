@@ -23,6 +23,21 @@ p     { display: table-row;  }
 label { display: table-cell; }
 input { display: table-cell; }
 
+div .job   {
+ display: table;
+ padding: 5px;
+}
+
+.job p     {
+ display: table-row;
+ padding: 5px;
+ }
+
+.job span {
+ display: table-cell;
+ padding: 5px;
+}
+
 .textbox {
     display: table-cell;
     vertical-align: top;

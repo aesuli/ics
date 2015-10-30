@@ -5,7 +5,7 @@ import time
 import threading
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
     UniqueConstraint, desc, exists
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, deferred, relationship, configure_mappers
 from sqlalchemy.orm.session import sessionmaker
@@ -84,6 +84,19 @@ class Classification(Base):
         self.label_id = label_id
 
 
+class Job(Base):
+    __tablename__ = 'job'
+    id = Column(Integer(), primary_key=True)
+    description = Column(String(250))
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+    start = Column(DateTime(timezone=True))
+    completion = Column(DateTime(timezone=True))
+    status = Column(String(10),default='pending')
+
+    def __init__(self, description):
+        self.description = description
+
+
 class SQLAlchemyDB(object):
     _MAXRETRY = 3
     _INTERNAL_TRAINING_DATASET = '_internal_training_dataset'
@@ -125,7 +138,7 @@ class SQLAlchemyDB(object):
 
     def classifier_names(self):
         with self.session_scope() as session:
-            return list(session.query(Classifier.name).all())
+            return list(session.query(Classifier.name).order_by(Classifier.name).all())
 
     def classifier_exists(self, name):
         with self.session_scope() as session:
@@ -146,7 +159,8 @@ class SQLAlchemyDB(object):
 
     def get_classifier_classes(self, name):
         with self.session_scope() as session:
-            return list(x for (x,) in session.query(Label.name).join(Label.classifier).filter(Classifier.name == name))
+            return list(x for (x,) in session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
+                Classifier.name == name))
 
     def get_classifier_creation_time(self, name):
         with self.session_scope() as session:
@@ -220,7 +234,8 @@ class SQLAlchemyDB(object):
     def dataset_names(self):
         with self.session_scope() as session:
             return list(
-                session.query(Dataset.name).filter(Dataset.name != SQLAlchemyDB._INTERNAL_TRAINING_DATASET))
+                session.query(Dataset.name).order_by(Dataset.name).filter(
+                    Dataset.name != SQLAlchemyDB._INTERNAL_TRAINING_DATASET))
 
     def dataset_exists(self, name):
         with self.session_scope() as session:
@@ -269,12 +284,13 @@ class SQLAlchemyDB(object):
 
     def get_classifier_examples(self, name):
         with self.session_scope() as session:
-            return session.query(Classification).filter(Classifier.name == name).filter(
-                Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id)
+            return session.query(Classification).order_by(Classification.creation).filter(
+                Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
+                Classification.label_id == Label.id)
 
     def get_dataset_documents(self, name):
         with self.session_scope() as session:
-            return session.query(Document).filter(Dataset.name == name).filter(
+            return session.query(Document).order_by(Document.external_id).filter(Dataset.name == name).filter(
                 Document.dataset_id == Dataset.id)
 
     def get_dataset_document(self, name, position):
@@ -284,7 +300,38 @@ class SQLAlchemyDB(object):
             session.expunge(document)
             return document
 
-    def version(self):
-        return "0.1.0"
+    def get_jobs(self, starttime=None):
+        if starttime is None:
+            starttime = datetime.datetime.now() - datetime.timedelta(days=1)
+        with self.session_scope() as session:
+            return session.query(Job).order_by(Job.creation.desc()).filter(Job.creation > starttime)
+
+    def create_job(self, description):
+        with self.session_scope() as session:
+            job = Job(description)
+            session.add(job)
+            session.commit()
+            return job.id
+
+    def set_job_completion_time(self, job_id, completion=datetime.datetime.now()):
+        with self.session_scope() as session:
+            job = session.query(Job).filter(Job.id == job_id).one()
+            job.completion = completion
+
+    def set_job_start_time(self, job_id, start=datetime.datetime.now()):
+        with self.session_scope() as session:
+            job = session.query(Job).filter(Job.id == job_id).one()
+            job.start = start
+
+    def set_job_status(self, job_id, status):
+        with self.session_scope() as session:
+            job = session.query(Job).filter(Job.id == job_id).one()
+            job.status = status
+
+    @staticmethod
+    def version():
+        return "0.2.0"
+
+
 
 

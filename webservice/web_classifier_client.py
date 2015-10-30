@@ -11,6 +11,7 @@ JS_DIR = os.path.join(MEDIA_DIR, 'js')
 TEMPLATE_DIR = os.path.join(MEDIA_DIR, 'template')
 lookup = TemplateLookup(directories=[TEMPLATE_DIR])
 
+
 class WebClassifierClient(object):
     def __init__(self, db_connection_string):
         self._db = SQLAlchemyDB(db_connection_string)
@@ -37,7 +38,7 @@ class WebClassifierClient(object):
         return template.render()
 
     @cherrypy.expose
-    def browseandlabel(self,name=None):
+    def browseandlabel(self, name=None):
         if name is None:
             raise cherrypy.HTTPRedirect('/datasets')
 
@@ -58,6 +59,16 @@ class WebClassifierClient(object):
         return template.render()
 
     @cherrypy.expose
+    def jobs(self):
+        template = lookup.get_template('jobs.html')
+        jobslist = list()
+        for job in self._db.get_jobs():
+            jobslist.append((job.id, job.description, job.creation, job.start, job.completion, job.status))
+        args = {}
+        args['jobs'] = jobslist
+        return template.render(**args)
+
+    @cherrypy.expose
     def about(self):
         template = lookup.get_template('about.html')
         return template.render()
@@ -66,17 +77,18 @@ class WebClassifierClient(object):
     def version(self):
         return "0.2.0"
 
+
 config = {
-          '/css':
-                {'tools.staticdir.on': True,
-                 'tools.staticdir.dir': CSS_DIR,
-                },
-          '/js':
-                {'tools.staticdir.on': True,
-                 'tools.staticdir.dir': JS_DIR,
-                },
-        }
+    '/css':
+        {'tools.staticdir.on': True,
+         'tools.staticdir.dir': CSS_DIR,
+        },
+    '/js':
+        {'tools.staticdir.on': True,
+         'tools.staticdir.dir': JS_DIR,
+        },
+}
 
 if __name__ == "__main__":
     with WebClassifierClient('sqlite:///%s' % 'test.db') as wcc:
-        cherrypy.quickstart(wcc, '/app', config = config)
+        cherrypy.quickstart(wcc, '/app', config=config)
