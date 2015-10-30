@@ -1,0 +1,15 @@
+<%inherit file="base.html" />
+<div id="main" class="padded ui-widget ui-widget-content">
+    <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
+    <div class="padded ui-widget-header ui-corner-all">Background jobs:</div>
+    <div class="job">
+    % for job in jobs:
+        <p>
+            %for item in job:
+            <span>${item}</span>
+            %endfor
+        </p>
+    % endfor
+    </div>
+    </div>
+</div>

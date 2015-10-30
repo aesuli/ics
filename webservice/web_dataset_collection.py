@@ -2,10 +2,13 @@ import csv
 import os
 import shutil
 from uuid import uuid4
+
 import cherrypy
 from cherrypy.lib.static import serve_download
+
 from db.sqlalchemydb import SQLAlchemyDB
-from webservice.util import get_fully_portable_file_name, logged_call
+from util.util import get_fully_portable_file_name, logged_call
+
 
 __author__ = 'Andrea Esuli'
 

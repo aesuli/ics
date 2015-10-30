@@ -1,4 +1,5 @@
 TODO
+- duplicate classifiers
 - document datasets
     * classification
 - file export
@@ -7,8 +8,8 @@ TODO
     * purge unreferenced documents
     * periodically clean download directory
 - batch/background processing
+    * jobs update
     * classification
-    * training with uploaded examples
 - check for sql/js/etc code injection
 - "classifiers" page
     * accuracy estimates
@@ -35,9 +36,12 @@ TOMONITOR
 - strip input strings
 
 DONE
--logging
+- lock classifiers on update
+- logging
 - batch/background processing
+    * jobs db
     * upload
+    * training with uploaded examples
 - "browse and label" page
 - "classifiers" page
     * simple list, info and deletion
