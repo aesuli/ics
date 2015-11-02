@@ -36,7 +36,16 @@
                         if($('#gotdatasets').length==0)
                             $('#datasets\\_list').html('<div id="gotdatasets" class="padded ui-widget-header ui-corner-all">Avalilable datasets:</div>');
                         for(var i = 0;i<msg.length;++i) {
-                            var datasetdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'dataset_'+msg[i].name+'\'><div id=\'dataset_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all dataset_name\'>'+msg[i].name+'</div><div class=\'del_button_'+msg[i].name+' right\'>Delete</div><div class=\'download_button_'+msg[i].name+' right\'>Download dataset</div><div class=\'upload_button_'+msg[i].name+' right\'>Select for upload</div><div class=\'browse_button_'+msg[i].name+' right\'>Browse &amp; label</div><div class="small margined">Size: '+msg[i].size+'</div><div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div></div>');
+                            var datasetdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'dataset_'+msg[i].name+'\'>\
+                            <div id=\'dataset_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all dataset_name\'>'+msg[i].name+'</div>\
+                            <div class=\'del_button_'+msg[i].name+' right\'>Delete</div>\
+                            <div class=\'download_button_'+msg[i].name+' right\'>Download</div>\
+                            <div class=\'upload_button_'+msg[i].name+' right\'>Select for upload</div>\
+                            <div class=\'classify_button_'+msg[i].name+' right\'>Classify</div>\
+                            <div class=\'browse_button_'+msg[i].name+' right\'>Browse &amp; label</div>\
+                            <div class="small margined">Size: '+msg[i].size+'</div>\
+                            <div class="small margined">Created: '+msg[i].created+'</div>\
+                            <div class="small margined">Updated: '+msg[i].updated+'</div></div>');
                             if($('#dataset\\_'+msg[i].name).length==0) {
                                 $('#datasets\\_list').append(datasetdiv)
                             }
@@ -49,6 +58,14 @@
                                     var dataset_name = msg[i].name;
                                     return function() {
                                         window.location.href = '/browseandlabel/'+dataset_name;
+                                    }
+                            })());
+                            $('.classify\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
+                            $('.classify\\_button\\_'+msg[i].name).click(
+                                (function() {
+                                    var dataset_name = msg[i].name;
+                                    return function() {
+                                        window.location.href = '/classify/'+dataset_name;
                                     }
                             })());
                             $('.upload\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });

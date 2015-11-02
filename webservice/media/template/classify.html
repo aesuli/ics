@@ -1,0 +1,101 @@
+<%inherit file="base.html" />
+<%block name="head">
+    <script type="text/javascript">
+       update_interval=10000
+       delay_interval=500
+        last_update = 0
+        function timed_update() {
+            now = Date.now();
+            if(now-last_update>update_interval)
+                update();
+            setTimeout(timed_update,update_interval);
+        }
+
+        datasetname = 'NULL';
+
+        function update() {
+            last_update = Date.now();
+
+            $.ajax({
+                type:'POST',
+                url:'/service/classifiers/',
+                dataType: 'json'})
+            .done(function(msg) {
+                    //TODO list classifications
+                    //TODO list pending classifications
+                    $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
+                        var found = false;
+                        for(var i = 0;i<msg.length;++i) {
+                            if($(item).text()==msg[i].name) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if(!found) {
+                            $('#suggestions\\_'+$(item).text()).remove();
+                            $(item).parent().remove();
+                        }
+                    });
+                    if(msg.length==0) {
+                        $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifiers available</div>');
+                    }
+                    else {
+                        if($('#gotclassifiers').length==0)
+                            $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
+                        for(var i = 0;i<msg.length;++i) {
+                            if($('#classifier\\_'+msg[i].name).length==0) {
+                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div><div class=\'use_button_'+msg[i].name+' right\'>Use</div></div>');
+                                $('.use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-star'} });
+                                $('.use\\_button\\_'+msg[i].name).click(
+                                    (function() {
+                                        var classifier_name = msg[i].name;
+                                        return function() {
+                                            var item = $(this).siblings('.classifier\\_name');
+                                            item.toggleClass('ui-state-highlight');
+                                        }
+                                })());
+                            }
+                        }
+                        if($('#classify\\_button').length==0) {
+                            $('#classifiers\\_list').append('<div id="classify_button">Classify the dataset</div>');
+                            $('#classify\\_button').button({ icons: {primary:'ui-icon-tag'} });
+                            $('#classify\\_button').click(classify);
+                        }
+                    }
+            });
+        }
+
+        function classify() {
+         //TODO
+         // get selected classifiers
+         // ajax classify
+         alert('aa');
+        }
+
+
+        $( document ).ready(function() {
+            var pathname = window.location.pathname;
+            datasetname = pathname.substring(pathname.lastIndexOf('/')+1)
+            $('#datasetname').text(datasetname);
+
+            $( "input[type=submit]" ).button();
+
+            //$('#force\\_update').button().click(update);
+
+            timed_update();
+        });
+    </script>
+</%block>
+
+<div id="main" class="padded ui-widget ui-widget-content">
+    <div id="sidebar">
+        <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
+        </div>
+        <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
+        </div>-->
+    </div>
+    <div id="center">
+        <div class="padded ui-widget-header ui-corner-all">Download classification of '<span id="datasetname">NULL</span>':</div>
+        <div id="classification" class="margined padded ui-widget-content suggestion-container"></div>
+    </div>
+</div>

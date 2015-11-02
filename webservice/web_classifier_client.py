@@ -49,6 +49,17 @@ class WebClassifierClient(object):
         return template.render()
 
     @cherrypy.expose
+    def classify(self, name=None):
+        if name is None:
+            raise cherrypy.HTTPRedirect('/datasets')
+
+        if not self._db.dataset_exists(name):
+            raise cherrypy.HTTPRedirect('/datasets')
+
+        template = lookup.get_template('classify.html')
+        return template.render()
+
+    @cherrypy.expose
     def classifiers(self):
         template = lookup.get_template('classifiers.html')
         return template.render()

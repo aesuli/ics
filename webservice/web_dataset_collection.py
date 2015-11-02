@@ -1,19 +1,24 @@
 import csv
+import json
 import os
 import shutil
 from uuid import uuid4
 
 import cherrypy
 from cherrypy.lib.static import serve_download
+import numpy
 
 from db.sqlalchemydb import SQLAlchemyDB
 from util.util import get_fully_portable_file_name, logged_call
+from webservice.background_processor import BackgroundProcessor
 
 
 __author__ = 'Andrea Esuli'
 
 DOWNLOAD_DIR = os.path.join(os.path.abspath('.'), 'downloads')
 UPLOAD_DIR = os.path.join(os.path.abspath('.'), 'uploads')
+
+MAX_BATCH_SIZE = 1000
 
 
 class WebDatasetCollection(object):
@@ -80,7 +85,7 @@ class WebDatasetCollection(object):
     def delete(self, name):
         try:
             self._db.delete_dataset(name)
-        except KeyError as e:
+        except KeyError:
             cherrypy.response.status = 404
             return '%s does not exits' % name
         else:
@@ -120,7 +125,7 @@ class WebDatasetCollection(object):
             return '\'%s\' does not exits' % name
         document = self._db.get_dataset_document(name, position)
         if document is not None:
-            result = {}
+            result = dict()
             result['external_id'] = document.external_id
             result['text'] = document.text
             result['created'] = str(document.creation)
@@ -132,28 +137,57 @@ class WebDatasetCollection(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def classify(self, **data):
-        # TODO
-        raise NotImplementedError()
-        # try:
-        # name = data['name']
-        # except KeyError:
-        # cherrypy.response.status = 400
-        # return 'Must specify a name'
-        # try:
-        # X = data['X']
-        # except KeyError:
-        #     try:
-        #         X = data['X[]']
-        #     except KeyError:
-        #         cherrypy.response.status = 400
-        #         return 'Must specify a vector of strings (X)'
-        # X = numpy.atleast_1d(X)
-        # clf = self._db.get_classifier_model(name)
-        # return [[y] for y in clf.predict(X)]
+        try:
+            name = data['name']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a dataset name'
+        try:
+            classifiers = data['classifiers']
+        except KeyError:
+            try:
+                classifiers = data['classifiers[]']
+            except KeyError:
+                cherrypy.response.status = 400
+                return 'Must specify a vector of names of classifiers'
+        classifiers = numpy.atleast_1d(classifiers).tolist()
+
+        filename = 'dataset %s classified %s .csv' % (
+            name, "-".join(classifiers), str(self._db.get_most_recent_classifier_update_time(classifiers)))
+        filename = get_fully_portable_file_name(filename)
+        fullpath = os.path.join(DOWNLOAD_DIR, filename)
+        if os.path.exists(fullpath):
+            serve_download(fullpath)
+
+        with open(fullpath, 'w') as file:
+            writer = csv.writer(file, lineterminator='\n')
+            header = list()
+            for classifier in classifiers:
+                classifiers_header = dict()
+                classifiers_header['name'] = name
+                classifiers_header['classes'] = self._db.get_classifier_classes(classifier)
+                header.append(classifiers_header)
+            writer.writerow(json.dump(header))
+
+            X = list()
+            ys = list()
+            for document in self._db.get_dataset_documents():
+                X.append(document.text)
+                if len(X) >= MAX_BATCH_SIZE:
+                    for classifier in classifiers:
+                        y = self._db.classify(classifier, X)
+                        #TODO add classifier label
+                    #TODO write results in file
+                    X = list()
+            if len(X) > 0:
+                for classifier in classifiers:
+                    y = self._db.classify(classifier, X)
+                    #TODO add classifier label
+                #TODO write results in file
 
     @cherrypy.expose
     def version(self):
-        return "0.1.1 (db: %s)" % self._db.version()
+        return "0.2.1 (db: %s)" % self._db.version()
 
 
 @logged_call
@@ -173,5 +207,5 @@ def _create_documents(db_connection_string, dataset_name, filename):
 
 
 if __name__ == "__main__":
-    with WebDatasetCollection('sqlite:///%s' % 'test.db') as wcc:
+    with WebDatasetCollection('sqlite:///%s' % 'test.db', BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
         cherrypy.quickstart(wcc, '/service')

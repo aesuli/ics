@@ -39,7 +39,9 @@
                             $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
                             if($('#classifier\\_'+msg[i].name).length==0) {
-                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div><div class=\'del_button_'+msg[i].name+' right\'>Delete</div><div class=\'use_button_'+msg[i].name+' right\'>Use</div></div>');
+                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
+                                <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
+                                <div class=\'use_button_'+msg[i].name+' right\'>Use</div></div>');
                                 $('.use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-star'} });
                                 $('.use\\_button\\_'+msg[i].name).click(
                                     (function() {
@@ -53,12 +55,9 @@
                                             }
                                             else {
                                                 $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
-                                                check_autobrowse();
                                             }
                                         }
                                 })());
-                                $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
-                                $('.del\\_button\\_'+msg[i].name).click(delete_classifier);
                                 var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all">'+msg[i].name+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
                                 suggestion_div.appendTo('#pool');
                                 for(var j = 0;j<msg[i].classes.length;++j) {
@@ -74,7 +73,6 @@
                                                 data: { name: classifier_name, X: [last_text], y: [class_name] }})
                                             .done(function() {
                                                     $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
-                                                    check_autobrowse();
                                                 })
                                             .fail(function(msg) {
                                                     custom_alert(msg);
@@ -101,7 +99,6 @@
                                 $('#suggestions div div .skip').each(function(i,item) {
                                     item.click();
                                 });
-                                check_autobrowse();
                             });
                             $('#suggestions').append(skip_all);
                         }
@@ -143,26 +140,6 @@
             return false ;
         };
 
-        function delete_classifier() {
-            if(!confirm('Please confirm the DELETE request, proceed?'))
-                return false;
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
-            $('#classifier\\_'+classifier_name).hide();
-            $('#suggestions\\_'+classifier_name).hide();
-            $.ajax({
-                type:'POST',
-                url:'/service/classifiers/delete',
-                data: { name : classifier_name },
-            })
-            .done(function () {
-                update(); classify(true);
-            })
-            .fail(function () {
-                    $('#classifier\\_'+classifier_name).show();
-                        $('#suggestions\\_'+classifier_name).show();
-            });
-        };
-
         last_text = ""
         function classify(force) {
             text = $("#textbox").val();
@@ -176,7 +153,7 @@
                                 data: { name: classifier_name, X: [text] },
                         dataType: 'json'})
                     .done(function(msg) {
-                                    var assigned = msg[0][0];
+                                    var assigned = msg[0];
                                     $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned')
                                     $('#assignments_'+classifier_name).children('.scoreline').addClass('not_relevant')
                                     $('#suggestion\\_'+classifier_name+'\\_'+assigned).removeClass('not_relevant')
