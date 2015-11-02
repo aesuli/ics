@@ -66,10 +66,16 @@
         }
 
         function classify() {
-         //TODO
-         // get selected classifiers
-         // ajax classify
-         alert('aa');
+            classifiers = []
+            $('.ui-state-highlight').each(function(i,item) {
+                classifiers.push($(item).text());
+            })
+            $.ajax({
+                type:'POST',
+                url:'/service/datasets/classify',
+                data: { name : datasetname, classifiers : classifiers }})
+            .done(update)
+            .fail(function (msg) { custom_alert(msg.responseText);  });
         }
 
 
