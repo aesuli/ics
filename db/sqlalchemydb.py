@@ -91,7 +91,7 @@ class Job(Base):
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     start = Column(DateTime(timezone=True))
     completion = Column(DateTime(timezone=True))
-    status = Column(String(10),default='pending')
+    status = Column(String(10), default='pending')
 
     def __init__(self, description):
         self.description = description
@@ -223,6 +223,16 @@ class SQLAlchemyDB(object):
             else:
                 classification.label_id = label_id
 
+    def classify(self, classifier_name, X):
+        clf = self.get_classifier_model(classifier_name)
+        y = list()
+        for x in X:
+            label = self.get_label(classifier_name, x)
+            if label is not None:
+                y.append(label)
+            else:
+                y.append(clf.predict([x])[0])
+        return y
 
     def get_label(self, classifier_name, content):
         with self.session_scope() as session:
@@ -328,9 +338,15 @@ class SQLAlchemyDB(object):
             job = session.query(Job).filter(Job.id == job_id).one()
             job.status = status
 
+    def get_most_recent_classifier_update_time(self, classifiers):
+        with self.session_scope() as session:
+            return session.query(Classifier.last_updated).filter(Classifier.name in classifiers).order_by(
+                Classifier.last_updated.desc()).first()
+
     @staticmethod
     def version():
-        return "0.2.0"
+        return "0.2.1"
+
 
 
 

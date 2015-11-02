@@ -12,6 +12,7 @@ from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB
 from util.lock import FileLock
 from util.util import get_fully_portable_file_name, logged_call, logged_call_with_args
+from webservice.background_processor import BackgroundProcessor
 
 
 __author__ = 'Andrea Esuli'
@@ -19,6 +20,8 @@ __author__ = 'Andrea Esuli'
 DOWNLOAD_DIR = os.path.join(os.path.abspath('.'), 'downloads')
 UPLOAD_DIR = os.path.join(os.path.abspath('.'), 'uploads')
 LOCKS_DIR = os.path.join(os.path.abspath('.'), 'locks')
+
+MAX_BATCH_SIZE = 1000
 
 
 class WebClassifierCollection(object):
@@ -138,8 +141,7 @@ class WebClassifierCollection(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def classes(self, name):
-        clf = self._db.get_classifier_model(name)
-        return list(clf.classes())
+        return self._db.get_classifier_classes(name)
 
     @cherrypy.expose
     def download(self, name):
@@ -150,7 +152,7 @@ class WebClassifierCollection(object):
         filename = get_fully_portable_file_name(filename)
         fullpath = os.path.join(DOWNLOAD_DIR, filename)
         if not os.path.isfile(fullpath):
-            header = {}
+            header = dict()
             header['name'] = name
             header['classes'] = self._db.get_classifier_classes(name)
             try:
@@ -195,7 +197,8 @@ class WebClassifierCollection(object):
                     if len(classes) < 2:
                         cherrypy.response.status = 400
                         return 'Must specify at least two classes for classifier \'%s\'' % classifier_name
-                    self._background_processor.put(_create_model, (self._db_connection_string, classifier_name, classes))
+                    self._background_processor.put(_create_model,
+                                                   (self._db_connection_string, classifier_name, classes))
                 else:
                     if not len(set(self._db.get_classifier_classes(classifier_name)).intersection(classes)) == len(
                             classes):
@@ -203,8 +206,10 @@ class WebClassifierCollection(object):
                         return 'Existing classifier \'%s\' uses a different set of classes than input file' % classifier_name
 
         for classifier_name in active_classifiers:
-            self._background_processor.put(_update_from_file, (_update_model, self._db_connection_string, fullpath, classifier_name))
-            self._background_processor.put(_update_from_file, (_update_trainingset, self._db_connection_string, fullpath, classifier_name))
+            self._background_processor.put(_update_from_file,
+                                           (_update_model, self._db_connection_string, fullpath, classifier_name))
+            self._background_processor.put(_update_from_file,
+                                           (_update_trainingset, self._db_connection_string, fullpath, classifier_name))
 
         return 'Ok'
 
@@ -225,16 +230,7 @@ class WebClassifierCollection(object):
                 cherrypy.response.status = 400
                 return 'Must specify a vector of strings (X)'
         X = numpy.atleast_1d(X)
-        clf = self._db.get_classifier_model(name)
-        return [[y] for y in [self._classify(name, clf, x) for x in X]]
-
-    def _classify(self, classifier_name, model, x):
-        label = self._db.get_label(classifier_name, x)
-        if label is not None:
-            return label
-        if model is not None:
-            return model.predict([x])[0]
-        return None
+        return self._db.classify(name, X)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -264,9 +260,6 @@ class WebClassifierCollection(object):
     @cherrypy.expose
     def version(self):
         return "0.3.1 (db: %s)" % self._db.version()
-
-
-MAX_BATCH_SIZE = 1000
 
 
 @logged_call
@@ -303,7 +296,10 @@ def _update_from_file(update_function, db_connection_string, filename, classifie
                     example_classifier_name, label = classifier_label.split(':')
                 except:
                     continue
-                if example_classifier_name == classifier_name:
+                example_classifier_name = example_classifier_name.strip()
+                label = label.strip()
+                if example_classifier_name is not None and example_classifier_name == classifier_name and \
+                                label is not None and len(label) > 0:
                     X.append(text)
                     y.append(label)
                     break
@@ -313,8 +309,7 @@ def _update_from_file(update_function, db_connection_string, filename, classifie
                 y = []
         if len(X) > 0:
             update_function(db_connection_string, classifier_name, X, y)
-            X = []
-            y = []
+
 
 @logged_call_with_args
 def _create_model(db_connection_string, name, classes):
@@ -326,13 +321,13 @@ def _create_model(db_connection_string, name, classes):
 
 
 def _lock_model(name):
-    return FileLock(os.path.join(LOCKS_DIR,'%s.model.lock'%name))
+    return FileLock(os.path.join(LOCKS_DIR, '%s.model.lock' % name))
 
 
 def _lock_trainingset(name):
-    return FileLock(os.path.join(LOCKS_DIR,'%s.trainingset.lock'%name))
+    return FileLock(os.path.join(LOCKS_DIR, '%s.trainingset.lock' % name))
 
 
 if __name__ == "__main__":
-    with WebClassifierCollection('sqlite:///%s' % 'test.db') as wcc:
+    with WebClassifierCollection('sqlite:///%s' % 'test.db', BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
         cherrypy.quickstart(wcc, '/service')

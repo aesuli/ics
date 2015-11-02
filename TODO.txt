@@ -1,4 +1,5 @@
 TODO
+- ajax jobs, not template
 - duplicate classifiers
 - document datasets
     * classification
