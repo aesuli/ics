@@ -3,15 +3,12 @@ import json
 import os
 import shutil
 from uuid import uuid4
-
 import cherrypy
 from cherrypy.lib.static import serve_download
 import numpy
-
 from db.sqlalchemydb import SQLAlchemyDB
 from util.util import get_fully_portable_file_name, logged_call
 from webservice.background_processor import BackgroundProcessor
-
 
 __author__ = 'Andrea Esuli'
 
@@ -135,10 +132,9 @@ class WebDatasetCollection(object):
             return 'Position %i does not exits in \'%s\'' % (position, name)
 
     @cherrypy.expose
-    @cherrypy.tools.json_out()
     def classify(self, **data):
         try:
-            name = data['name']
+            datasetname = data['name']
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a dataset name'
@@ -152,38 +148,52 @@ class WebDatasetCollection(object):
                 return 'Must specify a vector of names of classifiers'
         classifiers = numpy.atleast_1d(classifiers).tolist()
 
-        filename = 'dataset %s classified %s .csv' % (
-            name, "-".join(classifiers), str(self._db.get_most_recent_classifier_update_time(classifiers)))
+        last_update_time = self._db.get_most_recent_classifier_update_time(classifiers)
+        dataset_update_time = self._db.get_dataset_last_update_time(datasetname)
+        if last_update_time is None or last_update_time < dataset_update_time:
+            last_update_time = dataset_update_time
+
+        filename = 'dataset %s classified %s %s.csv' % (
+            datasetname, "-".join(classifiers), str(last_update_time))
         filename = get_fully_portable_file_name(filename)
         fullpath = os.path.join(DOWNLOAD_DIR, filename)
         if os.path.exists(fullpath):
-            serve_download(fullpath)
+            cherrypy.response.status = 409
+            return 'This classification has been already requested.'
 
+        # TODO do it in background
         with open(fullpath, 'w') as file:
             writer = csv.writer(file, lineterminator='\n')
             header = list()
             for classifier in classifiers:
                 classifiers_header = dict()
-                classifiers_header['name'] = name
+                classifiers_header['name'] = classifier
                 classifiers_header['classes'] = self._db.get_classifier_classes(classifier)
                 header.append(classifiers_header)
-            writer.writerow(json.dump(header))
+            writer.writerow([json.dumps(header)])
 
             X = list()
-            ys = list()
-            for document in self._db.get_dataset_documents():
+            id = list()
+            for document in self._db.get_dataset_documents(datasetname):
+                id.append(document.external_id)
                 X.append(document.text)
                 if len(X) >= MAX_BATCH_SIZE:
-                    for classifier in classifiers:
-                        y = self._db.classify(classifier, X)
-                        #TODO add classifier label
-                    #TODO write results in file
+                    self._classify_and_write(id, X, classifiers, writer)
                     X = list()
+                    id = list()
             if len(X) > 0:
-                for classifier in classifiers:
-                    y = self._db.classify(classifier, X)
-                    #TODO add classifier label
-                #TODO write results in file
+                self._classify_and_write(id, X, classifiers, writer)
+
+        return 'Ok'
+
+    def _classify_and_write(self, id, X, classifiers, writer):
+        cols = list()
+        cols.append(id)
+        cols.append(X)
+        for classifier in classifiers:
+            cols.append(['%s:%s' % (classifier, y) for y in self._db.classify(classifier, X)])
+        for row in zip(*cols):
+            writer.writerow(row)
 
     @cherrypy.expose
     def version(self):
