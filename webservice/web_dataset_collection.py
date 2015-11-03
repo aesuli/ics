@@ -161,43 +161,76 @@ class WebDatasetCollection(object):
             cherrypy.response.status = 409
             return 'This classification has been already requested.'
 
-        # TODO do it in background
+        job_id = self._background_processor.put(_classify, (self._db_connection_string, datasetname, classifiers, fullpath),
+                                       'classify dataset \'%s\' with %s' % (
+                                       datasetname, ', '.join(['\'%s\'' % classifier for classifier in classifiers])))
+
+        self._db.create_classification_job(datasetname, classifiers, job_id, fullpath)
+
+        return 'Ok'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def get_classification_jobs(self,name):
+        result = list()
+        for classification_job in self._db.get_classification_jobs(name):
+            classification_job_info = dict()
+            classification_job_info['dataset'] = name
+            classification_job_info['classifiers'] = classification_job.classifiers
+            classification_job_info['id'] = classification_job.id
+            classification_job_info['status'] = classification_job.job.status
+            classification_job_info['creation'] = classification_job.job.creation
+            classification_job_info['completion'] = classification_job.job.completion
+            result.append(classification_job_info)
+        return result
+
+    @cherrypy.expose
+    def download_classification(self,id):
+        filename = self._db.get_classification_job_file(id)
+        if filename is None:
+            cherrypy.response.status = 404
+            return "File not found"
+        serve_download(filename)
+
+    @cherrypy.expose
+    def version(self):
+        return "0.2.2 (db: %s)" % self._db.version()
+
+
+@logged_call
+def _classify(db_connection_string, classifiers, datasetname, fullpath):
+    with SQLAlchemyDB(db_connection_string) as db:
         with open(fullpath, 'w') as file:
             writer = csv.writer(file, lineterminator='\n')
             header = list()
             for classifier in classifiers:
                 classifiers_header = dict()
                 classifiers_header['name'] = classifier
-                classifiers_header['classes'] = self._db.get_classifier_classes(classifier)
+                classifiers_header['classes'] = db.get_classifier_classes(classifier)
                 header.append(classifiers_header)
             writer.writerow([json.dumps(header)])
 
             X = list()
             id = list()
-            for document in self._db.get_dataset_documents(datasetname):
+            for document in db.get_dataset_documents(datasetname):
                 id.append(document.external_id)
                 X.append(document.text)
                 if len(X) >= MAX_BATCH_SIZE:
-                    self._classify_and_write(id, X, classifiers, writer)
+                    _classify_and_write(db, id, X, classifiers, writer)
                     X = list()
                     id = list()
             if len(X) > 0:
-                self._classify_and_write(id, X, classifiers, writer)
+                _classify_and_write(db, id, X, classifiers, writer)
 
-        return 'Ok'
 
-    def _classify_and_write(self, id, X, classifiers, writer):
-        cols = list()
-        cols.append(id)
-        cols.append(X)
-        for classifier in classifiers:
-            cols.append(['%s:%s' % (classifier, y) for y in self._db.classify(classifier, X)])
-        for row in zip(*cols):
-            writer.writerow(row)
-
-    @cherrypy.expose
-    def version(self):
-        return "0.2.1 (db: %s)" % self._db.version()
+def _classify_and_write(db, id, X, classifiers, writer):
+    cols = list()
+    cols.append(id)
+    cols.append(X)
+    for classifier in classifiers:
+        cols.append(['%s:%s' % (classifier, y) for y in db.classify(classifier, X)])
+    for row in zip(*cols):
+        writer.writerow(row)
 
 
 @logged_call

@@ -3,17 +3,14 @@ import json
 import os
 import shutil
 from uuid import uuid4
-
 import cherrypy
 from cherrypy.lib.static import serve_download
 import numpy
-
 from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB
 from util.lock import FileLock
 from util.util import get_fully_portable_file_name, logged_call, logged_call_with_args
 from webservice.background_processor import BackgroundProcessor
-
 
 __author__ = 'Andrea Esuli'
 
@@ -123,8 +120,9 @@ class WebClassifierCollection(object):
             cherrypy.response.status = 400
             return 'Must specify the same numbers of strings and labels'
 
-        self._background_processor.put(_update_model, (self._db_connection_string, name, X, y))
-        self._background_processor.put(_update_trainingset, (self._db_connection_string, name, X, y))
+        self._background_processor.put(_update_model, (self._db_connection_string, name, X, y), 'update model')
+        self._background_processor.put(_update_trainingset, (self._db_connection_string, name, X, y),
+                                       'update training set')
 
         return 'Ok'
 
@@ -198,7 +196,8 @@ class WebClassifierCollection(object):
                         cherrypy.response.status = 400
                         return 'Must specify at least two classes for classifier \'%s\'' % classifier_name
                     self._background_processor.put(_create_model,
-                                                   (self._db_connection_string, classifier_name, classes))
+                                                   (self._db_connection_string, classifier_name, classes),
+                                                   'create model \'%s\'', classifier_name)
                 else:
                     if not len(set(self._db.get_classifier_classes(classifier_name)).intersection(classes)) == len(
                             classes):
@@ -207,9 +206,11 @@ class WebClassifierCollection(object):
 
         for classifier_name in active_classifiers:
             self._background_processor.put(_update_from_file,
-                                           (_update_model, self._db_connection_string, fullpath, classifier_name))
+                                           (_update_model, self._db_connection_string, fullpath, classifier_name),
+                                           'update model \'%s\' from file' % classifier_name)
             self._background_processor.put(_update_from_file,
-                                           (_update_trainingset, self._db_connection_string, fullpath, classifier_name))
+                                           (_update_trainingset, self._db_connection_string, fullpath, classifier_name),
+                                           'update training set \'%s\' from file' % classifier_name)
 
         return 'Ok'
 
