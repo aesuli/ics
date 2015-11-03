@@ -1,10 +1,11 @@
 TODO
+- file export
+    * classification jobs page
+    * use get_classification_jobs(name) in interface
+    * dataset download with classification
+    * use download_classification(id) in interface
 - ajax jobs, not template
 - duplicate classifiers
-- document datasets
-    * classification
-- file export
-    * dataset download with classification
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
@@ -14,7 +15,6 @@ TODO
 - check for sql/js/etc code injection
 - "classifiers" page
     * accuracy estimates
-- classification jobs page
 - versioning
 - backup of deleted data
 - twitter integration
@@ -58,6 +58,7 @@ DONE
     * definition in db
     * creation
     * deletion
+    * classification
 - optimize db use
     * return feedback classifications for human-labeled docs
     * remove text duplication

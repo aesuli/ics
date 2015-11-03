@@ -71,3 +71,4 @@ class BackgroundProcessor(Thread):
             description = function.__name__
         job_id = self._db.create_job(description)
         self._queue.put(('action', job_id, function, args, kwargs))
+        return job_id

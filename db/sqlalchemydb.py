@@ -91,10 +91,28 @@ class Job(Base):
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     start = Column(DateTime(timezone=True))
     completion = Column(DateTime(timezone=True))
-    status = Column(String(10), default='pending')
+    status = Column(String(10), default='job')
 
     def __init__(self, description):
         self.description = description
+
+
+class ClassificationJob(Job):
+    __tablename__ = 'classificationjob'
+    id = Column(Integer(), primary_key=True)
+    dataset_id = Column(Integer(), ForeignKey('dataset.id', onupdate='CASCADE', ondelete='CASCADE'),
+                        nullable=False)
+    dataset = relationship('Dataset', backref='classifications')
+    job_id = Column(Integer(), ForeignKey('job.id', onupdate='CASCADE', ondelete='CASCADE'),
+                    nullable=False)
+    classifiers = Column(Text())
+    filename = Column(Text())
+
+    def __init__(self, dataset_id, classifiers, job_id, filename):
+        self.dataset_id = dataset_id
+        self.classifiers = classifiers
+        self.job_id = job_id
+        self.filename = filename
 
 
 class SQLAlchemyDB(object):
@@ -121,7 +139,7 @@ class SQLAlchemyDB(object):
         self.close()
 
     def close(self):
-        self._sessionmaker.close_all()
+        self._sessionmaker.session_factory.close_all()
 
     @contextmanager
     def session_scope(self):
@@ -343,11 +361,20 @@ class SQLAlchemyDB(object):
             return session.query(Classifier.last_updated).filter(Classifier.name in classifiers).order_by(
                 Classifier.last_updated.desc()).first()
 
+    def create_classification_job(self, datasetname, classifiers, job_id, fullpath):
+        with self.session_scope() as session:
+            classification_job = ClassificationJob(datasetname,', '.join(classifiers), job_id, fullpath)
+            session.add(classification_job)
+
+    def get_classification_jobs(self, name):
+        with self.session_scope() as session:
+            return session.query(ClassificationJob).filter(ClassificationJob.dataset_id == Dataset.id).filter(
+                Dataset.name == name)
+
+    def get_classification_job_file(self, id):
+        with self.session_scope() as session:
+            return session.query(ClassificationJob.filename).filter(ClassificationJob.id == id)
+
     @staticmethod
     def version():
-        return "0.2.1"
-
-
-
-
-
+        return "0.2.2"
