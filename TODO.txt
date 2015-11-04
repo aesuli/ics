@@ -1,29 +1,20 @@
 TODO
-- file export
-    * classification jobs page
-    * use get_classification_jobs(name) in interface
-    * dataset download with classification
-    * use download_classification(id) in interface
-- ajax jobs, not template
-- duplicate classifiers
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
-- batch/background processing
-    * jobs update
-    * classification
 - check for sql/js/etc code injection
 - "classifiers" page
     * accuracy estimates
+- other tools:
+    * terminology extraction
 - versioning
 - backup of deleted data
 - twitter integration
-- switch to angular.js
+- switch to angular.js?
 - memory problems:
     * 64 bit fixes it?
     * queue of update/classification requests to save memory?
 - richer classifier info
-    * number of examples observed
     * estimated accuracy
 - templates (mako)
     * footer
@@ -37,12 +28,15 @@ TOMONITOR
 - strip input strings
 
 DONE
+- duplicate classifiers
 - lock classifiers on update
 - logging
 - batch/background processing
     * jobs db
     * upload
     * training with uploaded examples
+    * jobs update
+    * classification
 - "browse and label" page
 - "classifiers" page
     * simple list, info and deletion
@@ -54,6 +48,9 @@ DONE
 - file export
     * examples for a classifier
     * dataset download
+    * classification jobs page
+    * dataset download with classification
+- ajax jobs, not template
 - document datasets
     * definition in db
     * creation
@@ -74,3 +71,4 @@ DONE
 - fix missing cascade on labels (switched to postgres)
 - richer classifier info
     * last update
+    * number of examples observed

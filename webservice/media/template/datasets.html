@@ -122,19 +122,16 @@
             $('#dataset\\_'+dataset_name).hide();
             $.ajax({
                 type:'POST',
-                url:'/service/datasets/delete',
-                data: { name : dataset_name },
-                success: function () {update(); },
-                failure: function () {
+                url:'/service/datasets/delete/'+dataset_name})
+            .done(update)
+            .fail(function () {
                     $('#dataset\\_'+dataset_name).show();
-                }
             });
         };
 
         function download_dataset() {
             var dataset_name = $(this).siblings('.dataset\\_name').text();
-            var form = $('<form></form>').attr('action', '/service/datasets/download').attr('method', 'post');
-            form.append($("<input></input>").attr('type', 'hidden').attr('name', 'name').attr('value', dataset_name));
+            var form = $('<form></form>').attr('action', '/service/datasets/download/'+dataset_name).attr('method', 'post');
             form.appendTo('body').submit().remove();
         };
 

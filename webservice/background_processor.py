@@ -33,10 +33,11 @@ class BackgroundProcessor(Thread):
             elif obj[0] == 'action':
                 try:
                     job_id = obj[1]
-                    self._db.set_job_start_time(job_id)
-                    self._db.set_job_status(job_id, 'running')
-                    self._pool.apply_async(obj[2], obj[3], obj[4], callback=partial(self._release,job_id),
-                                           error_callback=partial(self._error_release,job_id))
+                    if self._db.job_exists(job_id):
+                        self._db.set_job_start_time(job_id)
+                        self._db.set_job_status(job_id, 'running')
+                        self._pool.apply_async(obj[2], obj[3], obj[4], callback=partial(self._release,job_id),
+                                               error_callback=partial(self._error_release,job_id))
                 except:
                     self._semaphore.release()
             else:
@@ -56,15 +57,19 @@ class BackgroundProcessor(Thread):
 
     @logged_call
     def _release(self, job_id, msg):
-        self._db.set_job_completion_time(job_id)
-        self._db.set_job_status(job_id, 'done')
-        self._semaphore.release()
+        try:
+            self._db.set_job_completion_time(job_id)
+            self._db.set_job_status(job_id, 'done')
+        finally:
+            self._semaphore.release()
 
     @logged_call
     def _error_release(self, job_id, msg):
-        self._db.set_job_completion_time(job_id)
-        self._db.set_job_status(job_id, 'error')
-        self._semaphore.release()
+        try:
+            self._db.set_job_completion_time(job_id)
+            self._db.set_job_status(job_id, 'error')
+        finally:
+            self._semaphore.release()
 
     def put(self, function, args=(), kwargs={}, description=None):
         if description is None:
@@ -72,3 +77,24 @@ class BackgroundProcessor(Thread):
         job_id = self._db.create_job(description)
         self._queue.put(('action', job_id, function, args, kwargs))
         return job_id
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def index(self):
+        jobslist = list()
+        for job in self._db.get_jobs():
+            jobinfo = dict()
+            jobinfo['id'] =  job.id
+            jobinfo['description'] =  job.description
+            jobinfo['creation'] =  str(job.creation)
+            jobinfo['start'] =  str(job.start)
+            jobinfo['completion'] =  str(job.completion)
+            jobinfo['status'] =  job.status
+            jobslist.append(jobinfo)
+        return jobslist
+
+    @cherrypy.expose
+    def delete_job(self, id):
+        self._db.delete_job(id)
+        return 'Ok'
+

@@ -36,7 +36,14 @@
                         if($('#gotclassifiers').length==0)
                             $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
-                            var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div><div class=\'del_button_'+msg[i].name+' right\'>Delete</div><div class=\'download_button_'+msg[i].name+' right\'>Download training set</div><div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div><div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div></div>');
+                            var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
+                            <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
+                            <div class=\'del_button_'+msg[i].name+' right\'>Delete</div>\
+                            <div class=\'duplicate_button_'+msg[i].name+' right\'>Duplicate</div>\
+                            <div class=\'download_button_'+msg[i].name+' right\'>Download training set</div>\
+                            <div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
+                            <div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div>\
+                            </div>');
                             if($('#classifier\\_'+msg[i].name).length==0) {
                                 $('#classifiers\\_list').append(classifierdiv)
                             }
@@ -45,6 +52,8 @@
                             }
                             $('.download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
                             $('.download\\_button\\_'+msg[i].name).click(download_classifier);
+                            $('.duplicate\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-copy'} });
+                            $('.duplicate\\_button\\_'+msg[i].name).click(duplicate_classifier);
                             $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
                             $('.del\\_button\\_'+msg[i].name).click(delete_classifier);
                         }
@@ -107,13 +116,29 @@
             $('#classifier\\_'+classifier_name).hide();
             $.ajax({
                 type:'POST',
-                url:'/service/classifiers/delete',
-                data: { name : classifier_name },
-                success: function () {update(); },
-                failure: function () {
-                    $('#classifier\\_'+classifier_name).show();
-                }
+                url:'/service/classifiers/delete/'+classifier_name })
+            .done(update)
+            .fail(function () {
+                $('#classifier\\_'+classifier_name).show();
             });
+        };
+
+        function duplicate_classifier() {
+            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var new_name = prompt("Please enter the new name for the classifier", "Copy_of_"+classifier_name);
+            if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
+                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            if (new_name != null) {
+                $.ajax({
+                    type:'POST',
+                    url:'/service/classifiers/duplicate/'+classifier_name+'/'+new_name})
+                .done(update)
+                .fail(function () {
+                    custom_alert(errMsg.responseText);
+                });
+            }
         };
 
         function download_classifier() {

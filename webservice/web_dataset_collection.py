@@ -74,7 +74,8 @@ class WebDatasetCollection(object):
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
-        self._background_processor.put(_create_documents, (self._db_connection_string, dataset_name, fullpath))
+        self._background_processor.put(_create_documents, (self._db_connection_string, dataset_name, fullpath),
+                                       description='upload to dataset \'%s\'' % dataset_name)
 
         return 'Ok'
 
@@ -157,13 +158,16 @@ class WebDatasetCollection(object):
             datasetname, "-".join(classifiers), str(last_update_time))
         filename = get_fully_portable_file_name(filename)
         fullpath = os.path.join(DOWNLOAD_DIR, filename)
-        if os.path.exists(fullpath):
-            cherrypy.response.status = 409
-            return 'This classification has been already requested.'
 
-        job_id = self._background_processor.put(_classify, (self._db_connection_string, datasetname, classifiers, fullpath),
-                                       'classify dataset \'%s\' with %s' % (
-                                       datasetname, ', '.join(['\'%s\'' % classifier for classifier in classifiers])))
+        if self._db.classification_exists(fullpath):
+            cherrypy.response.status = 409
+            return 'An up-to-date classification is already available.'
+
+        job_id = self._background_processor.put(_classify,
+                                                (self._db_connection_string, datasetname, classifiers, fullpath),
+                                                description='classify dataset \'%s\' with %s' % (
+                                                    datasetname,
+                                                    ', '.join(['\'%s\'' % classifier for classifier in classifiers])))
 
         self._db.create_classification_job(datasetname, classifiers, job_id, fullpath)
 
@@ -171,7 +175,7 @@ class WebDatasetCollection(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def get_classification_jobs(self,name):
+    def get_classification_jobs(self, name):
         result = list()
         for classification_job in self._db.get_classification_jobs(name):
             classification_job_info = dict()
@@ -179,48 +183,75 @@ class WebDatasetCollection(object):
             classification_job_info['classifiers'] = classification_job.classifiers
             classification_job_info['id'] = classification_job.id
             classification_job_info['status'] = classification_job.job.status
-            classification_job_info['creation'] = classification_job.job.creation
-            classification_job_info['completion'] = classification_job.job.completion
+            classification_job_info['creation'] = str(classification_job.job.creation)
+            classification_job_info['completion'] = str(classification_job.job.completion)
             result.append(classification_job_info)
         return result
 
     @cherrypy.expose
-    def download_classification(self,id):
-        filename = self._db.get_classification_job_file(id)
-        if filename is None:
+    def download_classification(self, id):
+        filename = self._db.get_classification_job_filename(id)
+        if filename is None or not os.path.exists(filename):
             cherrypy.response.status = 404
             return "File not found"
         serve_download(filename)
 
     @cherrypy.expose
+    def delete_classification(self, id):
+        filename = self._db.get_classification_job_filename(id)
+        try:
+            os.unlink(filename)
+        except FileNotFoundError:
+            pass
+        self._db.delete_classification_job(id)
+        return 'Ok'
+
+    @cherrypy.expose
     def version(self):
-        return "0.2.2 (db: %s)" % self._db.version()
+        return "0.2.3 (db: %s)" % self._db.version()
 
 
 @logged_call
-def _classify(db_connection_string, classifiers, datasetname, fullpath):
+def _classify(db_connection_string, datasetname, classifiers, fullpath):
     with SQLAlchemyDB(db_connection_string) as db:
-        with open(fullpath, 'w') as file:
-            writer = csv.writer(file, lineterminator='\n')
-            header = list()
-            for classifier in classifiers:
-                classifiers_header = dict()
-                classifiers_header['name'] = classifier
-                classifiers_header['classes'] = db.get_classifier_classes(classifier)
-                header.append(classifiers_header)
-            writer.writerow([json.dumps(header)])
+        tempfile = fullpath + '.tmp'
+        try:
+            with open(tempfile, 'w') as file:
+                writer = csv.writer(file, lineterminator='\n')
+                header = list()
+                for classifier in classifiers:
+                    if db.classifier_exists(classifier):
+                        classifiers_header = dict()
+                        classifiers_header['name'] = classifier
+                        classifiers_header['classes'] = db.get_classifier_classes(classifier)
+                        header.append(classifiers_header)
+                writer.writerow([json.dumps(header)])
 
-            X = list()
-            id = list()
-            for document in db.get_dataset_documents(datasetname):
-                id.append(document.external_id)
-                X.append(document.text)
-                if len(X) >= MAX_BATCH_SIZE:
+                X = list()
+                id = list()
+                for document in db.get_dataset_documents(datasetname):
+                    id.append(document.external_id)
+                    X.append(document.text)
+                    if len(X) >= MAX_BATCH_SIZE:
+                        _classify_and_write(db, id, X, classifiers, writer)
+                        X = list()
+                        id = list()
+                if len(X) > 0:
                     _classify_and_write(db, id, X, classifiers, writer)
-                    X = list()
-                    id = list()
-            if len(X) > 0:
-                _classify_and_write(db, id, X, classifiers, writer)
+            try:
+                os.unlink(fullpath)
+            except FileNotFoundError:
+                pass
+            os.rename(tempfile, fullpath)
+        except:
+            try:
+                os.unlink(tempfile)
+            except FileNotFoundError:
+                pass
+            try:
+                os.unlink(fullpath)
+            except FileNotFoundError:
+                pass
 
 
 def _classify_and_write(db, id, X, classifiers, writer):

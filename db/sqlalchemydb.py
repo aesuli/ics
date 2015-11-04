@@ -3,6 +3,7 @@ import datetime
 import random
 import time
 import threading
+
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
     UniqueConstraint, desc, exists
 from sqlalchemy.exc import OperationalError
@@ -91,13 +92,13 @@ class Job(Base):
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     start = Column(DateTime(timezone=True))
     completion = Column(DateTime(timezone=True))
-    status = Column(String(10), default='job')
+    status = Column(String(10), default='pending')
 
     def __init__(self, description):
         self.description = description
 
 
-class ClassificationJob(Job):
+class ClassificationJob(Base):
     __tablename__ = 'classificationjob'
     id = Column(Integer(), primary_key=True)
     dataset_id = Column(Integer(), ForeignKey('dataset.id', onupdate='CASCADE', ondelete='CASCADE'),
@@ -105,6 +106,7 @@ class ClassificationJob(Job):
     dataset = relationship('Dataset', backref='classifications')
     job_id = Column(Integer(), ForeignKey('job.id', onupdate='CASCADE', ondelete='CASCADE'),
                     nullable=False)
+    job = relationship('Job')
     classifiers = Column(Text())
     filename = Column(Text())
 
@@ -363,18 +365,38 @@ class SQLAlchemyDB(object):
 
     def create_classification_job(self, datasetname, classifiers, job_id, fullpath):
         with self.session_scope() as session:
-            classification_job = ClassificationJob(datasetname,', '.join(classifiers), job_id, fullpath)
+            dataset_id = session.query(Dataset.id).filter(Dataset.name == datasetname).scalar()
+            classification_job = ClassificationJob(dataset_id, ', '.join(classifiers), job_id, fullpath)
             session.add(classification_job)
 
     def get_classification_jobs(self, name):
         with self.session_scope() as session:
             return session.query(ClassificationJob).filter(ClassificationJob.dataset_id == Dataset.id).filter(
-                Dataset.name == name)
+                Dataset.name == name).join(Job).order_by(Job.creation.desc())
 
-    def get_classification_job_file(self, id):
+    def get_classification_job_filename(self, id):
         with self.session_scope() as session:
-            return session.query(ClassificationJob.filename).filter(ClassificationJob.id == id)
+            return session.query(ClassificationJob.filename).filter(ClassificationJob.id == id).scalar()
+
+    def delete_classification_job(self, id):
+        with self.session_scope() as session:
+            classification_job = session.query(ClassificationJob).filter(
+                ClassificationJob.id == id).first()  # TODO one_or_none
+            session.delete(classification_job.job)
+
+    def delete_job(self, id):
+        with self.session_scope() as session:
+            session.query(Job).filter(Job.id == id).delete()
+
+    def classification_exists(self, filename):
+        with self.session_scope() as session:
+            return session.query(exists().where(ClassificationJob.filename == filename)).scalar()
+
+    def job_exists(self, id):
+        with self.session_scope() as session:
+            return session.query(exists().where(Job.id == id)).scalar()
 
     @staticmethod
     def version():
-        return "0.2.2"
+        return "0.2.3"
+

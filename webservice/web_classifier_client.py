@@ -72,12 +72,7 @@ class WebClassifierClient(object):
     @cherrypy.expose
     def jobs(self):
         template = lookup.get_template('jobs.html')
-        jobslist = list()
-        for job in self._db.get_jobs():
-            jobslist.append((job.id, job.description, job.creation, job.start, job.completion, job.status))
-        args = {}
-        args['jobs'] = jobslist
-        return template.render(**args)
+        return template.render()
 
     @cherrypy.expose
     def about(self):
@@ -86,7 +81,7 @@ class WebClassifierClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.2.0"
+        return "0.2.1"
 
 
 config = {

@@ -15,14 +15,46 @@
 
         function update() {
             last_update = Date.now();
+            $.ajax({
+                type:'POST',
+                url:'/service/datasets/get_classification_jobs',
+                data: { name : datasetname },
+                dataType: 'json'})
+            .done(function(msg) {
+                    if(msg.length==0) {
+                        $('#classification').html('<div class="padded ui-widget-header ui-corner-all">No classification available for dataset \''+datasetname+'\'</div>');
+                    }
+                    else {
+                        if($('#gotclassification').length==0)
+                            $('#classification').html('<div id="gotclassification" class="padded ui-widget-header ui-corner-all">Classifications for dataset \''+datasetname+'\':</div>\
+                            <div id="job" class="table margined ui-widget-content ui-corner-all"><div><div>id</div><div>classifiers</div><div>created</div><div>completed</div><div>status</div><div>actions</div></div></div>');
+                        for(var i = 0;i<msg.length;++i) {
+                            item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
+                            <div class="id">'+msg[i].id+'</div>\
+                            <div>'+msg[i].classifiers+'</div>\
+                            <div>'+msg[i].creation+'</div>\
+                            <div>'+msg[i].completion+'</div>\
+                            <div>'+msg[i].status+'</div>\
+                            <div><div id="download_'+msg[i].id+'">Download</div>\
+                            <div id="delete_'+msg[i].id+'">Delete</div></div>\
+                            </div>');
+                            if ($('#job\\_'+msg[i].id).length!=0)
+                                $('#job\\_'+msg[i].id).replaceWith(item)
+                            else
+                                $('#job').append(item);
+                            $('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
+                            $('#delete\\_'+msg[i].id).click(delete_classification);
+                            $('#download\\_'+msg[i].id).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                            $('#download\\_'+msg[i].id).click(download_classification);
+                        }
+                    }
+            });
 
             $.ajax({
                 type:'POST',
                 url:'/service/classifiers/',
                 dataType: 'json'})
             .done(function(msg) {
-                    //TODO list classifications
-                    //TODO list pending classifications
                     $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
                         var found = false;
                         for(var i = 0;i<msg.length;++i) {
@@ -65,6 +97,27 @@
             });
         }
 
+        function delete_classification() {
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return;
+            var classification_id = $(this).parent().siblings('.id').text();
+            $('#job\\_'+classification_id).hide();
+            $.ajax({
+                type:'POST',
+                url:'/service/datasets/delete_classification',
+                data: { id : classification_id }})
+            .done(update)
+            .fail(function () {
+                    $('#job\\_'+classification_id).show();
+            });
+        };
+
+        function download_classification() {
+            var classification_id = $(this).parent().siblings('.id').text();
+            var form = $('<form></form>').attr('action', '/service/datasets/download_classification/'+classification_id).attr('method', 'post');
+            form.appendTo('body').submit().remove();
+        };
+
         function classify() {
             classifiers = []
             $('.ui-state-highlight').each(function(i,item) {
@@ -101,7 +154,6 @@
         </div>-->
     </div>
     <div id="center">
-        <div class="padded ui-widget-header ui-corner-all">Download classification of '<span id="datasetname">NULL</span>':</div>
-        <div id="classification" class="margined padded ui-widget-content suggestion-container"></div>
+        <div id="classification" class="margined ui-widget-content suggestion-container"></div>
     </div>
 </div>
