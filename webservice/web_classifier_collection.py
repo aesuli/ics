@@ -70,11 +70,18 @@ class WebClassifierCollection(object):
             cherrypy.response.status = 400
             return 'Must specify at least two classes'
         name = str.strip(name)
+        if len(name) < 1:
+            cherrypy.response.status = 400
+            return 'Classifier name too short'
         classes = map(str.strip, classes)
         classes = list(set(classes))
         if len(classes) < 2:
             cherrypy.response.status = 400
             return 'Must specify at least two classes'
+        for class_name in classes:
+            if len(class_name) < 1:
+                cherrypy.response.status = 400
+                return 'Class name too short'
         try:
             overwrite = data['overwrite']
         except KeyError:
@@ -83,7 +90,23 @@ class WebClassifierCollection(object):
             if self._db.classifier_exists(name):
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
-        _create_model(self._db_connection_string, name, classes)
+        self._background_processor.put(_create_model, (self._db_connection_string, name, classes),
+                                       description='create model \'%s\'' % name)
+        return 'Ok'
+
+    @cherrypy.expose
+    def duplicate(self, name, new_name, overwrite=False):
+        name = str.strip(name)
+        new_name = str.strip(new_name)
+        if len(new_name) < 1:
+            cherrypy.response.status = 400
+            return 'Classifier name too short'
+        if not overwrite:
+            if self._db.classifier_exists(new_name):
+                cherrypy.response.status = 403
+                return '%s is already in the collection' % name
+        self._background_processor.put(_duplicate_model, (self._db_connection_string, name, new_name),
+                                       description='duplicate model \'%s\' to \'%s\'' % (name, new_name))
         return 'Ok'
 
     @cherrypy.expose
@@ -120,9 +143,10 @@ class WebClassifierCollection(object):
             cherrypy.response.status = 400
             return 'Must specify the same numbers of strings and labels'
 
-        self._background_processor.put(_update_model, (self._db_connection_string, name, X, y), 'update model')
+        self._background_processor.put(_update_model, (self._db_connection_string, name, X, y),
+                                       description='update model')
         self._background_processor.put(_update_trainingset, (self._db_connection_string, name, X, y),
-                                       'update training set')
+                                       description='update training set')
 
         return 'Ok'
 
@@ -197,7 +221,7 @@ class WebClassifierCollection(object):
                         return 'Must specify at least two classes for classifier \'%s\'' % classifier_name
                     self._background_processor.put(_create_model,
                                                    (self._db_connection_string, classifier_name, classes),
-                                                   'create model \'%s\'', classifier_name)
+                                                   description='create model \'%s\'' % classifier_name)
                 else:
                     if not len(set(self._db.get_classifier_classes(classifier_name)).intersection(classes)) == len(
                             classes):
@@ -207,10 +231,10 @@ class WebClassifierCollection(object):
         for classifier_name in active_classifiers:
             self._background_processor.put(_update_from_file,
                                            (_update_model, self._db_connection_string, fullpath, classifier_name),
-                                           'update model \'%s\' from file' % classifier_name)
+                                           description='update model \'%s\' from file' % classifier_name)
             self._background_processor.put(_update_from_file,
                                            (_update_trainingset, self._db_connection_string, fullpath, classifier_name),
-                                           'update training set \'%s\' from file' % classifier_name)
+                                           description='update training set \'%s\' from file' % classifier_name)
 
         return 'Ok'
 
@@ -320,6 +344,15 @@ def _create_model(db_connection_string, name, classes):
                 clf = OnlineClassifier(name, classes, average=20)
                 db.create_classifier(name, classes, clf)
 
+@logged_call_with_args
+def _duplicate_model(db_connection_string, name, new_name):
+    with _lock_trainingset(new_name), _lock_model(new_name):
+        with SQLAlchemyDB(db_connection_string) as db:
+            if not db.classifier_exists(new_name):
+                clf = db.get_classifier_model(name)
+                clf.name = new_name
+                classes =db.get_classifier_classes(name)
+                db.create_classifier(new_name, classes, clf)
 
 def _lock_model(name):
     return FileLock(os.path.join(LOCKS_DIR, '%s.model.lock' % name))

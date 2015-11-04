@@ -23,19 +23,29 @@ p     { display: table-row;  }
 label { display: table-cell; }
 input { display: table-cell; }
 
-div .job   {
+div .table   {
  display: table;
+}
+
+.table > div     {
+ display: table-row;
+ }
+
+.table > div:first-child   {
+    text-align: center;
+    font-style: italic;
+ }
+
+.table > div > div {
+ display: table-cell;
  padding: 5px;
 }
 
-.job p     {
- display: table-row;
- padding: 5px;
- }
+.table  div:not(:first-child) div:nth-child(even) {
+ background: white;
+}
 
-.job span {
- display: table-cell;
- padding: 5px;
+.table  div:not(:first-child) div:nth-child(odd) {
 }
 
 .textbox {
@@ -71,47 +81,27 @@ div .job   {
 }
 
 /* horizontal menu */
-.ui-menu {
-    overflow: hidden;
+#nav .ui-menu{
+  /* width:50%; */
+  padding: 5px;
 }
-.ui-menu .ui-menu {
-    overflow: visible !important;
+
+.ui-menu-item{
+  width:200px;
 }
-.ui-menu > li {
-    float: left;
-    display: block;
-    width: auto !important;
+
+/* make first item inline */
+.ui-menu .ui-menu-item {
+  display: inline;
 }
-.ui-menu ul li {
-    display:block;
-    float:none;
+
+/* subsequent items block */
+.ui-menu-item .ui-menu-item {
+  display: block;
 }
-.ui-menu ul li ul {
-    left:120px !important;
-    width:100%;
-}
-.ui-menu ul li ul li {
-    width:auto;
-}
-.ui-menu ul li ul li a {
-    float:left;
-}
-.ui-menu > li {
-    margin: 5px 5px !important;
-    padding: 0 0 !important;
-}
-.ui-menu > li > a {
-    float: left;
-    display: block;
-    clear: both;
-    overflow: hidden;
-}
-.ui-menu .ui-menu-icon {
-    margin-top: 0.3em !important;
-}
-.ui-menu .ui-menu .ui-menu li {
-    float: left;
-    display: block;
+
+.ui-menu-item a {
+    text-decoration: none;
 }
 
 /* suggestions */

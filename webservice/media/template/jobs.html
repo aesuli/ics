@@ -1,15 +1,83 @@
 <%inherit file="base.html" />
+<%block name="head">
+    <script type="text/javascript">
+       update_interval=10000
+       delay_interval=500
+        last_update = 0
+        function timed_update() {
+            now = Date.now();
+            if(now-last_update>update_interval)
+                update();
+            setTimeout(timed_update,update_interval);
+        }
+
+        function update() {
+            last_update = Date.now();
+            $.ajax({
+                type:'POST',
+                url:'/service/jobs',
+                dataType: 'json'})
+            .done(function(msg) {
+                if(msg.length==0) {
+                    $('#job\\_list').html('<div class="padded ui-widget-header ui-corner-all">No job</div>');
+                }
+                else {
+                    if($('#gotjob').length==0)
+                        $('#job\\_list').html('<div id="gotjob" class="padded ui-widget-header ui-corner-all">Jobs:</div>\
+                        <div id="job" class="table margined ui-widget-content ui-corner-all">\
+                        <div><div>id</div>\
+                        <div>description</div>\
+                        <div>created</div>\
+                        <div>started</div>\
+                        <div>completed</div>\
+                        <div>status</div>\
+                        <div>actions</div>\
+                        </div></div>');
+                    for(var i = 0;i<msg.length;++i) {
+                        item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
+                        <div class="id">'+msg[i].id+'</div>\
+                        <div>'+msg[i].description+'</div>\
+                        <div>'+msg[i].creation+'</div>\
+                        <div>'+msg[i].start+'</div>\
+                        <div>'+msg[i].completion+'</div>\
+                        <div>'+msg[i].status+'</div>\
+                        <div><div id="delete_'+msg[i].id+'">Delete</div></div>\
+                        </div>');
+                        if ($('#job\\_'+msg[i].id).length!=0)
+                            $('#job\\_'+msg[i].id).replaceWith(item)
+                        else
+                            $('#job').append(item);
+                        $('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#delete\\_'+msg[i].id).click(delete_job);
+                    }
+                }
+            });
+        }
+
+        function delete_job() {
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return;
+            var job_id = $(this).parent().siblings('.id').text();
+            $('#job\\_'+job_id).hide();
+            $.ajax({
+                type:'POST',
+                url:'/service/jobs/delete_job/'+job_id})
+            .done(update)
+            .fail(function () {
+                    $('#job\\_'+job_id).show();
+            });
+        };
+
+
+        $( document ).ready(function() {
+            //$('#force\\_update').button().click(update);
+
+            timed_update();
+        });
+    </script>
+</%block>
 <div id="main" class="padded ui-widget ui-widget-content">
-    <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
-    <div class="padded ui-widget-header ui-corner-all">Background jobs:</div>
-    <div class="job">
-    % for job in jobs:
-        <p>
-            %for item in job:
-            <span>${item}</span>
-            %endfor
-        </p>
-    % endfor
-    </div>
+    <div id="center">
+        <div id="job_list" class="margined ui-widget-content suggestion-container"></div>
     </div>
 </div>

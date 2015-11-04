@@ -11,11 +11,12 @@ if __name__ == "__main__":
     db_connection_string = 'postgresql://wcc:wcc@localhost:5432/wcc'
     with BackgroundProcessor(db_connection_string) as background_processor, WebClassifierClient(
             db_connection_string) as app, WebClassifierCollection(
-            db_connection_string, background_processor) as classifier_service, WebDatasetCollection(
-            db_connection_string, background_processor) as dataset_service:
+        db_connection_string, background_processor) as classifier_service, WebDatasetCollection(
+        db_connection_string, background_processor) as dataset_service:
         background_processor.start()
         cherrypy.tree.mount(app, '/', config=client.config)
         cherrypy.tree.mount(classifier_service, '/service/classifiers')
         cherrypy.tree.mount(dataset_service, '/service/datasets')
+        cherrypy.tree.mount(background_processor, '/service/jobs')
         cherrypy.engine.start()
         cherrypy.engine.block()
