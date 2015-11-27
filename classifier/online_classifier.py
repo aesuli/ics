@@ -1,6 +1,6 @@
 from sklearn.feature_extraction.text import HashingVectorizer
-from sklearn.linear_model import PassiveAggressiveClassifier
-
+# from sklearn.linear_model import PassiveAggressiveClassifier
+from classifier.passive_aggressive import PassiveAggressiveClassifier
 
 __author__ = 'Andrea Esuli'
 

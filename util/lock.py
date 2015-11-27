@@ -1,7 +1,6 @@
 import os
 import threading
 import time
-from requests import Timeout
 
 
 __author__ = 'Andrea Esuli'
@@ -41,7 +40,7 @@ class FileLock(object):
                 if self.is_locked:
                     break
                 elif 0 <= timeout < time.time() - start_time:
-                    raise Timeout(self._filename)
+                    raise TimeoutError(self._filename)
                 else:
                     time.sleep(poll_intervall)
         except:
