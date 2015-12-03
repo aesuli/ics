@@ -1,7 +1,7 @@
 <%inherit file="base.html" />
 <%block name="head">
 <script type="text/javascript">
-        update_interval=10000
+        update_interval=5000
         last_update = 0
         function timed_update() {
             now = Date.now();
@@ -88,6 +88,7 @@
         }
 
         function upload_dataset() {
+            $( "#upload\\_button" ).button( "option", "disabled", true );
             name = $("#name").val();
             if(!name.match(/^[a-zA-Z0-9_]+$/)) {
                 custom_alert("The name of the dataset can only contain letters, numbers and the underscore character '_'");
@@ -106,12 +107,12 @@
                 data: data,
                 enctype: 'multipart/form-data',
                 processData: false,
-                contentType: false,
-                success: update,
-                error: function(errMsg) {
+                contentType: false})
+            .done(update)
+            .fail(function(errMsg) {
                     custom_alert(errMsg.responseText);
-                }
             });
+            delay(function() {$( "#upload\\_button" ).button( "option", "disabled", false );},2000);
             return false ;
         };
 
@@ -161,7 +162,7 @@
 
                 <p><label>Data file:</label><input type="file" id="dataFile"/></p>
 
-                <p><label></label><input type="submit" value="Upload"/></p>
+                <p><label></label><input id="upload_button" type="submit" value="Upload"/></p>
             </form>
         </div>
     </div>

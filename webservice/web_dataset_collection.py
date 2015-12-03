@@ -4,9 +4,9 @@ import os
 import shutil
 from uuid import uuid4
 import cherrypy
-from cherrypy.lib.static import serve_download
+from cherrypy.lib.static import serve_file
 import numpy
-from db.sqlalchemydb import SQLAlchemyDB
+from db.sqlalchemydb import SQLAlchemyDB, Job
 from util.util import get_fully_portable_file_name, logged_call
 from webservice.background_processor import BackgroundProcessor
 
@@ -41,8 +41,8 @@ class WebDatasetCollection(object):
         for name in self._db.dataset_names():
             dataset_info = dict()
             dataset_info['name'] = name
-            dataset_info['created'] = self._db.get_dataset_creation_time(name)
-            dataset_info['updated'] = self._db.get_dataset_last_update_time(name)
+            dataset_info['created'] = str(self._db.get_dataset_creation_time(name))
+            dataset_info['updated'] = str(self._db.get_dataset_last_update_time(name))
             dataset_info['size'] = self._db.get_dataset_size(name)
             result.append(dataset_info)
         return result
@@ -94,7 +94,7 @@ class WebDatasetCollection(object):
         if not self._db.dataset_exists(name):
             cherrypy.response.status = 404
             return '\'%s\' does not exits' % name
-        filename = 'dataset %s %s.csv' % (name, self._db.get_dataset_last_update_time(name))
+        filename = 'dataset %s %s.csv' % (name, str(self._db.get_dataset_last_update_time(name)))
         filename = get_fully_portable_file_name(filename)
         fullpath = os.path.join(DOWNLOAD_DIR, filename)
         if not os.path.isfile(fullpath):
@@ -106,7 +106,7 @@ class WebDatasetCollection(object):
             except:
                 os.unlink(filename)
 
-        return serve_download(fullpath)
+        return serve_file(fullpath, "text/csv", "attachment")
 
     @cherrypy.expose
     def size(self, name):
@@ -177,15 +177,23 @@ class WebDatasetCollection(object):
     @cherrypy.tools.json_out()
     def get_classification_jobs(self, name):
         result = list()
+        to_delete = list()
         for classification_job in self._db.get_classification_jobs(name):
             classification_job_info = dict()
+            classification_job_info['id'] = classification_job.id
+            if (classification_job.filename is None or not os.path.exists(
+                    classification_job.filename)) and classification_job.job.status == Job.status_done:
+                to_delete.append(classification_job.id)
+                continue
             classification_job_info['dataset'] = name
             classification_job_info['classifiers'] = classification_job.classifiers
-            classification_job_info['id'] = classification_job.id
             classification_job_info['status'] = classification_job.job.status
             classification_job_info['creation'] = str(classification_job.job.creation)
             classification_job_info['completion'] = str(classification_job.job.completion)
             result.append(classification_job_info)
+
+        for id in to_delete:
+            self._db.delete_classification_job(id)
         return result
 
     @cherrypy.expose
@@ -194,7 +202,7 @@ class WebDatasetCollection(object):
         if filename is None or not os.path.exists(filename):
             cherrypy.response.status = 404
             return "File not found"
-        serve_download(filename)
+        return serve_file(filename, "text/csv", "attachment")
 
     @cherrypy.expose
     def delete_classification(self, id):
@@ -208,7 +216,7 @@ class WebDatasetCollection(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.2.3 (db: %s)" % self._db.version()
+        return "0.2.4 (db: %s)" % self._db.version()
 
 
 @logged_call

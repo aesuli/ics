@@ -1,7 +1,7 @@
 <%inherit file="base.html" />
 <%block name="head">
     <script type="text/javascript">
-       update_interval=10000
+       update_interval=5000
        delay_interval=500
         last_update = 0
         function timed_update() {
@@ -68,15 +68,31 @@
             });
         };
 
+        function delete_all_jobs_done() {
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return;
+            $.ajax({
+                type:'POST',
+                url:'/service/jobs/delete_all_jobs_done'})
+            .done(update);
+        };
 
         $( document ).ready(function() {
             //$('#force\\_update').button().click(update);
-
+            $('#delete\\_btn').button({ icons: {primary:'ui-icon-trash'} }).click(delete_all_jobs_done);
             timed_update();
         });
     </script>
 </%block>
 <div id="main" class="padded ui-widget ui-widget-content">
+    <div id="sidebar">
+<div class="margined  ui-corner-all ui-widget ui-widget-content" id="actions">
+        <div class="padded ui-widget-header ui-corner-all">Actions</div>
+        <div id="delete_btn">Delete records for all jobs done</div>
+        </div>
+        <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
+        </div>-->
+        </div>
     <div id="center">
         <div id="job_list" class="margined ui-widget-content suggestion-container"></div>
     </div>

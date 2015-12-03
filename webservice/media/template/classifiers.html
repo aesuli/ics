@@ -1,7 +1,7 @@
 <%inherit file="base.html" />
 <%block name="head">
     <script type="text/javascript">
-        update_interval=10000
+        update_interval=5000
         last_update = 0
         function timed_update() {
             now = Date.now();
@@ -15,50 +15,51 @@
             $.ajax({
                 type:'POST',
                 url:'/service/classifiers/',
-                dataType: 'json',
-                success: function(msg) {
-                    $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
-                        var found = false;
-                        for(var i = 0;i<msg.length;++i) {
-                            if($(item).text()==msg[i].name) {
-                                found = true;
-                                break;
-                            }
+                dataType: 'json'})
+            .done( function(msg) {
+                $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
+                    var found = false;
+                    for(var i = 0;i<msg.length;++i) {
+                        if($(item).text()==msg[i].name) {
+                            found = true;
+                            break;
                         }
-                        if(!found) {
-                            $(item).parent().remove();
-                        }
-                    });
-                    if(msg.length==0) {
-                        $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifier available</div>');
                     }
-                    else {
-                        if($('#gotclassifiers').length==0)
-                            $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
-                        for(var i = 0;i<msg.length;++i) {
-                            var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
-                            <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
-                            <div class=\'del_button_'+msg[i].name+' right\'>Delete</div>\
-                            <div class=\'duplicate_button_'+msg[i].name+' right\'>Duplicate</div>\
-                            <div class=\'download_button_'+msg[i].name+' right\'>Download training set</div>\
-                            <div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
-                            <div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div>\
-                            </div>');
-                            if($('#classifier\\_'+msg[i].name).length==0) {
-                                $('#classifiers\\_list').append(classifierdiv)
-                            }
-                            else {
-                                $('#classifier\\_'+msg[i].name).replaceWith(classifierdiv)
-                            }
-                            $('.download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                            $('.download\\_button\\_'+msg[i].name).click(download_classifier);
-                            $('.duplicate\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-copy'} });
-                            $('.duplicate\\_button\\_'+msg[i].name).click(duplicate_classifier);
-                            $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
-                            $('.del\\_button\\_'+msg[i].name).click(delete_classifier);
+                    if(!found) {
+                        $(item).parent().remove();
+                    }
+                });
+                if(msg.length==0) {
+                    $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifier available</div>');
+                }
+                else {
+                    if($('#gotclassifiers').length==0)
+                        $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
+                    for(var i = 0;i<msg.length;++i) {
+                        var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
+                        <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
+                        <div class=\'del_button_'+msg[i].name+' right\'>Delete</div>\
+                        <div class=\'duplicate_button_'+msg[i].name+' right\'>Duplicate</div>\
+                        <div class=\'download_button_'+msg[i].name+' right\'>Download training set</div>\
+                        <div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
+                        <div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div>\
+                        </div>');
+                        if($('#classifier\\_'+msg[i].name).length==0) {
+                            $('#classifiers\\_list').append(classifierdiv)
                         }
+                        else {
+                            $('#classifier\\_'+msg[i].name).replaceWith(classifierdiv)
+                        }
+                        $('.download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                        $('.download\\_button\\_'+msg[i].name).click(download_classifier);
+                        $('.duplicate\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-copy'} });
+                        $('.duplicate\\_button\\_'+msg[i].name).click(duplicate_classifier);
+                        $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
+                        $('.del\\_button\\_'+msg[i].name).click(delete_classifier);
                     }
                 }
+                $('#uploadingdiv').remove();
+                $( "#upload\\_button" ).button( "option", "disabled", false );
             });
         }
 
@@ -78,11 +79,10 @@
             $.ajax({
                 type: "POST",
                 url: "/service/classifiers/create",
-                data: data,
-                success: update,
-                error: function(errMsg) {
-                    custom_alert(errMsg.responseText);
-                }
+                data: data})
+            .done(update)
+            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
             });
             return false ;
         };
@@ -100,11 +100,21 @@
                 data: data,
                 enctype: 'multipart/form-data',
                 processData: false,
-                contentType: false,
-                success: function () {update(); },
-                error: function(errMsg) {
-                    custom_alert(errMsg.responseText);
+                contentType: false})
+            .done(function() {
+                $( "#upload\\_button" ).button( "option", "disabled", true );
+                if($('#gotclassifiers').length==0) {
+                    $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
                 }
+                var uploadingdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'uploadingdiv\'>\
+                <div class=\'inline padded ui-corner-all classifier_name\'>Uploading data...</div>\
+                </div>');
+                if($('#uploadingdiv').length==0) {
+                    $('#classifiers\\_list').append(uploadingdiv)
+                }
+            })
+            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
             });
             return false ;
         };
@@ -135,7 +145,7 @@
                     type:'POST',
                     url:'/service/classifiers/duplicate/'+classifier_name+'/'+new_name})
                 .done(update)
-                .fail(function () {
+                .fail(function (errMsg) {
                     custom_alert(errMsg.responseText);
                 });
             }
@@ -185,7 +195,7 @@
             <form enctype="multipart/form-data" id="upload_form" class="margined" action="#" method="post">
                 <p><label>Data file:</label><input type="file" id="dataFile"/></p>
 
-                <p><label></label><input type="submit" value="Upload"/></p>
+                <p><label></label><input id="upload_button" type="submit" value="Upload"/></p>
             </form>
         </div>
     </div>

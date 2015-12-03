@@ -10,7 +10,7 @@ class OnlineClassifier(object):
         self.name = name
         # TODO add configurable parameters for vec and clf
         # int(n_features/len(classes)) makes memory usage constant for the entire classifier
-        self._vec = HashingVectorizer(n_features=int(n_features / len(classes)))
+        self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), ngram_range=(1, 3))
         self._clf = PassiveAggressiveClassifier(average=average, n_jobs=-1)
         self._clf.partial_fit(self._vec.transform(['']), [classes[0]], classes)
 
@@ -54,4 +54,3 @@ if __name__ == '__main__':
         clf.partial_fit(['one two', 'four three'], ['yes', 'no'])
         print(clf.predict([text, text]))
         print(clf.decision_function([text, text]))
-

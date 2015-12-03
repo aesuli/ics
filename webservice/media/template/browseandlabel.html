@@ -1,7 +1,7 @@
 <%inherit file="base.html" />
 <%block name="head">
     <script type="text/javascript">
-       update_interval=10000
+       update_interval=5000
        delay_interval=500
         last_update = 0
         function timed_update() {
@@ -154,8 +154,8 @@
                 data: data})
             .done(update)
             .fail(function(errMsg) {
-                    custom_alert(errMsg.responseText);
-                });
+                custom_alert(errMsg.responseText);
+            });
             return false ;
         };
 
