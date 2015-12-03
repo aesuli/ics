@@ -1,9 +1,6 @@
 from contextlib import contextmanager
 import datetime
-import random
-import time
 import threading
-
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
     UniqueConstraint, desc, exists
 from sqlalchemy.exc import OperationalError
@@ -20,7 +17,7 @@ class Classifier(Base):
     __tablename__ = 'classifier'
     id = Column(Integer(), primary_key=True)
     name = Column(String(50), unique=True)
-    model = deferred(Column(PickleType(), nullable=False))
+    model = deferred(Column(PickleType()))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
@@ -92,7 +89,11 @@ class Job(Base):
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     start = Column(DateTime(timezone=True))
     completion = Column(DateTime(timezone=True))
-    status = Column(String(10), default='pending')
+    status_pending = 'pending'
+    status_done = 'done'
+    status_error = 'error'
+    status_running = 'running'
+    status = Column(String(10), default=status_pending)
 
     def __init__(self, description):
         self.description = description
@@ -106,7 +107,7 @@ class ClassificationJob(Base):
     dataset = relationship('Dataset', backref='classifications')
     job_id = Column(Integer(), ForeignKey('job.id', onupdate='CASCADE', ondelete='CASCADE'),
                     nullable=False)
-    job = relationship('Job')
+    job = relationship('Job', backref='classification_job')
     classifiers = Column(Text())
     filename = Column(Text())
 
@@ -164,7 +165,7 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(exists().where(Classifier.name == name)).scalar()
 
-    def create_classifier(self, name, classes, model):
+    def create_classifier(self, name, classes, model=None):
         with self.session_scope() as session:
             classifier = Classifier(name, model)
             session.add(classifier)
@@ -184,11 +185,11 @@ class SQLAlchemyDB(object):
 
     def get_classifier_creation_time(self, name):
         with self.session_scope() as session:
-            return str(session.query(Classifier.creation).filter(Classifier.name == name).scalar())
+            return session.query(Classifier.creation).filter(Classifier.name == name).scalar()
 
     def get_classifier_last_update_time(self, name):
         with self.session_scope() as session:
-            return str(session.query(Classifier.last_updated).filter(Classifier.name == name).scalar())
+            return session.query(Classifier.last_updated).filter(Classifier.name == name).scalar()
 
     def delete_classifier_model(self, name):
         with self.session_scope() as session:
@@ -196,18 +197,11 @@ class SQLAlchemyDB(object):
 
     def update_classifier_model(self, name, model):
         with self.session_scope() as session:
-            # TODO fix memory errors handling using a queue or 64 bit or...
-            retries = 0
-            while True:
-                try:
-                    session.query(Classifier).filter(Classifier.name == name).update({Classifier.model: model})
-                    break
-                except (OperationalError, MemoryError) as e:
-                    session.rollback()
-                    time.sleep(random.uniform(0.1, 1))
-                    ++retries
-                    if retries == SQLAlchemyDB._MAXRETRY:
-                        raise e
+            try:
+                session.query(Classifier).filter(Classifier.name == name).update({Classifier.model: model})
+            except (OperationalError, MemoryError) as e:
+                session.rollback()
+                raise e
 
     def create_training_example(self, classifier_name, content, label):
         with self.session_scope() as session:
@@ -215,7 +209,7 @@ class SQLAlchemyDB(object):
                 Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET).one()
             with SQLAlchemyDB._TRAINING_EXAMPLE_CREATION_LOCK:
                 document = session.query(Document).filter(Document.text == content).filter(
-                    training_dataset.id == Document.dataset_id).first()  # TODO one_or_none()
+                    training_dataset.id == Document.dataset_id).scalar()
                 if document is None:
                     document = Document(content, training_dataset.id)
                     session.add(document)
@@ -226,16 +220,14 @@ class SQLAlchemyDB(object):
             training_dataset = session.query(Dataset).filter(
                 Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET).one()
             document = session.query(Document).filter(Document.text == content).filter(
-                training_dataset.id == Document.dataset_id).first()  # TODO one_or_none()
+                training_dataset.id == Document.dataset_id).scalar()
             label_id = session.query(Label.id).filter(Classifier.name == classifier_name).filter(
                 Label.classifier_id == Classifier.id).filter(
                 Label.name == label).scalar()
 
             classification = session.query(Classification).filter(Classification.document_id == document.id).join(
                 Classification.label).filter(Classifier.name == classifier_name).filter(
-                Label.classifier_id == Classifier.id)
-
-            classification = classification.first()  # TODO one_or_none()
+                Label.classifier_id == Classifier.id).scalar()
 
             if classification is None:
                 classification = Classification(document.id, label_id)
@@ -246,12 +238,16 @@ class SQLAlchemyDB(object):
     def classify(self, classifier_name, X):
         clf = self.get_classifier_model(classifier_name)
         y = list()
+        if clf is None:
+            default_label = self.get_classifier_classes(classifier_name)[0]
         for x in X:
             label = self.get_label(classifier_name, x)
             if label is not None:
                 y.append(label)
-            else:
+            elif clf is not None:
                 y.append(clf.predict([x])[0])
+            else:
+                y.append(default_label)
         return y
 
     def get_label(self, classifier_name, content):
@@ -284,11 +280,11 @@ class SQLAlchemyDB(object):
 
     def get_dataset_creation_time(self, name):
         with self.session_scope() as session:
-            return str(session.query(Dataset.creation).filter(Dataset.name == name).scalar())
+            return session.query(Dataset.creation).filter(Dataset.name == name).scalar()
 
     def get_dataset_last_update_time(self, name):
         with self.session_scope() as session:
-            return str(session.query(Dataset.last_updated).filter(Dataset.name == name).scalar())
+            return session.query(Dataset.last_updated).filter(Dataset.name == name).scalar()
 
     def get_dataset_size(self, name):
         with self.session_scope() as session:
@@ -299,7 +295,7 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
             document = session.query(Document).filter(Document.dataset_id == dataset.id).filter(
-                Document.external_id == external_id).first()  # TODO one_or_none()
+                Document.external_id == external_id).scalar()
             if document is None:
                 document = Document(content, dataset.id, external_id)
                 session.add(document)
@@ -312,11 +308,11 @@ class SQLAlchemyDB(object):
             return session.query(Classification.id).filter(Classifier.name == name).filter(
                 Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).count()
 
-    def get_classifier_examples(self, name):
+    def get_classifier_examples(self, name, offset=0, limit=None):
         with self.session_scope() as session:
             return session.query(Classification).order_by(Classification.creation).filter(
                 Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
-                Classification.label_id == Label.id)
+                Classification.label_id == Label.id).offset(offset).limit(limit)
 
     def get_dataset_documents(self, name):
         with self.session_scope() as session:
@@ -326,7 +322,7 @@ class SQLAlchemyDB(object):
     def get_dataset_document(self, name, position):
         with self.session_scope() as session:
             document = session.query(Document).filter(Dataset.name == name).filter(
-                Document.dataset_id == Dataset.id).offset(int(position)).first()
+                Document.dataset_id == Dataset.id).offset(int(position)).limit(1).scalar()
             session.expunge(document)
             return document
 
@@ -360,8 +356,8 @@ class SQLAlchemyDB(object):
 
     def get_most_recent_classifier_update_time(self, classifiers):
         with self.session_scope() as session:
-            return session.query(Classifier.last_updated).filter(Classifier.name in classifiers).order_by(
-                Classifier.last_updated.desc()).first()
+            return session.query(Classifier.last_updated).filter(Classifier.name.in_(classifiers)).order_by(
+                Classifier.last_updated.desc()).first()[0]
 
     def create_classification_job(self, datasetname, classifiers, job_id, fullpath):
         with self.session_scope() as session:
@@ -381,8 +377,8 @@ class SQLAlchemyDB(object):
     def delete_classification_job(self, id):
         with self.session_scope() as session:
             classification_job = session.query(ClassificationJob).filter(
-                ClassificationJob.id == id).first()  # TODO one_or_none
-            session.delete(classification_job.job)
+                ClassificationJob.id == id).scalar()
+            session.delete(classification_job)
 
     def delete_job(self, id):
         with self.session_scope() as session:
@@ -398,5 +394,4 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "0.2.3"
-
+        return "0.2.4"

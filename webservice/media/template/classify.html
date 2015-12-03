@@ -1,7 +1,7 @@
 <%inherit file="base.html" />
 <%block name="head">
     <script type="text/javascript">
-       update_interval=10000
+       update_interval=5000
        delay_interval=500
         last_update = 0
         function timed_update() {
@@ -28,6 +28,8 @@
                         if($('#gotclassification').length==0)
                             $('#classification').html('<div id="gotclassification" class="padded ui-widget-header ui-corner-all">Classifications for dataset \''+datasetname+'\':</div>\
                             <div id="job" class="table margined ui-widget-content ui-corner-all"><div><div>id</div><div>classifiers</div><div>created</div><div>completed</div><div>status</div><div>actions</div></div></div>');
+                        var curr_list = {};
+                        $('#job').children().each(function (index, value) {if(value.id.startsWith('job_')) { curr_list[value.id]=true;}});
                         for(var i = 0;i<msg.length;++i) {
                             item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
                             <div class="id">'+msg[i].id+'</div>\
@@ -38,14 +40,19 @@
                             <div><div id="download_'+msg[i].id+'">Download</div>\
                             <div id="delete_'+msg[i].id+'">Delete</div></div>\
                             </div>');
-                            if ($('#job\\_'+msg[i].id).length!=0)
-                                $('#job\\_'+msg[i].id).replaceWith(item)
+                            if ($('#job\\_'+msg[i].id).length!=0) {
+                                $('#job\\_'+msg[i].id).replaceWith(item);
+                                delete curr_list['job_'+msg[i].id];
+                            }
                             else
                                 $('#job').append(item);
                             $('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
                             $('#delete\\_'+msg[i].id).click(delete_classification);
                             $('#download\\_'+msg[i].id).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
                             $('#download\\_'+msg[i].id).click(download_classification);
+                        }
+                        for (var key in curr_list) {
+                            $('#'+key).remove();
                         }
                     }
             });

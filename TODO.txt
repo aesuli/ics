@@ -1,4 +1,6 @@
 TODO
+- file import
+    * no header example import (two passes)
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory

@@ -4,7 +4,7 @@ import os
 import shutil
 from uuid import uuid4
 import cherrypy
-from cherrypy.lib.static import serve_download
+from cherrypy.lib.static import serve_file
 import numpy
 from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB
@@ -45,8 +45,8 @@ class WebClassifierCollection(object):
             classifier_info = dict()
             classifier_info['name'] = name
             classifier_info['classes'] = self._db.get_classifier_classes(name)
-            classifier_info['created'] = self._db.get_classifier_creation_time(name)
-            classifier_info['updated'] = self._db.get_classifier_last_update_time(name)
+            classifier_info['created'] = str(self._db.get_classifier_creation_time(name))
+            classifier_info['updated'] = str(self._db.get_classifier_last_update_time(name))
             classifier_info['size'] = self._db.get_classifier_examples_count(name)
             result.append(classifier_info)
         return result
@@ -86,12 +86,14 @@ class WebClassifierCollection(object):
             overwrite = data['overwrite']
         except KeyError:
             overwrite = False
-        if not overwrite:
-            if self._db.classifier_exists(name):
+        with _lock_trainingset(name), _lock_model(name):
+            if not self._db.classifier_exists(name):
+                self._db.create_classifier(name, classes)
+            elif not overwrite:
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
-        self._background_processor.put(_create_model, (self._db_connection_string, name, classes),
-                                       description='create model \'%s\'' % name)
+            else:
+                self._db.update_classifier_model(name, None)
         return 'Ok'
 
     @cherrypy.expose
@@ -101,12 +103,18 @@ class WebClassifierCollection(object):
         if len(new_name) < 1:
             cherrypy.response.status = 400
             return 'Classifier name too short'
-        if not overwrite:
-            if self._db.classifier_exists(new_name):
+        with _lock_trainingset(new_name), _lock_model(new_name):
+            if not self._db.classifier_exists(new_name):
+                self._db.create_classifier(new_name, self._db.get_classifier_classes(name))
+            elif not overwrite:
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
+            else:
+                self._db.update_classifier_model(name, None)
         self._background_processor.put(_duplicate_model, (self._db_connection_string, name, new_name),
                                        description='duplicate model \'%s\' to \'%s\'' % (name, new_name))
+        self._background_processor.put(_duplicate_trainingset, (self._db_connection_string, name, new_name),
+                                       description='duplicate training set \'%s\' to \'%s\'' % (name, new_name))
         return 'Ok'
 
     @cherrypy.expose
@@ -170,7 +178,7 @@ class WebClassifierCollection(object):
         if not self._db.classifier_exists(name):
             cherrypy.response.status = 404
             return '%s does not exits' % name
-        filename = 'training data %s %s.csv' % (name, self._db.get_classifier_last_update_time(name))
+        filename = 'training data %s %s.csv' % (name, str(self._db.get_classifier_last_update_time(name)))
         filename = get_fully_portable_file_name(filename)
         fullpath = os.path.join(DOWNLOAD_DIR, filename)
         if not os.path.isfile(fullpath):
@@ -189,7 +197,7 @@ class WebClassifierCollection(object):
             except:
                 os.unlink(filename)
 
-        return serve_download(fullpath)
+        return serve_file(fullpath, "text/csv", "attachment")
 
     @cherrypy.expose
     def upload(self, **data):
@@ -284,7 +292,7 @@ class WebClassifierCollection(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.3.1 (db: %s)" % self._db.version()
+        return "0.3.2 (db: %s)" % self._db.version()
 
 
 @logged_call
@@ -300,6 +308,8 @@ def _update_model(db_connection_string, name, X, y):
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_model(name):
             clf = db.get_classifier_model(name)
+            if clf is None:
+                clf = OnlineClassifier(name, db.get_classifier_classes(name), average=20)
             clf.partial_fit(X, y)
             db.update_classifier_model(name, clf)
 
@@ -344,15 +354,39 @@ def _create_model(db_connection_string, name, classes):
                 clf = OnlineClassifier(name, classes, average=20)
                 db.create_classifier(name, classes, clf)
 
+
 @logged_call_with_args
 def _duplicate_model(db_connection_string, name, new_name):
-    with _lock_trainingset(new_name), _lock_model(new_name):
+    with _lock_model(new_name):
         with SQLAlchemyDB(db_connection_string) as db:
             if not db.classifier_exists(new_name):
                 clf = db.get_classifier_model(name)
                 clf.name = new_name
-                classes =db.get_classifier_classes(name)
+                classes = db.get_classifier_classes(name)
                 db.create_classifier(new_name, classes, clf)
+            elif db.get_classifier_model(new_name) is None:
+                clf = db.get_classifier_model(name)
+                clf.name = new_name
+                db.update_classifier_model(new_name, clf)
+
+
+@logged_call_with_args
+def _duplicate_trainingset(db_connection_string, name, new_name):
+    with _lock_trainingset(new_name):
+        with SQLAlchemyDB(db_connection_string) as db:
+            batchsize = 1000
+            block = 0
+            batch = list()
+            added = 1
+            while added > 0:
+                added = 0
+                for example in db.get_classifier_examples(name, block * batchsize, batchsize):
+                    batch.append((example.document.text, example.label.name))
+                    added += 1
+                for text, label in batch:
+                    db.create_training_example(new_name, text, label)
+                block += 1
+
 
 def _lock_model(name):
     return FileLock(os.path.join(LOCKS_DIR, '%s.model.lock' % name))
