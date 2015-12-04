@@ -7,8 +7,7 @@ import cherrypy
 from cherrypy.lib.static import serve_file
 import numpy
 from classifier.online_classifier import OnlineClassifier
-from db.sqlalchemydb import SQLAlchemyDB
-from util.lock import FileLock
+from db.sqlalchemydb import SQLAlchemyDB, DBLock
 from util.util import get_fully_portable_file_name, logged_call, logged_call_with_args
 from webservice.background_processor import BackgroundProcessor
 
@@ -86,7 +85,7 @@ class WebClassifierCollection(object):
             overwrite = data['overwrite']
         except KeyError:
             overwrite = False
-        with _lock_trainingset(name), _lock_model(name):
+        with _lock_trainingset(self._db, name), _lock_model(self._db, name):
             if not self._db.classifier_exists(name):
                 self._db.create_classifier(name, classes)
             elif not overwrite:
@@ -103,7 +102,7 @@ class WebClassifierCollection(object):
         if len(new_name) < 1:
             cherrypy.response.status = 400
             return 'Classifier name too short'
-        with _lock_trainingset(new_name), _lock_model(new_name):
+        with _lock_trainingset(self._db, new_name), _lock_model(self._db, new_name):
             if not self._db.classifier_exists(new_name):
                 self._db.create_classifier(new_name, self._db.get_classifier_classes(name))
             elif not overwrite:
@@ -292,13 +291,13 @@ class WebClassifierCollection(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.3.2 (db: %s)" % self._db.version()
+        return "0.3.3 (db: %s)" % self._db.version()
 
 
 @logged_call
 def _update_trainingset(db_connection_string, name, X, y):
     with SQLAlchemyDB(db_connection_string) as db:
-        with _lock_trainingset(name):
+        with _lock_trainingset(db, name):
             for (content, label) in zip(X, y):
                 db.create_training_example(name, content, label)
 
@@ -306,7 +305,7 @@ def _update_trainingset(db_connection_string, name, X, y):
 @logged_call
 def _update_model(db_connection_string, name, X, y):
     with SQLAlchemyDB(db_connection_string) as db:
-        with _lock_model(name):
+        with _lock_model(db, name):
             clf = db.get_classifier_model(name)
             if clf is None:
                 clf = OnlineClassifier(name, db.get_classifier_classes(name), average=20)
@@ -348,8 +347,8 @@ def _update_from_file(update_function, db_connection_string, filename, classifie
 
 @logged_call_with_args
 def _create_model(db_connection_string, name, classes):
-    with _lock_trainingset(name), _lock_model(name):
-        with SQLAlchemyDB(db_connection_string) as db:
+    with SQLAlchemyDB(db_connection_string) as db:
+        with _lock_trainingset(db, name), _lock_model(db, name):
             if not db.classifier_exists(name):
                 clf = OnlineClassifier(name, classes, average=20)
                 db.create_classifier(name, classes, clf)
@@ -357,8 +356,8 @@ def _create_model(db_connection_string, name, classes):
 
 @logged_call_with_args
 def _duplicate_model(db_connection_string, name, new_name):
-    with _lock_model(new_name):
-        with SQLAlchemyDB(db_connection_string) as db:
+    with SQLAlchemyDB(db_connection_string) as db:
+        with _lock_model(db, new_name):
             if not db.classifier_exists(new_name):
                 clf = db.get_classifier_model(name)
                 clf.name = new_name
@@ -372,8 +371,8 @@ def _duplicate_model(db_connection_string, name, new_name):
 
 @logged_call_with_args
 def _duplicate_trainingset(db_connection_string, name, new_name):
-    with _lock_trainingset(new_name):
-        with SQLAlchemyDB(db_connection_string) as db:
+    with SQLAlchemyDB(db_connection_string) as db:
+        with _lock_trainingset(db, new_name):
             batchsize = 1000
             block = 0
             batch = list()
@@ -388,12 +387,14 @@ def _duplicate_trainingset(db_connection_string, name, new_name):
                 block += 1
 
 
-def _lock_model(name):
-    return FileLock(os.path.join(LOCKS_DIR, '%s.model.lock' % name))
+def _lock_model(db, name):
+    return DBLock(db,'%s %s' % (name, 'model'))
+    # return FileLock(os.path.join(LOCKS_DIR, '%s.model.lock' % name))
 
 
-def _lock_trainingset(name):
-    return FileLock(os.path.join(LOCKS_DIR, '%s.trainingset.lock' % name))
+def _lock_trainingset(db, name):
+    return DBLock(db,'%s %s' % (name, 'trainingset'))
+    # return FileLock(os.path.join(LOCKS_DIR, '%s.trainingset.lock' % name))
 
 
 if __name__ == "__main__":
