@@ -1,6 +1,8 @@
 from contextlib import contextmanager
+import time
 import datetime
 import threading
+from uuid import uuid4
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
     UniqueConstraint, desc, exists
 from sqlalchemy.exc import OperationalError
@@ -12,11 +14,16 @@ __author__ = 'Andrea Esuli'
 
 Base = declarative_base()
 
+classifier_name_length = 100
+label_name_length = 50
+dataset_name_length = 100
+document_name_length = 100
+
 
 class Classifier(Base):
     __tablename__ = 'classifier'
     id = Column(Integer(), primary_key=True)
-    name = Column(String(50), unique=True)
+    name = Column(String(classifier_name_length), unique=True)
     model = deferred(Column(PickleType()))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
@@ -29,7 +36,7 @@ class Classifier(Base):
 class Label(Base):
     __tablename__ = 'label'
     id = Column(Integer(), primary_key=True)
-    name = Column(String(50), nullable=False)
+    name = Column(String(label_name_length), nullable=False)
     classifier_id = Column(Integer(), ForeignKey('classifier.id', onupdate="CASCADE", ondelete="CASCADE"),
                            nullable=False)
     classifier = relationship('Classifier', backref='labels')
@@ -43,7 +50,7 @@ class Label(Base):
 class Dataset(Base):
     __tablename__ = 'dataset'
     id = Column(Integer(), primary_key=True)
-    name = Column(String(50), unique=True)
+    name = Column(String(dataset_name_length), unique=True)
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
@@ -54,7 +61,7 @@ class Dataset(Base):
 class Document(Base):
     __tablename__ = 'document'
     id = Column(Integer(), primary_key=True)
-    external_id = Column(String(50))
+    external_id = Column(String(document_name_length))
     dataset_id = Column(Integer(), ForeignKey('dataset.id', onupdate='CASCADE', ondelete='CASCADE'),
                         nullable=False)
     dataset = relationship('Dataset', backref='documents')
@@ -85,7 +92,7 @@ class Classification(Base):
 class Job(Base):
     __tablename__ = 'job'
     id = Column(Integer(), primary_key=True)
-    description = Column(String(250))
+    description = Column(Text())
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     start = Column(DateTime(timezone=True))
     completion = Column(DateTime(timezone=True))
@@ -118,15 +125,23 @@ class ClassificationJob(Base):
         self.filename = filename
 
 
+class Lock(Base):
+    __tablename__ = 'lock'
+    name = Column(String(classifier_name_length + 20), primary_key=True)
+    locker = Column(String(40))
+
+    def __init__(self, name, locker):
+        self.name = name
+        self.locker = locker
+
+
 class SQLAlchemyDB(object):
-    _MAXRETRY = 3
     _INTERNAL_TRAINING_DATASET = '_internal_training_dataset'
-    _TRAINING_EXAMPLE_CREATION_LOCK = threading.Lock()
 
     def __init__(self, name):
-        engine = create_engine(name)
-        Base.metadata.create_all(engine)
-        self._sessionmaker = scoped_session(sessionmaker(bind=engine))
+        self._engine = create_engine(name)
+        Base.metadata.create_all(self._engine )
+        self._sessionmaker = scoped_session(sessionmaker(bind=self._engine ))
         configure_mappers()
         self._preload_data()
 
@@ -143,6 +158,7 @@ class SQLAlchemyDB(object):
 
     def close(self):
         self._sessionmaker.session_factory.close_all()
+        self._engine.dispose()
 
     @contextmanager
     def session_scope(self):
@@ -207,14 +223,13 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             training_dataset = session.query(Dataset).filter(
                 Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET).one()
-            with SQLAlchemyDB._TRAINING_EXAMPLE_CREATION_LOCK:
-                document = session.query(Document).filter(Document.text == content).filter(
-                    training_dataset.id == Document.dataset_id).scalar()
-                if document is None:
-                    document = Document(content, training_dataset.id)
-                    session.add(document)
-                training_dataset.last_updated = document.creation
-                session.commit()
+            document = session.query(Document).filter(Document.text == content).filter(
+                training_dataset.id == Document.dataset_id).scalar()
+            if document is None:
+                document = Document(content, training_dataset.id)
+                session.add(document)
+            training_dataset.last_updated = document.creation
+            session.commit()
 
         with self.session_scope() as session:
             training_dataset = session.query(Dataset).filter(
@@ -392,6 +407,58 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(exists().where(Job.id == id)).scalar()
 
+    def acquire_lock(self, name, locker, poll_interval=1):
+        with self.session_scope() as session:
+            locked = False
+            while not locked:
+                try:
+                    lock = Lock(name, locker)
+                    session.add(lock)
+                    session.commit()
+                    locked = True
+                except:
+                    session.rollback()
+                    time.sleep(poll_interval)
+
+    def release_lock(self, name, locker):
+        with self.session_scope() as session:
+            lock = session.query(Lock).filter(Lock.name == name).filter(Lock.locker == locker).first()
+            if lock is not None:
+                session.delete(lock)
+
     @staticmethod
     def version():
-        return "0.2.4"
+        return "0.3.1"
+
+
+class DBLock(object):
+    def __init__(self, db, name):
+        self._db = db
+        self._name = name
+        self._uuid = uuid4()
+
+    def acquire(self):
+        self._db.acquire_lock(self._name, str(self._uuid))
+
+    def release(self):
+        self._db.release_lock(self._name, str(self._uuid))
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.release()
+        return None
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.release()
+        return None
+
+    def __del__(self):
+        self.release()
+        return None

@@ -22,7 +22,7 @@
                     $('#job\\_list').html('<div class="padded ui-widget-header ui-corner-all">No job</div>');
                 }
                 else {
-                    if($('#gotjob').length==0)
+                    if($('#gotjob').length==0) {
                         $('#job\\_list').html('<div id="gotjob" class="padded ui-widget-header ui-corner-all">Jobs:</div>\
                         <div id="job" class="table margined ui-widget-content ui-corner-all">\
                         <div><div>id</div>\
@@ -33,6 +33,9 @@
                         <div>status</div>\
                         <div>actions</div>\
                         </div></div>');
+                    }
+                    var curr_list = {};
+                    $('#job').children().each(function (index, value) {if(value.id.startsWith('job_')) { curr_list[value.id]=true;}})
                     for(var i = 0;i<msg.length;++i) {
                         item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
                         <div class="id">'+msg[i].id+'</div>\
@@ -43,12 +46,17 @@
                         <div>'+msg[i].status+'</div>\
                         <div><div id="delete_'+msg[i].id+'">Delete</div></div>\
                         </div>');
-                        if ($('#job\\_'+msg[i].id).length!=0)
+                        if ($('#job\\_'+msg[i].id).length!=0) {
                             $('#job\\_'+msg[i].id).replaceWith(item)
+                            delete curr_list['job_'+msg[i].id];
+                        }
                         else
                             $('#job').append(item);
                         $('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
                         $('#delete\\_'+msg[i].id).click(delete_job);
+                    }
+                    for (var key in curr_list) {
+                        $('#'+key).remove();
                     }
                 }
             });

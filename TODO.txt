@@ -1,4 +1,5 @@
 TODO
+- queue on db
 - file import
     * no header example import (two passes)
 - cleaning
@@ -30,6 +31,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- locks on db
 - duplicate classifiers
 - lock classifiers on update
 - logging
