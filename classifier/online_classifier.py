@@ -1,6 +1,7 @@
 from sklearn.feature_extraction.text import HashingVectorizer
 # from sklearn.linear_model import PassiveAggressiveClassifier
 from classifier.passive_aggressive import PassiveAggressiveClassifier
+from classifier.rich_analyzer import rich_analyzer
 
 __author__ = 'Andrea Esuli'
 
@@ -9,8 +10,9 @@ class OnlineClassifier(object):
     def __init__(self, name, classes, n_features=(2 ** 21), average=False):
         self.name = name
         # TODO add configurable parameters for vec and clf
-        # int(n_features/len(classes)) makes memory usage constant for the entire classifier
-        self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), ngram_range=(1, 3))
+        # int(n_features/len(classes)) makes memory usage constant for
+        # the entire classifier when the one-vs-all multi-class method
+        self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), analyzer=rich_analyzer)
         self._clf = PassiveAggressiveClassifier(average=average, n_jobs=-1)
         self._clf.partial_fit(self._vec.transform(['']), [classes[0]], classes)
 
