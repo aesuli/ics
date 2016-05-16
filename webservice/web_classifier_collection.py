@@ -212,7 +212,7 @@ class WebClassifierCollection(object):
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
-        with open(fullpath) as file:
+        with open(fullpath, 'r', encoding='utf8') as file:
             reader = csv.reader(file)
             header = json.loads(next(reader)[0])
 
@@ -388,12 +388,12 @@ def _duplicate_trainingset(db_connection_string, name, new_name):
 
 
 def _lock_model(db, name):
-    return DBLock(db,'%s %s' % (name, 'model'))
+    return DBLock(db, '%s %s' % (name, 'model'))
     # return FileLock(os.path.join(LOCKS_DIR, '%s.model.lock' % name))
 
 
 def _lock_trainingset(db, name):
-    return DBLock(db,'%s %s' % (name, 'trainingset'))
+    return DBLock(db, '%s %s' % (name, 'trainingset'))
     # return FileLock(os.path.join(LOCKS_DIR, '%s.trainingset.lock' % name))
 
 

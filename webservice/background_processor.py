@@ -8,7 +8,6 @@ import cherrypy
 from db.sqlalchemydb import SQLAlchemyDB, Job
 from util.util import logged_call
 
-
 __author__ = 'Andrea Esuli'
 
 
@@ -35,8 +34,8 @@ class BackgroundProcessor(Thread):
                     if self._db.job_exists(job_id):
                         self._db.set_job_start_time(job_id)
                         self._db.set_job_status(job_id, Job.status_running)
-                        self._pool.apply_async(obj[2], obj[3], obj[4], callback=partial(self._release,job_id),
-                                               error_callback=partial(self._error_release,job_id))
+                        self._pool.apply_async(obj[2], obj[3], obj[4], callback=partial(self._release, job_id),
+                                               error_callback=partial(self._error_release, job_id))
                 except:
                     self._semaphore.release()
             else:
@@ -83,12 +82,12 @@ class BackgroundProcessor(Thread):
         jobslist = list()
         for job in self._db.get_jobs():
             jobinfo = dict()
-            jobinfo['id'] =  job.id
-            jobinfo['description'] =  job.description
-            jobinfo['creation'] =  str(job.creation)
-            jobinfo['start'] =  str(job.start)
-            jobinfo['completion'] =  str(job.completion)
-            jobinfo['status'] =  job.status
+            jobinfo['id'] = job.id
+            jobinfo['description'] = job.description
+            jobinfo['creation'] = str(job.creation)
+            jobinfo['start'] = str(job.start)
+            jobinfo['completion'] = str(job.completion)
+            jobinfo['status'] = job.status
             jobslist.append(jobinfo)
         return jobslist
 
@@ -102,7 +101,7 @@ class BackgroundProcessor(Thread):
         to_remove = set()
         for job in self._db.get_jobs():
             if job.status == Job.status_done:
-                if len(job.classification_job)==0:
+                if len(job.classification_job) == 0:
                     to_remove.add(job.id)
         for id in to_remove:
             self._db.delete_job(id)
