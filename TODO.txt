@@ -1,7 +1,15 @@
 TODO
-- queue on db
+- bug in picking of models: move partial into get_TEXT_analyzer
+- bug in autoadvance on skip
+- classifiers
+    * single label modification
+- file export
+    * non header needed after implementation of two pass import
 - file import
+    * skip comment lines, i.e., those starting with #
+    * automatic encoding management
     * no header example import (two passes)
+- BackgroundProcessor._queue on db?
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory

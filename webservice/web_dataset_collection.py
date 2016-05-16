@@ -275,7 +275,8 @@ def _classify_and_write(db, id, X, classifiers, writer):
 @logged_call
 def _create_documents(db_connection_string, dataset_name, filename):
     with SQLAlchemyDB(db_connection_string) as db:
-        with open(filename, 'r') as file:
+        with open(filename, 'r', encoding='utf8') as file:
+            #TODO skip comment lines
             reader = csv.reader(file)
             first_row = next(reader)
             if len(first_row) > 1:

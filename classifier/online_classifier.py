@@ -1,7 +1,9 @@
+from functools import partial
+
 from sklearn.feature_extraction.text import HashingVectorizer
 # from sklearn.linear_model import PassiveAggressiveClassifier
 from classifier.passive_aggressive import PassiveAggressiveClassifier
-from classifier.rich_analyzer import get_rich_analyzer
+from classifier.rich_analyzer import rich_analyzer
 
 __author__ = 'Andrea Esuli'
 
@@ -12,7 +14,7 @@ class OnlineClassifier(object):
         # TODO add configurable parameters for vec and clf
         # int(n_features/len(classes)) makes memory usage constant for
         # the entire classifier when the one-vs-all multi-class method
-        analyzer = get_rich_analyzer(word_ngrams=[2, 3], char_ngrams=[4])
+        analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[4])
         self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), analyzer=analyzer)
         self._clf = PassiveAggressiveClassifier(average=average, n_jobs=-1)
         self._clf.partial_fit(self._vec.transform(['']), [classes[0]], classes)
