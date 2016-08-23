@@ -11,6 +11,7 @@
 
 name: ics
 dependencies:
+- chardet
 - cherrypy
 - cython
 - mako
