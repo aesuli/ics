@@ -105,6 +105,7 @@
                                     var classifier_name = msg[i].name;
                                     return function() {
                                         $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
+                                        check_autobrowse();
                                     };
                                 })());
                                 $('#assignments\\_'+msg[i].name).append(skipline);
@@ -117,7 +118,6 @@
                                 $('#suggestions div div .skip').each(function(i,item) {
                                     item.click();
                                 });
-                                check_autobrowse();
                             });
                             $('#suggestions').append(skip_all);
                         }

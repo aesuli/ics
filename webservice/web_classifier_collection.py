@@ -1,9 +1,12 @@
 import csv
 import json
+import logging
 import os
 import shutil
+from collections import defaultdict
 from uuid import uuid4
 import cherrypy
+from chardet.universaldetector import UniversalDetector
 from cherrypy.lib.static import serve_file
 import numpy
 from classifier.online_classifier import OnlineClassifier
@@ -212,35 +215,71 @@ class WebClassifierCollection(object):
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
-        with open(fullpath, 'r', encoding='utf8') as file:
+        detector = UniversalDetector()
+        with open(fullpath, 'rb') as file:
+            for line in file:
+                detector.feed(line)
+                if detector.done:
+                    break
+        encoding = detector.result['encoding']
+        cherrypy.log('Encode guessing for uploaded file ' + json.dumps(detector.result), severity=logging.INFO)
+
+        classifiers_definition = defaultdict(set)
+        with open(fullpath, 'r', encoding=encoding) as file:
+            try:
+                reader = csv.reader(file)
+                header = json.loads(next(reader)[0])
+                for classifier_definition in header:
+                    classifier_name = classifier_definition['name']
+                    classifiers_definition[classifier_name].add(classifier_definition['classes'])
+            except Exception as e:
+                cherrypy.log(
+                    'No JSON header in uploaded file, scanning classes from the whole file. Exception:' + repr(e),
+                    severity=logging.INFO)
+
+        with open(fullpath, 'r', encoding=encoding) as file:
             reader = csv.reader(file)
-            header = json.loads(next(reader)[0])
+            for row in reader:
+                if len(row) == 0:
+                    continue
+                first = row[0].strip()
+                if len(first) > 0 and first[0] == '#':
+                    continue
 
-            active_classifiers = set()
+                if len(row) < 3:
+                    continue
+                for classifier_label in row[2:]:
+                    try:
+                        classifier_name, label = classifier_label.split(':')
+                    except:
+                        continue
+                    classifier_name = classifier_name.strip()
+                    label = label.strip()
+                    classifiers_definition[classifier_name].add(label)
 
-            for classifier_definition in header:
-                classifier_name = classifier_definition['name']
-                active_classifiers.add(classifier_name)
-                classes = classifier_definition['classes']
-                if not self._db.classifier_exists(classifier_name):
-                    if len(classes) < 2:
-                        cherrypy.response.status = 400
-                        return 'Must specify at least two classes for classifier \'%s\'' % classifier_name
-                    self._background_processor.put(_create_model,
-                                                   (self._db_connection_string, classifier_name, classes),
-                                                   description='create model \'%s\'' % classifier_name)
-                else:
-                    if not len(set(self._db.get_classifier_classes(classifier_name)).intersection(classes)) == len(
-                            classes):
-                        cherrypy.response.status = 400
-                        return 'Existing classifier \'%s\' uses a different set of classes than input file' % classifier_name
+        for classifier_name in classifiers_definition:
+            classes = classifiers_definition[classifier_name]
+            if not self._db.classifier_exists(classifier_name):
+                if len(classes) < 2:
+                    cherrypy.response.status = 400
+                    return 'Must specify at least two classes for classifier \'%s\'' % classifier_name
+                self._background_processor.put(_create_model,
+                                               (self._db_connection_string, classifier_name, classes),
+                                               description='create model \'%s\'' % classifier_name)
+            else:
+                if not len(set(self._db.get_classifier_classes(classifier_name)).intersection(classes)) == len(
+                        classes):
+                    cherrypy.response.status = 400
+                    return 'Existing classifier \'%s\' uses a different set of classes than input file' % classifier_name
 
-        for classifier_name in active_classifiers:
+        for classifier_name in classifiers_definition:
             self._background_processor.put(_update_from_file,
-                                           (_update_model, self._db_connection_string, fullpath, classifier_name),
+                                           (_update_model, encoding, self._db_connection_string, fullpath,
+                                            classifier_name),
                                            description='update model \'%s\' from file' % classifier_name)
             self._background_processor.put(_update_from_file,
-                                           (_update_trainingset, self._db_connection_string, fullpath, classifier_name),
+                                           (_update_trainingset, encoding, self._db_connection_string, fullpath,
+                                            classifier_name),
                                            description='update training set \'%s\' from file' % classifier_name)
 
         return 'Ok'
@@ -314,8 +353,8 @@ def _update_model(db_connection_string, name, X, y):
 
 
 @logged_call_with_args
-def _update_from_file(update_function, db_connection_string, filename, classifier_name):
-    with open(filename) as file:
+def _update_from_file(update_function, encoding, db_connection_string, filename, classifier_name):
+    with open(filename, encoding=encoding) as file:
         reader = csv.reader(file)
         next(reader)
         X = []
@@ -389,12 +428,10 @@ def _duplicate_trainingset(db_connection_string, name, new_name):
 
 def _lock_model(db, name):
     return DBLock(db, '%s %s' % (name, 'model'))
-    # return FileLock(os.path.join(LOCKS_DIR, '%s.model.lock' % name))
 
 
 def _lock_trainingset(db, name):
     return DBLock(db, '%s %s' % (name, 'trainingset'))
-    # return FileLock(os.path.join(LOCKS_DIR, '%s.trainingset.lock' % name))
 
 
 if __name__ == "__main__":

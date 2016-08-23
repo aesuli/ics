@@ -1,18 +1,17 @@
 TODO
-- bug in picking of models: move partial into get_TEXT_analyzer
-- bug in autoadvance on skip
-- classifiers
-    * single label modification
-- file export
-    * non header needed after implementation of two pass import
 - file import
+    * no header example import (two passes)
     * skip comment lines, i.e., those starting with #
     * automatic encoding management
-    * no header example import (two passes)
+- file export
+    * no header needed after implementation of two pass import
+- classifiers
+    * single label modification
 - BackgroundProcessor._queue on db?
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
+- bug in picking of models: move partial into get_TEXT_analyzer (resolved after package update?)
 - check for sql/js/etc code injection
 - "classifiers" page
     * accuracy estimates
@@ -39,6 +38,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- bug in autoadvance on skip
 - locks on db
 - duplicate classifiers
 - lock classifiers on update
