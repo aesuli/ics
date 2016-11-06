@@ -18,7 +18,6 @@ __author__ = 'Andrea Esuli'
 
 DOWNLOAD_DIR = os.path.join(os.path.abspath('.'), 'downloads')
 UPLOAD_DIR = os.path.join(os.path.abspath('.'), 'uploads')
-LOCKS_DIR = os.path.join(os.path.abspath('.'), 'locks')
 
 MAX_BATCH_SIZE = 1000
 
