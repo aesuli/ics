@@ -1,8 +1,8 @@
 TODO
+- extract binary classifiers from multilabel classifier
+- compose binary classifiers into a multilabel classifier
 - file import
-    * no header example import (two passes)
     * skip comment lines, i.e., those starting with #
-    * automatic encoding management
 - file export
     * no header needed after implementation of two pass import
 - classifiers
@@ -38,6 +38,9 @@ TOMONITOR
 - strip input strings
 
 DONE
+- file import
+    * no header example import (two passes)
+    * automatic encoding management
 - bug in autoadvance on skip
 - locks on db
 - duplicate classifiers
