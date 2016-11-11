@@ -328,8 +328,63 @@ class WebClassifierCollection(object):
             return [dict(zip(classes, values)) for values in scores]
 
     @cherrypy.expose
+    def extract(self, **data):
+        try:
+            name = data['name']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a name'
+        try:
+            classes = data['classes']
+        except KeyError:
+            try:
+                classes = data['classes[]']
+            except KeyError:
+                cherrypy.response.status = 400
+                return 'Must specify the classes'
+        if type(classes) is str:
+            classes = [classes]
+        if type(classes) is not list:
+            cherrypy.response.status = 400
+            return 'Must specify at least a class'
+        name = str.strip(name)
+        if len(name) < 1:
+            cherrypy.response.status = 400
+            return 'Classifier name too short'
+        classes = map(str.strip, classes)
+        classes = list(set(classes))
+        if len(classes) < 1:
+            cherrypy.response.status = 400
+            return 'Must specify at least a class'
+        for class_name in classes:
+            if len(class_name) < 1:
+                cherrypy.response.status = 400
+                return 'Class name too short'
+        try:
+            overwrite = data['overwrite']
+        except KeyError:
+            overwrite = False
+        for class_name in classes:
+            # TODO retrain or extract module?
+            with _lock_trainingset(self._db, class_name), _lock_model(self._db, class_name):
+                if not self._db.classifier_exists(class_name):
+                    self._db.create_classifier(class_name, ['yes','no'])
+                elif not overwrite:
+                    cherrypy.response.status = 403
+                    return '%s is already in the collection' % class_name
+                else:
+                    self._db.update_classifier_model(class_name, None)
+        return 'Ok'
+
+
+    @cherrypy.expose
+    def compose(self, **data):
+        # TODO compose binary classifiers into a multilabel classifier
+        pass
+
+    @cherrypy.expose
     def version(self):
-        return "0.3.3 (db: %s)" % self._db.version()
+        return "0.4.0 (db: %s)" % self._db.version()
 
 
 @logged_call
