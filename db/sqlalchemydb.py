@@ -1,8 +1,8 @@
-from contextlib import contextmanager
-import time
 import datetime
-import threading
+import time
+from contextlib import contextmanager
 from uuid import uuid4
+
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
     UniqueConstraint, desc, exists
 from sqlalchemy.exc import OperationalError
@@ -140,8 +140,8 @@ class SQLAlchemyDB(object):
 
     def __init__(self, name):
         self._engine = create_engine(name)
-        Base.metadata.create_all(self._engine )
-        self._sessionmaker = scoped_session(sessionmaker(bind=self._engine ))
+        Base.metadata.create_all(self._engine)
+        self._sessionmaker = scoped_session(sessionmaker(bind=self._engine))
         configure_mappers()
         self._preload_data()
 
@@ -207,7 +207,7 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(Classifier.last_updated).filter(Classifier.name == name).scalar()
 
-    def delete_classifier_model(self, name):
+    def delete_classifier(self, name):
         with self.session_scope() as session:
             session.query(Classifier).filter(Classifier.name == name).delete()
 
@@ -323,11 +323,23 @@ class SQLAlchemyDB(object):
             return session.query(Classification.id).filter(Classifier.name == name).filter(
                 Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).count()
 
+    def get_classifier_examples_with_label_count(self, name, label):
+        with self.session_scope() as session:
+            return session.query(Classification.id).filter(Classifier.name == name).filter(
+                Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).filter(
+                Label.name == label).count()
+
     def get_classifier_examples(self, name, offset=0, limit=None):
         with self.session_scope() as session:
             return session.query(Classification).order_by(Classification.creation).filter(
                 Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
                 Classification.label_id == Label.id).offset(offset).limit(limit)
+
+    def get_classifier_examples_with_label(self, name, label, offset=0, limit=None):
+        with self.session_scope() as session:
+            return session.query(Classification).order_by(Classification.creation).filter(
+                Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
+                Classification.label_id == Label.id).filter(Label.name == label).offset(offset).limit(limit)
 
     def get_dataset_documents(self, name):
         with self.session_scope() as session:

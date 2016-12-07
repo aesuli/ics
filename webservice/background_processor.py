@@ -1,10 +1,11 @@
-from functools import partial
 import logging
+from functools import partial
 from multiprocessing import Queue, BoundedSemaphore
 from multiprocessing.pool import Pool
 from threading import Thread
 
 import cherrypy
+
 from db.sqlalchemydb import SQLAlchemyDB, Job
 from util.util import logged_call
 
@@ -68,6 +69,9 @@ class BackgroundProcessor(Thread):
             self._db.set_job_status(job_id, Job.status_error)
         finally:
             self._semaphore.release()
+
+    def stop(self):
+        self._queue.put(('stop',))
 
     def put(self, function, args=(), kwargs={}, description=None):
         if description is None:

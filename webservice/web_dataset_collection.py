@@ -3,9 +3,13 @@ import json
 import os
 import shutil
 from uuid import uuid4
+
 import cherrypy
-from cherrypy.lib.static import serve_file
+import logging
 import numpy
+from chardet.universaldetector import UniversalDetector
+from cherrypy.lib.static import serve_file
+
 from db.sqlalchemydb import SQLAlchemyDB, Job
 from util.util import get_fully_portable_file_name, logged_call
 from webservice.background_processor import BackgroundProcessor
@@ -274,19 +278,22 @@ def _classify_and_write(db, id, X, classifiers, writer):
 
 @logged_call
 def _create_documents(db_connection_string, dataset_name, filename):
+    detector = UniversalDetector()
+    with open(filename, 'rb') as file:
+        for line in file:
+            detector.feed(line)
+            if detector.done:
+                break
+    encoding = detector.result['encoding']
+    cherrypy.log('Encode guessing for uploaded file ' + json.dumps(detector.result), severity=logging.INFO)
     with SQLAlchemyDB(db_connection_string) as db:
-        with open(filename, 'r', encoding='utf8') as file:
-            #TODO skip comment lines
+        with open(filename, 'r', encoding=encoding, errors='ignore') as file:
             reader = csv.reader(file)
-            first_row = next(reader)
-            if len(first_row) > 1:
-                document_name = first_row[0]
-                content = first_row[1]
-                db.create_document(dataset_name, document_name, content)
             for row in reader:
-                document_name = row[0]
-                content = row[1]
-                db.create_document(dataset_name, document_name, content)
+                if len(row) > 1:
+                    document_name = row[0]
+                    content = row[1]
+                    db.create_document(dataset_name, document_name, content)
 
 
 if __name__ == "__main__":

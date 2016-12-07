@@ -1,5 +1,6 @@
 TODO
-- extract binary classifiers from multilabel classifier
+- batch/background processing
+    * jobs db
 - compose binary classifiers into a multilabel classifier
 - file import
     * skip comment lines, i.e., those starting with #
@@ -38,6 +39,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- extract binary classifiers from multilabel classifier
 - file import
     * no header example import (two passes)
     * automatic encoding management
@@ -47,7 +49,6 @@ DONE
 - lock classifiers on update
 - logging
 - batch/background processing
-    * jobs db
     * upload
     * training with uploaded examples
     * jobs update
