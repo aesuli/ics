@@ -1,7 +1,7 @@
 from functools import partial
 
 from sklearn.feature_extraction.text import HashingVectorizer
-# from sklearn.linear_model import PassiveAggressiveClassifier
+
 from classifier.passive_aggressive import PassiveAggressiveClassifier
 from classifier.rich_analyzer import rich_analyzer
 

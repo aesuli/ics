@@ -2,13 +2,16 @@ import csv
 import json
 import logging
 import os
+import random
 import shutil
 from collections import defaultdict
 from uuid import uuid4
+
 import cherrypy
+import numpy
 from chardet.universaldetector import UniversalDetector
 from cherrypy.lib.static import serve_file
-import numpy
+
 from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB, DBLock
 from util.util import get_fully_portable_file_name, logged_call, logged_call_with_args
@@ -20,6 +23,9 @@ DOWNLOAD_DIR = os.path.join(os.path.abspath('.'), 'downloads')
 UPLOAD_DIR = os.path.join(os.path.abspath('.'), 'uploads')
 
 MAX_BATCH_SIZE = 1000
+
+YES_LABEL = 'yes'
+NO_LABEL = 'no'
 
 
 class WebClassifierCollection(object):
@@ -94,7 +100,8 @@ class WebClassifierCollection(object):
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
             else:
-                self._db.update_classifier_model(name, None)
+                self.delete(name)
+                self._db.create_classifier(name, classes)
         return 'Ok'
 
     @cherrypy.expose
@@ -111,7 +118,8 @@ class WebClassifierCollection(object):
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
             else:
-                self._db.update_classifier_model(name, None)
+                self.delete(new_name)
+                self._db.create_classifier(new_name, self._db.get_classifier_classes(name))
         self._background_processor.put(_duplicate_model, (self._db_connection_string, name, new_name),
                                        description='duplicate model \'%s\' to \'%s\'' % (name, new_name))
         self._background_processor.put(_duplicate_trainingset, (self._db_connection_string, name, new_name),
@@ -162,7 +170,7 @@ class WebClassifierCollection(object):
     @cherrypy.expose
     def delete(self, name):
         try:
-            self._db.delete_classifier_model(name)
+            self._db.delete_classifier(name)
         except KeyError as e:
             cherrypy.response.status = 404
             return '%s does not exits' % name
@@ -190,11 +198,9 @@ class WebClassifierCollection(object):
                 with open(fullpath, 'w') as file:
                     writer = csv.writer(file, lineterminator='\n')
                     writer.writerow([json.dumps([header])])
-                    counter = 0
-                    for classification in self._db.get_classifier_examples(name):
-                        writer.writerow([counter, classification.document.text,
+                    for i, classification in enumerate(self._db.get_classifier_examples(name)):
+                        writer.writerow([i, classification.document.text,
                                          '%s:%s' % (name, classification.label.name)])
-                        counter += 1
             except:
                 os.unlink(filename)
 
@@ -224,7 +230,7 @@ class WebClassifierCollection(object):
         cherrypy.log('Encode guessing for uploaded file ' + json.dumps(detector.result), severity=logging.INFO)
 
         classifiers_definition = defaultdict(set)
-        with open(fullpath, 'r', encoding=encoding) as file:
+        with open(fullpath, 'r', encoding=encoding, errors='ignore') as file:
             try:
                 reader = csv.reader(file)
                 header = json.loads(next(reader)[0])
@@ -236,7 +242,7 @@ class WebClassifierCollection(object):
                     'No JSON header in uploaded file, scanning classes from the whole file. Exception:' + repr(e),
                     severity=logging.INFO)
 
-        with open(fullpath, 'r', encoding=encoding) as file:
+        with open(fullpath, 'r', encoding=encoding, errors='ignore') as file:
             reader = csv.reader(file)
             for row in reader:
                 if len(row) == 0:
@@ -365,22 +371,84 @@ class WebClassifierCollection(object):
         except KeyError:
             overwrite = False
         for class_name in classes:
-            # TODO retrain or extract module?
+            with _lock_trainingset(self._db, class_name), _lock_model(self._db, class_name):
+                if self._db.classifier_exists(class_name) and not overwrite:
+                    cherrypy.response.status = 403
+                    return '%s is already in the collection' % class_name
+
+        for class_name in classes:
             with _lock_trainingset(self._db, class_name), _lock_model(self._db, class_name):
                 if not self._db.classifier_exists(class_name):
-                    self._db.create_classifier(class_name, ['yes','no'])
+                    self._db.create_classifier(class_name, [YES_LABEL, NO_LABEL])
                 elif not overwrite:
                     cherrypy.response.status = 403
                     return '%s is already in the collection' % class_name
                 else:
-                    self._db.update_classifier_model(class_name, None)
+                    self.delete(class_name)
+                    self._db.create_classifier(class_name, [YES_LABEL, NO_LABEL])
+                self._background_processor.put(_extract_binary_trainingset,
+                                               (self._db_connection_string, name, class_name),
+                                               description='extract binary classifier from \'%s\' to \'%s\'' % (
+                                                   name, class_name))
         return 'Ok'
 
-
     @cherrypy.expose
-    def compose(self, **data):
-        # TODO compose binary classifiers into a multilabel classifier
-        pass
+    def combine(self, **data):
+        try:
+            name = data['name']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a name for the new classifier'
+        try:
+            sources = data['sources']
+        except KeyError:
+            try:
+                sources = data['sources[]']
+            except KeyError:
+                cherrypy.response.status = 400
+                return 'Must specify the source binary classifiers'
+        if type(sources) is str:
+            sources = [sources]
+        if type(sources) is not list:
+            cherrypy.response.status = 400
+            return 'Unknown type for the sources'
+        name = str.strip(name)
+        if len(name) < 1:
+            cherrypy.response.status = 400
+            return 'New classifier name is too short'
+        sources = map(str.strip, sources)
+        sources = list(set(sources))
+        if len(sources) < 2:
+            cherrypy.response.status = 400
+            return 'Must specify at least two binary classifiers'
+        for source_name in sources:
+            if len(source_name) < 1:
+                cherrypy.response.status = 400
+                return 'Source name too short'
+        try:
+            overwrite = data['overwrite']
+        except KeyError:
+            overwrite = False
+        binarylabels = set([YES_LABEL, NO_LABEL])
+        for source_name in sources:
+            if not set(self._db.get_classifier_classes(source_name)) == binarylabels:
+                cherrypy.response.status = 400
+                return '%s is not a binary classifier' % source_name
+
+        with _lock_trainingset(self._db, name), _lock_model(self._db, name):
+            if not self._db.classifier_exists(name):
+                self._db.create_classifier(name, sources)
+            elif not overwrite:
+                cherrypy.response.status = 403
+                return '%s is already in the collection' % name
+            else:
+                self.delete(name)
+                self._db.create_classifier(name, sources)
+            self._background_processor.put(_combine_binary_classifiers,
+                                           (self._db_connection_string, name, sources),
+                                           description='combining binary classifiers from \'%s\' to \'%s\'' % (
+                                               ', '.join(sources), name))
+        return 'Ok'
 
     @cherrypy.expose
     def version(self):
@@ -408,7 +476,7 @@ def _update_model(db_connection_string, name, X, y):
 
 @logged_call_with_args
 def _update_from_file(update_function, encoding, db_connection_string, filename, classifier_name):
-    with open(filename, encoding=encoding) as file:
+    with open(filename, encoding=encoding, errors='ignore') as file:
         reader = csv.reader(file)
         next(reader)
         X = []
@@ -466,7 +534,7 @@ def _duplicate_model(db_connection_string, name, new_name):
 def _duplicate_trainingset(db_connection_string, name, new_name):
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_trainingset(db, new_name):
-            batchsize = 1000
+            batchsize = MAX_BATCH_SIZE
             block = 0
             batch = list()
             added = 1
@@ -478,6 +546,61 @@ def _duplicate_trainingset(db_connection_string, name, new_name):
                 for text, label in batch:
                     db.create_training_example(new_name, text, label)
                 block += 1
+
+
+@logged_call_with_args
+def _extract_binary_trainingset(db_connection_string, name, new_name):
+    with SQLAlchemyDB(db_connection_string) as db:
+        batchsize = MAX_BATCH_SIZE
+        block = 0
+        batchX = list()
+        batchy = list()
+        added = 1
+        while added > 0:
+            added = 0
+            for example in db.get_classifier_examples(name, block * batchsize, batchsize):
+                batchX.append(example.document.text)
+                if example.label.name == new_name:
+                    batchy.append(YES_LABEL)
+                else:
+                    batchy.append(NO_LABEL)
+                added += 1
+            _update_trainingset(db_connection_string, new_name, batchX, batchy)
+            _update_model(db_connection_string, new_name, batchX, batchy)
+            block += 1
+
+
+@logged_call_with_args
+def _combine_binary_classifiers(db_connection_string, name, sources):
+    with SQLAlchemyDB(db_connection_string) as db:
+        sizes = list()
+        for source in sources:
+            sizes.append(db.get_classifier_examples_with_label_count(source, YES_LABEL))
+        max_size = max(sizes)
+        paddings = list()
+        for size in sizes:
+            paddings.append(size - max_size)
+
+        batchsize = MAX_BATCH_SIZE / len(sources)
+        batchX = list()
+        batchy = list()
+        added = 1
+        while added > 0:
+            added = 0
+            for i, source in enumerate(sources):
+                if paddings[i] < 0:
+                    paddings[i] += 1
+                    continue
+                for example in db.get_classifier_examples_with_label(source, YES_LABEL, paddings[i], batchsize):
+                    batchX.append(example.document.text)
+                    batchy.append(source)
+                    added += 1
+                paddings[i] += batchsize
+            r = random.random()
+            random.shuffle(batchX, lambda: r)
+            random.shuffle(batchy, lambda: r)
+            _update_trainingset(db_connection_string, name, batchX, batchy)
+            _update_model(db_connection_string, name, batchX, batchy)
 
 
 def _lock_model(db, name):

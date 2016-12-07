@@ -1,6 +1,7 @@
 import cherrypy
-from webservice.background_processor import BackgroundProcessor
+
 import webservice.web_classifier_client as client
+from webservice.background_processor import BackgroundProcessor
 from webservice.web_classifier_client import WebClassifierClient
 from webservice.web_classifier_collection import WebClassifierCollection
 from webservice.web_dataset_collection import WebDatasetCollection
@@ -18,5 +19,6 @@ if __name__ == "__main__":
         cherrypy.tree.mount(classifier_service, '/service/classifiers')
         cherrypy.tree.mount(dataset_service, '/service/datasets')
         cherrypy.tree.mount(background_processor, '/service/jobs')
+        cherrypy.engine.subscribe('stop', background_processor.stop)
         cherrypy.engine.start()
         cherrypy.engine.block()
