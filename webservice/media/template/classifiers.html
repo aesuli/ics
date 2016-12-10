@@ -33,12 +33,18 @@
                     $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifier available</div>');
                 }
                 else {
-                    if($('#gotclassifiers').length==0)
+                    if($('#gotclassifiers').length==0) {
                         $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
+                    }
                     for(var i = 0;i<msg.length;++i) {
+                        var extract_button = ''
+                        if(msg[i].classes.length>2) {
+                            extract_button = '<div class=\'extract_button_'+msg[i].name+' right\'>Extract</div>'
+                        }
                         var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
                         <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
                         <div class=\'del_button_'+msg[i].name+' right\'>Delete</div>\
+                        '+extract_button+'\
                         <div class=\'duplicate_button_'+msg[i].name+' right\'>Duplicate</div>\
                         <div class=\'download_button_'+msg[i].name+' right\'>Download training set</div>\
                         <div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
@@ -52,6 +58,16 @@
                         }
                         $('.download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
                         $('.download\\_button\\_'+msg[i].name).click(download_classifier);
+                        if(msg[i].classes.length>2) {
+                            $('.extract\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-extlink'} });
+                            $('.extract\\_button\\_'+msg[i].name).click(
+                                (function() {
+                                    var classifier_name = msg[i].name;
+                                    return function() {
+                                        window.location.href = '/extract/'+classifier_name;
+                                    }
+                            })());
+                        }
                         $('.duplicate\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-copy'} });
                         $('.duplicate\\_button\\_'+msg[i].name).click(duplicate_classifier);
                         $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
@@ -160,8 +176,16 @@
 
         $( document ).ready(function() {
 
-            $("#upload\\_form").submit(upload_examples);
-            $("#create\\_classifier").submit(create_classifier);
+            $('#upload\\_form').submit(upload_examples);
+            $('#create\\_classifier').submit(create_classifier);
+
+            $('#combine\\_button').button();
+            $('#combine\\_button').click(
+                (function() {
+                    return function() {
+                        window.location.href = '/combine';
+                    }
+            })());
 
             //$('#force\\_update').button().click(update);
             $( "input[type=submit]" ).button();
@@ -189,6 +213,7 @@
                 <input type="submit" value="Create" />
                 </p>
             </form>
+            <div class="margined" id="combine_button">Combine classifiers</div>
         </div>
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_upload">
             <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to classifiers (create if missing):</div>
