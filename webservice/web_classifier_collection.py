@@ -26,6 +26,7 @@ MAX_BATCH_SIZE = 1000
 
 YES_LABEL = 'yes'
 NO_LABEL = 'no'
+BINARY_LABELS = set([YES_LABEL, NO_LABEL])
 
 
 class WebClassifierCollection(object):
@@ -420,7 +421,7 @@ class WebClassifierCollection(object):
         sources = list(set(sources))
         if len(sources) < 2:
             cherrypy.response.status = 400
-            return 'Must specify at least two binary classifiers'
+            return 'Must specify at least two classifiers'
         for source_name in sources:
             if len(source_name) < 1:
                 cherrypy.response.status = 400
@@ -429,30 +430,32 @@ class WebClassifierCollection(object):
             overwrite = data['overwrite']
         except KeyError:
             overwrite = False
-        binarylabels = set([YES_LABEL, NO_LABEL])
+
+        labels = set()
         for source_name in sources:
-            if not set(self._db.get_classifier_classes(source_name)) == binarylabels:
-                cherrypy.response.status = 400
-                return '%s is not a binary classifier' % source_name
+            if set(self._db.get_classifier_classes(source_name)) == BINARY_LABELS:
+                labels.add(source_name)
+            else:
+                labels.update(self._db.get_classifier_classes(source_name))
 
         with _lock_trainingset(self._db, name), _lock_model(self._db, name):
             if not self._db.classifier_exists(name):
-                self._db.create_classifier(name, sources)
+                self._db.create_classifier(name, labels)
             elif not overwrite:
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
             else:
                 self.delete(name)
                 self._db.create_classifier(name, sources)
-            self._background_processor.put(_combine_binary_classifiers,
+            self._background_processor.put(_combine_classifiers,
                                            (self._db_connection_string, name, sources),
-                                           description='combining binary classifiers from \'%s\' to \'%s\'' % (
+                                           description='combining classifiers from \'%s\' to \'%s\'' % (
                                                ', '.join(sources), name))
         return 'Ok'
 
     @cherrypy.expose
     def version(self):
-        return "0.4.0 (db: %s)" % self._db.version()
+        return "0.4.1 (db: %s)" % self._db.version()
 
 
 @logged_call
@@ -571,11 +574,18 @@ def _extract_binary_trainingset(db_connection_string, name, new_name):
 
 
 @logged_call_with_args
-def _combine_binary_classifiers(db_connection_string, name, sources):
+def _combine_classifiers(db_connection_string, name, sources):
     with SQLAlchemyDB(db_connection_string) as db:
+        binary_sources = set()
+        for source_name in sources:
+            if set(db.get_classifier_classes(source_name)) == BINARY_LABELS:
+                binary_sources.add(source_name)
         sizes = list()
         for source in sources:
-            sizes.append(db.get_classifier_examples_with_label_count(source, YES_LABEL))
+            if source in binary_sources:
+                sizes.append(db.get_classifier_examples_with_label_count(source, YES_LABEL))
+            else:
+                sizes.append(db.get_classifier_examples_count(source))
         max_size = max(sizes)
         paddings = list()
         for size in sizes:
@@ -589,9 +599,14 @@ def _combine_binary_classifiers(db_connection_string, name, sources):
             added = 0
             for i, source in enumerate(sources):
                 if paddings[i] < 0:
-                    paddings[i] += 1
+                    paddings[i] += batchsize
+                    paddings[i] = min(paddings[i], 0)
                     continue
-                for example in db.get_classifier_examples_with_label(source, YES_LABEL, paddings[i], batchsize):
+                if source in binary_sources:
+                    example_numerator = db.get_classifier_examples_with_label(source, YES_LABEL, paddings[i], batchsize)
+                else:
+                    example_numerator = db.get_classifier_examples(source, paddings[i], batchsize)
+                for example in example_numerator:
                     batchX.append(example.document.text)
                     batchy.append(source)
                     added += 1
