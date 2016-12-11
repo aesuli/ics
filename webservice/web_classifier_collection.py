@@ -380,13 +380,13 @@ class WebClassifierCollection(object):
         for class_name in classes:
             with _lock_trainingset(self._db, class_name), _lock_model(self._db, class_name):
                 if not self._db.classifier_exists(class_name):
-                    self._db.create_classifier(class_name, [YES_LABEL, NO_LABEL])
+                    self._db.create_classifier(class_name, BINARY_LABELS)
                 elif not overwrite:
                     cherrypy.response.status = 403
                     return '%s is already in the collection' % class_name
                 else:
                     self.delete(class_name)
-                    self._db.create_classifier(class_name, [YES_LABEL, NO_LABEL])
+                    self._db.create_classifier(class_name, BINARY_LABELS)
                 self._background_processor.put(_extract_binary_trainingset,
                                                (self._db_connection_string, name, class_name),
                                                description='extract binary classifier from \'%s\' to \'%s\'' % (
