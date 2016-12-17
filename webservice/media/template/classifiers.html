@@ -10,6 +10,8 @@
             setTimeout(timed_update,update_interval);
         }
 
+        selected_classifiers = {};
+
         function update() {
             last_update = Date.now();
             $.ajax({
@@ -39,11 +41,11 @@
                     for(var i = 0;i<msg.length;++i) {
                         var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
                         <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
-                        <div class=\'del_button_'+msg[i].name+' right\'>Delete</div>\
-                        <div class=\'extract_button_'+msg[i].name+' right\'>Extract</div>\
-                        <div class=\'select_button_'+msg[i].name+' right\'>Select</div>\
-                        <div class=\'duplicate_button_'+msg[i].name+' right\'>Duplicate</div>\
-                        <div class=\'download_button_'+msg[i].name+' right\'>Download training set</div>\
+                        <div id=\'del_button_'+msg[i].name+'\' class=\'right\'>Delete</div>\
+                        <div id=\'extract_button_'+msg[i].name+'\' class=\'right\'>Extract</div>\
+                        <div id=\'select_button_'+msg[i].name+'\' class=\'right\'>Select</div>\
+                        <div id=\'duplicate_button_'+msg[i].name+'\' class=\'right\'>Duplicate</div>\
+                        <div id=\'download_button_'+msg[i].name+'\' class=\'right\'>Download training set</div>\
                         <div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
                         <div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div>\
                         </div>');
@@ -53,16 +55,23 @@
                         else {
                             $('#classifier\\_'+msg[i].name).replaceWith(classifierdiv)
                         }
-                        $('.download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                        $('.download\\_button\\_'+msg[i].name).click(download_classifier);
-                        $('.select\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-check'} });
-                        $('.select\\_button\\_'+msg[i].name).click(select_classifier);
-                        $('.extract\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-extlink'} });
-                        $('.extract\\_button\\_'+msg[i].name).click(extract_classifier);
-                        $('.duplicate\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-copy'} });
-                        $('.duplicate\\_button\\_'+msg[i].name).click(duplicate_classifier);
-                        $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
-                        $('.del\\_button\\_'+msg[i].name).click(delete_classifier);
+                        $('#download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                        $('#download\\_button\\_'+msg[i].name).click(download_classifier);
+                        // TODO read select state from variable
+                        if(selected_classifiers[msg[i].name]) {
+                            $('#select\\_button\\_'+msg[i].name).addClass('ui-state-focus');
+                            $('#select\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-check'} });
+                        }
+                        else {
+                            $('#select\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-plus'} });
+                        }
+                        $('#select\\_button\\_'+msg[i].name).click(select_classifier);
+                        $('#extract\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-extlink'} });
+                        $('#extract\\_button\\_'+msg[i].name).click(extract_classifier);
+                        $('#duplicate\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-copy'} });
+                        $('#duplicate\\_button\\_'+msg[i].name).click(duplicate_classifier);
+                        $('#del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#del\\_button\\_'+msg[i].name).click(delete_classifier);
                     }
                 }
                 $('#uploadingdiv').remove();
@@ -147,8 +156,23 @@
 
         function select_classifier() {
             var classifier_name = $(this).siblings('.classifier\\_name').text();
-            $('#combine\\_button').button('enable');
-            alert('TODO');
+            var item = $('#select\\_button\\_'+classifier_name);
+            if(item.hasClass('ui-state-focus')) {
+                item.removeClass('ui-state-focus');
+                item.button({icons: {primary :'ui-icon-plus'}});
+                delete selected_classifiers[classifier_name];
+                if(Object.keys(selected_classifiers).length<2) {
+                    $('#combine\\_button').button('disable');
+                }
+            }
+            else {
+                item.addClass('ui-state-focus');
+                item.button({icons: {primary :'ui-icon-check'}});
+                selected_classifiers[classifier_name] = true;
+                if(Object.keys(selected_classifiers).length>=2) {
+                    $('#combine\\_button').button('enable');
+                }
+            }
         };
 
         function duplicate_classifier() {
