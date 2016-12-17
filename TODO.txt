@@ -1,4 +1,6 @@
 TODO
+- class renaming
+- label renaming
 - batch/background processing
     * jobs db
 - compose binary classifiers into a multilabel classifier
