@@ -57,7 +57,6 @@
                         }
                         $('#download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
                         $('#download\\_button\\_'+msg[i].name).click(download_classifier);
-                        // TODO read select state from variable
                         if(selected_classifiers[msg[i].name]) {
                             $('#select\\_button\\_'+msg[i].name).addClass('ui-state-focus');
                             $('#select\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-check'} });
