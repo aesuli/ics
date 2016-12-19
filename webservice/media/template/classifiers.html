@@ -79,7 +79,7 @@
         }
 
         function create_classifier() {
-            name = $("#name").val();
+            name = $("#create\\_name").val();
             if(!name.match(/^[a-zA-Z0-9_]+$/)) {
                 custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
                 return false;
@@ -99,7 +99,26 @@
             .fail(function(errMsg) {
                 custom_alert(errMsg.responseText);
             });
-            return false ;
+            return false;
+        };
+
+        function combine_classifiers() {
+            name = $("#combine\\_name").val();
+            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            sources = Object.keys(selected_classifiers);
+            var data = {name: name, sources: sources};
+            $.ajax({
+                type: "POST",
+                url: "/service/classifiers/combine",
+                data: data})
+            .done(update)
+            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
+            });
+            return false;
         };
 
         function upload_examples() {
@@ -139,6 +158,15 @@
                 return;
             var classifier_name = $(this).siblings('.classifier\\_name').text();
             $('#classifier\\_'+classifier_name).hide();
+            if(selected_classifiers[classifier_name]) {
+                var item = $('#select\\_button\\_'+classifier_name);
+                item.removeClass('ui-state-focus');
+                item.button({icons: {primary :'ui-icon-plus'}});
+                delete selected_classifiers[classifier_name];
+                if(Object.keys(selected_classifiers).length<2) {
+                    $('#combine\\_button').button('disable');
+                }
+            }
             $.ajax({
                 type:'POST',
                 url:'/service/classifiers/delete/'+classifier_name })
@@ -199,22 +227,18 @@
             form.appendTo('body').submit().remove();
         };
 
-        function combine_classifiers() {
-            //TODO
-            alert('TODO')
-        };
-
         $( document ).ready(function() {
 
             $('#upload\\_form').submit(upload_examples);
+            $('#combine\\_form').submit(combine_classifiers);
             $('#create\\_classifier').submit(create_classifier);
 
-            $('#combine\\_button').button().button('disable');
-            $('#combine\\_button').click(combine_classifiers);
-
             //$('#force\\_update').button().click(update);
+
             $( "input[type=submit]" ).button();
             $( "input[type=file]" ).button();
+
+            $('#combine\\_button').button('disable');
 
             timed_update();
         });
@@ -229,8 +253,8 @@
             <div class="padded ui-widget-header ui-corner-all">Create a classifier:</div>
             <form id="create_classifier" class="margined" action="#" method="post">
                 <p>
-                <label for="name">Name:</label>
-                <input type="text" id="name" /> </p>
+                <label for="create_name">Name:</label>
+                <input type="text" id="create_name" /> </p>
                 <p>
                 <label for="classes">Classes (comma separated):</label>
                 <input type="text" id="classes" /> </p>
@@ -240,8 +264,16 @@
             </form>
         </div>
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_combine">
-            <div class="padded ui-widget-header ui-corner-all">Combine classifiers:</div>
-            <div class="margined" id="combine_button">Combine selected classifiers</div>
+            <div class="padded ui-widget-header ui-corner-all">Combine selected classifiers:</div>
+            <form id="combine_form" class="margined" action="#" method="post">
+                <p>
+                <label for="combine_name">Name:</label>
+                <input type="text" id="combine_name" /> </p>
+                <p><label></label>
+                <input id="combine_button" type="submit" value="Combine" />
+                </p>
+            </form>
+            <!--<div class="margined" id="combine_button">Combine selected classifiers</div>-->
         </div>
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_upload">
             <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to classifiers (create if missing):</div>
