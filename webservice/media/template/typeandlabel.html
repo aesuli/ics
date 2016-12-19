@@ -1,7 +1,7 @@
 <%inherit file="base.html" />
 <%block name="head">
     <script type="text/javascript">
-       update_interval=10000
+       update_interval=5000
        delay_interval=500
         last_update = 0
         function timed_update() {
@@ -10,6 +10,8 @@
                 update();
             setTimeout(timed_update,update_interval);
         }
+
+        selected_classifiers = {};
 
         function update() {
             last_update = Date.now();
@@ -41,23 +43,15 @@
                             if($('#classifier\\_'+msg[i].name).length==0) {
                                 $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
                                 <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
-                                <div class=\'use_button_'+msg[i].name+' right\'>Use</div></div>');
-                                $('.use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-star'} });
-                                $('.use\\_button\\_'+msg[i].name).click(
-                                    (function() {
-                                        var classifier_name = msg[i].name;
-                                        return function() {
-                                            var item = $(this).siblings('.classifier\\_name');
-                                            item.toggleClass('ui-state-highlight');
-                                            if(item.hasClass('ui-state-highlight')) {
-                                                $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
-                                                classify(true);
-                                            }
-                                            else {
-                                                $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
-                                            }
-                                        }
-                                })());
+                                <div id=\'use_button_'+msg[i].name+'\' class=\'right\'>Use</div></div>');
+                                if(selected_classifiers[msg[i].name]) {
+                                    $('#use\\_button\\_'+msg[i].name).addClass('ui-state-focus');
+                                    $('#use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-check'} });
+                                }
+                                else {
+                                    $('#use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-plus'} });
+                                }
+                                $('#use\\_button\\_'+msg[i].name).click(use);
                                 var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all">'+msg[i].name+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
                                 suggestion_div.appendTo('#pool');
                                 for(var j = 0;j<msg[i].classes.length;++j) {
@@ -116,6 +110,24 @@
             });
         }
 
+        function use() {
+            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var item = $('#use\\_button\\_'+classifier_name);
+            if(item.hasClass('ui-state-focus')) {
+                item.removeClass('ui-state-focus');
+                item.button({icons: {primary :'ui-icon-plus'}});
+                delete selected_classifiers[classifier_name];
+                $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
+            }
+            else {
+                item.addClass('ui-state-focus');
+                item.button({icons: {primary :'ui-icon-check'}});
+                selected_classifiers[classifier_name] = true;
+                $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
+                classify(true);
+            }
+        }
+
         function create_classifier() {
             name = $("#name").val();
             if(!name.match(/^[a-zA-Z0-9_]+$/)) {
@@ -135,7 +147,7 @@
                 data: data})
             .done(update)
             .fail(function(errMsg) {
-                    custom_alert(errMsg.responseText);
+                custom_alert(errMsg.responseText);
             });
             return false ;
         };
@@ -147,18 +159,18 @@
                 last_text = text;
                 $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                     var classifier_name = $(item).text();
-                        $.ajax({
-                            type:'POST',
-                                url:'/service/classifiers/classify',
-                                data: { name: classifier_name, X: [text] },
+                    $.ajax({
+                        type:'POST',
+                        url:'/service/classifiers/classify',
+                        data: { name: classifier_name, X: [text] },
                         dataType: 'json'})
                     .done(function(msg) {
-                                    var assigned = msg[0];
-                                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned')
-                                    $('#assignments_'+classifier_name).children('.scoreline').addClass('not_relevant')
-                                    $('#suggestion\\_'+classifier_name+'\\_'+assigned).removeClass('not_relevant')
-                                    $('#suggestion\\_'+classifier_name+'\\_'+assigned).addClass('assigned')
-                        });
+                        var assigned = msg[0];
+                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned')
+                        $('#assignments_'+classifier_name).children('.scoreline').addClass('not_relevant')
+                        $('#suggestion\\_'+classifier_name+'\\_'+assigned).removeClass('not_relevant')
+                        $('#suggestion\\_'+classifier_name+'\\_'+assigned).addClass('assigned')
+                    });
                 });
             }
         }
