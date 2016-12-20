@@ -1,38 +1,30 @@
 TODO
 - class renaming
 - label renaming
+- extract binary classifiers from multilabel classifier
 - batch/background processing
     * jobs db
-- compose binary classifiers into a multilabel classifier
 - file import
     * skip comment lines, i.e., those starting with #
 - file export
     * no header needed after implementation of two pass import
-- classifiers
-    * single label modification
 - BackgroundProcessor._queue on db?
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
-- bug in picking of models: move partial into get_TEXT_analyzer (resolved after package update?)
 - check for sql/js/etc code injection
-- "classifiers" page
-    * accuracy estimates
 - other tools:
     * terminology extraction
 - versioning
 - backup of deleted data
 - twitter integration
-- switch to angular.js?
-- memory problems:
-    * 64 bit fixes it?
-    * queue of update/classification requests to save memory?
 - richer classifier info
     * estimated accuracy
 - templates (mako)
     * footer
     * user info
     * version
+    * packages and licences
 - user authentication
 - store source of classification (which user?)
 - user authorization
@@ -41,7 +33,8 @@ TOMONITOR
 - strip input strings
 
 DONE
-- extract binary classifiers from multilabel classifier
+- compose classifiers into a multilabel classifier
+- bug in picking of models: move partial into get_TEXT_analyzer (resolved after package update?)
 - file import
     * no header example import (two passes)
     * automatic encoding management
