@@ -35,8 +35,8 @@
                     $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifier available</div>');
                 }
                 else {
-                    if($('#gotclassifiers').length==0) {
-                        $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
+                    if($('#_gotclassifiers').length==0) {
+                        $('#classifiers\\_list').html('<div id="_gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
                     }
                     for(var i = 0;i<msg.length;++i) {
                         var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
@@ -72,6 +72,9 @@
                         $('#del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
                         $('#del\\_button\\_'+msg[i].name).click(delete_classifier);
                     }
+                    $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
+                        return $(a)[0].id > $(b)[0].id;
+                    }));
                 }
                 $('#uploadingdiv').remove();
                 $( "#upload\\_button" ).button( "option", "disabled", false );
