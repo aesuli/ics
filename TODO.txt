@@ -1,6 +1,7 @@
 TODO
-- class renaming
-- label renaming
+- rename classifier
+- rename label
+- rename dataset
 - extract binary classifiers from multilabel classifier
 - batch/background processing
     * jobs db

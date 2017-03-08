@@ -529,7 +529,8 @@ def _duplicate_model(db_connection_string, name, new_name):
                 db.create_classifier(new_name, classes, clf)
             elif db.get_classifier_model(new_name) is None:
                 clf = db.get_classifier_model(name)
-                clf.name = new_name
+                if clf is not None:
+                    clf.name = new_name
                 db.update_classifier_model(new_name, clf)
 
 

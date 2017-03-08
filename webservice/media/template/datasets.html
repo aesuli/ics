@@ -33,8 +33,8 @@
                         $('#datasets\\_list').html('<div class="padded ui-widget-header ui-corner-all">No dataset available</div>');
                     }
                     else {
-                        if($('#gotdatasets').length==0)
-                            $('#datasets\\_list').html('<div id="gotdatasets" class="padded ui-widget-header ui-corner-all">Avalilable datasets:</div>');
+                        if($('#_gotdatasets').length==0)
+                            $('#datasets\\_list').html('<div id="_gotdatasets" class="padded ui-widget-header ui-corner-all">Avalilable datasets:</div>');
                         for(var i = 0;i<msg.length;++i) {
                             var datasetdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'dataset_'+msg[i].name+'\'>\
                             <div id=\'dataset_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all dataset_name\'>'+msg[i].name+'</div>\
@@ -82,6 +82,9 @@
                             $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
                             $('.del\\_button\\_'+msg[i].name).click(delete_dataset);
                         }
+                        $('#datasets\\_list').append($('#datasets\\_list > div').get().sort(function (a, b) {
+                            return $(a)[0].id > $(b)[0].id;
+                        }));
                     }
                 }
             });
