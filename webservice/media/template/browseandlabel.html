@@ -52,8 +52,8 @@
                         $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifiers available</div>');
                     }
                     else {
-                        if($('#gotclassifiers').length==0)
-                            $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
+                        if($('#_gotclassifiers').length==0)
+                            $('#classifiers\\_list').html('<div id="_gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
                             if($('#classifier\\_'+msg[i].name).length==0) {
                                 $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
@@ -103,6 +103,9 @@
                                 $('#assignments\\_'+msg[i].name).append(skipline);
                             }
                         }
+                        $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
+                            return $(a)[0].id > $(b)[0].id;
+                        }));
                         if($('#skip\\_all').length==0) {
                             skip_all = jQuery('<div id="skip_all" class="right">Skip all</div>');
                             skip_all.button({ icons: {primary:'ui-icon-minus'} });
