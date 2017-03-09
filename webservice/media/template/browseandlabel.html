@@ -69,17 +69,17 @@
                                 $('#use\\_button\\_'+msg[i].name).click(use);
                                 var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all">'+msg[i].name+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
                                 suggestion_div.appendTo('#pool');
-                                for(var j = 0;j<msg[i].classes.length;++j) {
-                                    var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].classes[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].classes[j]+'</div>');
+                                for(var j = 0;j<msg[i].labels.length;++j) {
+                                    var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
                                     (function() {
-                                        var class_name = ''+msg[i].classes[j];
+                                        var label = ''+msg[i].labels[j];
                                         var classifier_name = ''+msg[i].name;
                                         scoreline.click(function(){
                                             $('#suggestions\\_'+classifier_name).hide();
                                             $.ajax({
                                                 type:'POST',
                                                 url:'/service/classifiers/update',
-                                                data: { name: classifier_name, X: [last_text], y: [class_name] }})
+                                                data: { name: classifier_name, X: [last_text], y: [label] }})
                                             .done(function() {
                                                     $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
                                                     check_autobrowse();
@@ -155,13 +155,13 @@
                 custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
                 return false;
             }
-            classesString = $("#classes").val();
-            if(!classesString.match(/^[a-zA-Z0-9_,]+$/)) {
-                custom_alert("The names of classes can only contain letters, numbers and the underscore character '_'");
+            labelsString = $("#labels").val();
+            if(!labelsString.match(/^[a-zA-Z0-9_,]+$/)) {
+                custom_alert("The names of labels can only contain letters, numbers and the underscore character '_'");
                 return false;
             }
-            classes = classesString.split(',');
-            var data = {name: name, classes: classes} ;
+            labels = labelsString.split(',');
+            var data = {name: name, labels: labels} ;
             $.ajax({
                 type: "POST",
                 url: "/service/classifiers/create",
@@ -234,7 +234,7 @@
         }
 
         function check_autobrowse() {
-            if($('#suggestions .suggestion').length==0 && $('#classifiers\\_list div div.ui-state-highlight').length>0) {
+            if($('#suggestions .suggestion').length==0 && $('#classifiers\\_list div div.ui-state-focus').length>0) {
                 if(autobrowse==0)
                     var newposition = parseInt($("#position").val())+1;
                     if(newposition<=datasetsize)
@@ -262,12 +262,13 @@
             });
             $("#textbox").on("input",function() {
                 delay(function() {
-                $('#classifiers\\_list div div.ui-state-highlight').each(function(){$('#suggestions\\_'+$(this).text()).detach().appendTo('#suggestions').show();});
+                $('#classifiers\\_list div div.ui-state-focus').each(function(){$('#suggestions\\_'+$(this).siblings('.classifier\\_name').text()).detach().appendTo('#suggestions').show();});
                 classify(false);
             },delay_interval);});
 
             $("#create\\_classifier").submit(create_classifier);
 
+            //$('#force\\_update').button().click(update);
             $( "input[type=submit]" ).button();
 
             $('#position').change(position_changed);
@@ -277,7 +278,6 @@
             $('#browse\\_last').click(goto_last);
             $('#browse\\_autobrowse').click(change_autobrowse);
 
-            //$('#force\\_update').button().click(update);
 
             timed_update();
 
@@ -299,8 +299,8 @@
                 <label for="name">Name:</label>
                 <input type="text" id="name" /> </p>
                 <p>
-                <label for="classes">Classes (comma separated):</label>
-                <input type="text" id="classes" /> </p>
+                <label for="labels">Labels (comma separated):</label>
+                <input type="text" id="labels" /> </p>
                 <p><label></label>
                 <input type="submit" value="Create" />
                 </p>

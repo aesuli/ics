@@ -181,20 +181,20 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(exists().where(Classifier.name == name)).scalar()
 
-    def create_classifier(self, name, classes, model=None):
+    def create_classifier(self, name, labels, model=None):
         with self.session_scope() as session:
             classifier = Classifier(name, model)
             session.add(classifier)
             session.flush()
-            for class_ in classes:
-                label = Label(class_, classifier.id)
-                session.add(label)
+            for label in labels:
+                label_obj = Label(label, classifier.id)
+                session.add(label_obj)
 
     def get_classifier_model(self, name):
         with self.session_scope() as session:
             return session.query(Classifier.model).filter(Classifier.name == name).scalar()
 
-    def get_classifier_classes(self, name):
+    def get_classifier_labels(self, name):
         with self.session_scope() as session:
             return list(x for (x,) in session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
                 Classifier.name == name))
@@ -254,7 +254,7 @@ class SQLAlchemyDB(object):
         clf = self.get_classifier_model(classifier_name)
         y = list()
         if clf is None:
-            default_label = self.get_classifier_classes(classifier_name)[0]
+            default_label = self.get_classifier_labels(classifier_name)[0]
         for x in X:
             label = self.get_label(classifier_name, x)
             if label is not None:
@@ -441,7 +441,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "0.3.1"
+        return "0.4.1"
 
 
 class DBLock(object):

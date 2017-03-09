@@ -1,11 +1,11 @@
 import csv
 import json
+import logging
 import os
 import shutil
 from uuid import uuid4
 
 import cherrypy
-import logging
 import numpy
 from chardet.universaldetector import UniversalDetector
 from cherrypy.lib.static import serve_file
@@ -236,7 +236,7 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                     if db.classifier_exists(classifier):
                         classifiers_header = dict()
                         classifiers_header['name'] = classifier
-                        classifiers_header['classes'] = db.get_classifier_classes(classifier)
+                        classifiers_header['classes'] = db.get_classifier_labels(classifier)
                         header.append(classifiers_header)
                 writer.writerow([json.dumps(header)])
 

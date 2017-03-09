@@ -46,7 +46,7 @@
                         <div id=\'select_button_'+msg[i].name+'\' class=\'right\'>Select</div>\
                         <div id=\'duplicate_button_'+msg[i].name+'\' class=\'right\'>Duplicate</div>\
                         <div id=\'download_button_'+msg[i].name+'\' class=\'right\'>Download training set</div>\
-                        <div class="small margined">Labels: '+msg[i].classes+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
+                        <div class="small margined">Labels: '+msg[i].labels+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
                         <div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div>\
                         </div>');
                         if($('#classifier\\_'+msg[i].name).length==0) {
@@ -87,13 +87,13 @@
                 custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
                 return false;
             }
-            classesString = $("#classes").val();
-            if(!classesString.match(/^[a-zA-Z0-9_,]+$/)) {
-                custom_alert("The names of classes can only contain letters, numbers and the underscore character '_'");
+            labelsString = $("#labels").val();
+            if(!labelsString.match(/^[a-zA-Z0-9_,]+$/)) {
+                custom_alert("The names of labels can only contain letters, numbers and the underscore character '_'");
                 return false;
             }
-            classes = classesString.split(',');
-            var data = {name: name, classes: classes} ;
+            labels = labelsString.split(',');
+            var data = {name: name, labels: labels} ;
             $.ajax({
                 type: "POST",
                 url: "/service/classifiers/create",
@@ -181,7 +181,7 @@
 
         function extract_classifier() {
             var classifier_name = $(this).siblings('.classifier\\_name').text();
-            window.location.href = '/extract/'+classifier_name;
+
         };
 
         function select_classifier() {
@@ -259,8 +259,8 @@
                 <label for="create_name">Name:</label>
                 <input type="text" id="create_name" /> </p>
                 <p>
-                <label for="classes">Classes (comma separated):</label>
-                <input type="text" id="classes" /> </p>
+                <label for="labels">Labels (comma separated):</label>
+                <input type="text" id="labels" /> </p>
                 <p><label></label>
                 <input type="submit" value="Create" />
                 </p>
