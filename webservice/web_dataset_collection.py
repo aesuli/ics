@@ -122,6 +122,7 @@ class WebDatasetCollection(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def document(self, name, position):
+        position = int(position)
         if not self._db.dataset_exists(name):
             cherrypy.response.status = 404
             return '\'%s\' does not exits' % name

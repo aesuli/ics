@@ -34,6 +34,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- sorting of datasets and classifiers
 - compose classifiers into a multilabel classifier
 - bug in picking of models: move partial into get_TEXT_analyzer (resolved after package update?)
 - file import

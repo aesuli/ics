@@ -349,8 +349,9 @@ class SQLAlchemyDB(object):
     def get_dataset_document(self, name, position):
         with self.session_scope() as session:
             document = session.query(Document).filter(Dataset.name == name).filter(
-                Document.dataset_id == Dataset.id).offset(int(position)).limit(1).scalar()
-            session.expunge(document)
+                Document.dataset_id == Dataset.id).offset(position).limit(1).scalar()
+            if document is not None:
+                session.expunge(document)
             return document
 
     def get_jobs(self, starttime=None):
