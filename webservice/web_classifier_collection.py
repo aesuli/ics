@@ -52,7 +52,7 @@ class WebClassifierCollection(object):
         for name in self._db.classifier_names():
             classifier_info = dict()
             classifier_info['name'] = name
-            classifier_info['classes'] = self._db.get_classifier_classes(name)
+            classifier_info['labels'] = self._db.get_classifier_labels(name)
             classifier_info['created'] = str(self._db.get_classifier_creation_time(name))
             classifier_info['updated'] = str(self._db.get_classifier_last_update_time(name))
             classifier_info['size'] = self._db.get_classifier_examples_count(name)
@@ -67,42 +67,42 @@ class WebClassifierCollection(object):
             cherrypy.response.status = 400
             return 'Must specify a name'
         try:
-            classes = data['classes']
+            labels = data['labels']
         except KeyError:
             try:
-                classes = data['classes[]']
+                labels = data['labels[]']
             except KeyError:
                 cherrypy.response.status = 400
-                return 'Must specify the classes'
-        if type(classes) is not list:
+                return 'Must specify the labels'
+        if type(labels) is not list:
             cherrypy.response.status = 400
-            return 'Must specify at least two classes'
+            return 'Must specify at least two labels'
         name = str.strip(name)
         if len(name) < 1:
             cherrypy.response.status = 400
             return 'Classifier name too short'
-        classes = map(str.strip, classes)
-        classes = list(set(classes))
-        if len(classes) < 2:
+        labels = map(str.strip, labels)
+        labels = list(set(labels))
+        if len(labels) < 2:
             cherrypy.response.status = 400
-            return 'Must specify at least two classes'
-        for class_name in classes:
-            if len(class_name) < 1:
+            return 'Must specify at least two labels'
+        for label in labels:
+            if len(label) < 1:
                 cherrypy.response.status = 400
-                return 'Class name too short'
+                return 'Label name too short'
         try:
             overwrite = data['overwrite']
         except KeyError:
             overwrite = False
         with _lock_trainingset(self._db, name), _lock_model(self._db, name):
             if not self._db.classifier_exists(name):
-                self._db.create_classifier(name, classes)
+                self._db.create_classifier(name, labels)
             elif not overwrite:
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
             else:
                 self.delete(name)
-                self._db.create_classifier(name, classes)
+                self._db.create_classifier(name, labels)
         return 'Ok'
 
     @cherrypy.expose
@@ -114,13 +114,13 @@ class WebClassifierCollection(object):
             return 'Classifier name too short'
         with _lock_trainingset(self._db, new_name), _lock_model(self._db, new_name):
             if not self._db.classifier_exists(new_name):
-                self._db.create_classifier(new_name, self._db.get_classifier_classes(name))
+                self._db.create_classifier(new_name, self._db.get_classifier_labels(name))
             elif not overwrite:
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
             else:
                 self.delete(new_name)
-                self._db.create_classifier(new_name, self._db.get_classifier_classes(name))
+                self._db.create_classifier(new_name, self._db.get_classifier_labels(name))
         self._background_processor.put(_duplicate_model, (self._db_connection_string, name, new_name),
                                        description='duplicate model \'%s\' to \'%s\'' % (name, new_name))
         self._background_processor.put(_duplicate_trainingset, (self._db_connection_string, name, new_name),
@@ -149,7 +149,7 @@ class WebClassifierCollection(object):
                 y = data['y[]']
             except KeyError:
                 cherrypy.response.status = 400
-                return 'Must specify a vector of assigned classes (y)'
+                return 'Must specify a vector of assigned labels (y)'
         X = numpy.atleast_1d(X)
         y = numpy.atleast_1d(y)
 
@@ -181,7 +181,7 @@ class WebClassifierCollection(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def classes(self, name):
-        return self._db.get_classifier_classes(name)
+        return self._db.get_classifier_labels(name)
 
     @cherrypy.expose
     def download(self, name):
@@ -194,7 +194,7 @@ class WebClassifierCollection(object):
         if not os.path.isfile(fullpath):
             header = dict()
             header['name'] = name
-            header['classes'] = self._db.get_classifier_classes(name)
+            header['labels'] = self._db.get_classifier_labels(name)
             try:
                 with open(fullpath, 'w') as file:
                     writer = csv.writer(file, lineterminator='\n')
@@ -237,10 +237,10 @@ class WebClassifierCollection(object):
                 header = json.loads(next(reader)[0])
                 for classifier_definition in header:
                     classifier_name = classifier_definition['name']
-                    classifiers_definition[classifier_name].add(classifier_definition['classes'])
+                    classifiers_definition[classifier_name].add(classifier_definition['labels'])
             except Exception as e:
                 cherrypy.log(
-                    'No JSON header in uploaded file, scanning classes from the whole file. Exception:' + repr(e),
+                    'No JSON header in uploaded file, scanning labels from the whole file. Exception:' + repr(e),
                     severity=logging.INFO)
 
         with open(fullpath, 'r', encoding=encoding, errors='ignore') as file:
@@ -264,19 +264,19 @@ class WebClassifierCollection(object):
                     classifiers_definition[classifier_name].add(label)
 
         for classifier_name in classifiers_definition:
-            classes = classifiers_definition[classifier_name]
+            labels = classifiers_definition[classifier_name]
             if not self._db.classifier_exists(classifier_name):
-                if len(classes) < 2:
+                if len(labels) < 2:
                     cherrypy.response.status = 400
-                    return 'Must specify at least two classes for classifier \'%s\'' % classifier_name
+                    return 'Must specify at least two labels for classifier \'%s\'' % classifier_name
                 self._background_processor.put(_create_model,
-                                               (self._db_connection_string, classifier_name, classes),
+                                               (self._db_connection_string, classifier_name, labels),
                                                description='create model \'%s\'' % classifier_name)
             else:
-                if not len(set(self._db.get_classifier_classes(classifier_name)).intersection(classes)) == len(
-                        classes):
+                if not len(set(self._db.get_classifier_labels(classifier_name)).intersection(labels)) == len(
+                        labels):
                     cherrypy.response.status = 400
-                    return 'Existing classifier \'%s\' uses a different set of classes than input file' % classifier_name
+                    return 'Existing classifier \'%s\' uses a different set of labels than input file' % classifier_name
 
         for classifier_name in classifiers_definition:
             self._background_processor.put(_update_from_file,
@@ -328,11 +328,11 @@ class WebClassifierCollection(object):
         X = numpy.atleast_1d(X)
         clf = self._db.get_classifier_model(name)
         scores = clf.decision_function(X)
-        classes = clf.classes()
-        if classes.shape[0] == 2:
-            return [dict(zip(classes, [-value, value])) for value in scores]
+        labels = clf.classes()
+        if labels.shape[0] == 2:
+            return [dict(zip(labels, [-value, value])) for value in scores]
         else:
-            return [dict(zip(classes, values)) for values in scores]
+            return [dict(zip(labels, values)) for values in scores]
 
     @cherrypy.expose
     def extract(self, **data):
@@ -342,55 +342,55 @@ class WebClassifierCollection(object):
             cherrypy.response.status = 400
             return 'Must specify a name'
         try:
-            classes = data['classes']
+            labels = data['labels']
         except KeyError:
             try:
-                classes = data['classes[]']
+                labels = data['labels[]']
             except KeyError:
                 cherrypy.response.status = 400
-                return 'Must specify the classes'
-        if type(classes) is str:
-            classes = [classes]
-        if type(classes) is not list:
+                return 'Must specify the labels'
+        if type(labels) is str:
+            labels = [labels]
+        if type(labels) is not list:
             cherrypy.response.status = 400
-            return 'Must specify at least a class'
+            return 'Must specify at least a label'
         name = str.strip(name)
         if len(name) < 1:
             cherrypy.response.status = 400
             return 'Classifier name too short'
-        classes = map(str.strip, classes)
-        classes = list(set(classes))
-        if len(classes) < 1:
+        labels = map(str.strip, labels)
+        labels = list(set(labels))
+        if len(labels) < 1:
             cherrypy.response.status = 400
-            return 'Must specify at least a class'
-        for class_name in classes:
-            if len(class_name) < 1:
+            return 'Must specify at least a label'
+        for label in labels:
+            if len(label) < 1:
                 cherrypy.response.status = 400
-                return 'Class name too short'
+                return 'Label name too short'
         try:
             overwrite = data['overwrite']
         except KeyError:
             overwrite = False
-        for class_name in classes:
-            with _lock_trainingset(self._db, class_name), _lock_model(self._db, class_name):
-                if self._db.classifier_exists(class_name) and not overwrite:
+        for label in labels:
+            with _lock_trainingset(self._db, label), _lock_model(self._db, label):
+                if self._db.classifier_exists(label) and not overwrite:
                     cherrypy.response.status = 403
-                    return '%s is already in the collection' % class_name
+                    return 'A classifier with name %s is already in the collection' % label
 
-        for class_name in classes:
-            with _lock_trainingset(self._db, class_name), _lock_model(self._db, class_name):
-                if not self._db.classifier_exists(class_name):
-                    self._db.create_classifier(class_name, BINARY_LABELS)
+        for label in labels:
+            with _lock_trainingset(self._db, label), _lock_model(self._db, label):
+                if not self._db.classifier_exists(label):
+                    self._db.create_classifier(label, BINARY_LABELS)
                 elif not overwrite:
                     cherrypy.response.status = 403
-                    return '%s is already in the collection' % class_name
+                    return 'A classifier with name %s is already in the collection' % label
                 else:
-                    self.delete(class_name)
-                    self._db.create_classifier(class_name, BINARY_LABELS)
+                    self.delete(label)
+                    self._db.create_classifier(label, BINARY_LABELS)
                 self._background_processor.put(_extract_binary_trainingset,
-                                               (self._db_connection_string, name, class_name),
+                                               (self._db_connection_string, name, label),
                                                description='extract binary classifier from \'%s\' to \'%s\'' % (
-                                                   name, class_name))
+                                                   name, label))
         return 'Ok'
 
     @cherrypy.expose
@@ -433,10 +433,10 @@ class WebClassifierCollection(object):
 
         labels = set()
         for source_name in sources:
-            if set(self._db.get_classifier_classes(source_name)) == BINARY_LABELS:
+            if set(self._db.get_classifier_labels(source_name)) == BINARY_LABELS:
                 labels.add(source_name)
             else:
-                labels.update(self._db.get_classifier_classes(source_name))
+                labels.update(self._db.get_classifier_labels(source_name))
 
         with _lock_trainingset(self._db, name), _lock_model(self._db, name):
             if not self._db.classifier_exists(name):
@@ -472,8 +472,9 @@ def _update_model(db_connection_string, name, X, y):
         with _lock_model(db, name):
             clf = db.get_classifier_model(name)
             if clf is None:
-                clf = OnlineClassifier(name, db.get_classifier_classes(name), average=20)
-            clf.partial_fit(X, y)
+                clf = OnlineClassifier(name, db.get_classifier_labels(name), average=20)
+            if len(X) > 0:
+                clf.partial_fit(X, y)
             db.update_classifier_model(name, clf)
 
 
@@ -510,12 +511,12 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
 
 
 @logged_call_with_args
-def _create_model(db_connection_string, name, classes):
+def _create_model(db_connection_string, name, labels):
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_trainingset(db, name), _lock_model(db, name):
             if not db.classifier_exists(name):
-                clf = OnlineClassifier(name, classes, average=20)
-                db.create_classifier(name, classes, clf)
+                clf = OnlineClassifier(name, labels, average=20)
+                db.create_classifier(name, labels, clf)
 
 
 @logged_call_with_args
@@ -525,8 +526,8 @@ def _duplicate_model(db_connection_string, name, new_name):
             if not db.classifier_exists(new_name):
                 clf = db.get_classifier_model(name)
                 clf.name = new_name
-                classes = db.get_classifier_classes(name)
-                db.create_classifier(new_name, classes, clf)
+                labels = db.get_classifier_labels(name)
+                db.create_classifier(new_name, labels, clf)
             elif db.get_classifier_model(new_name) is None:
                 clf = db.get_classifier_model(name)
                 if clf is not None:
@@ -553,7 +554,7 @@ def _duplicate_trainingset(db_connection_string, name, new_name):
 
 
 @logged_call_with_args
-def _extract_binary_trainingset(db_connection_string, name, new_name):
+def _extract_binary_trainingset(db_connection_string, classifier, label):
     with SQLAlchemyDB(db_connection_string) as db:
         batchsize = MAX_BATCH_SIZE
         block = 0
@@ -562,15 +563,15 @@ def _extract_binary_trainingset(db_connection_string, name, new_name):
         added = 1
         while added > 0:
             added = 0
-            for example in db.get_classifier_examples(name, block * batchsize, batchsize):
+            for example in db.get_classifier_examples(classifier, block * batchsize, batchsize):
                 batchX.append(example.document.text)
-                if example.label.name == new_name:
+                if example.label.name == label:
                     batchy.append(YES_LABEL)
                 else:
                     batchy.append(NO_LABEL)
                 added += 1
-            _update_trainingset(db_connection_string, new_name, batchX, batchy)
-            _update_model(db_connection_string, new_name, batchX, batchy)
+            _update_trainingset(db_connection_string, label, batchX, batchy)
+            _update_model(db_connection_string, label, batchX, batchy)
             block += 1
 
 
@@ -579,7 +580,7 @@ def _combine_classifiers(db_connection_string, name, sources):
     with SQLAlchemyDB(db_connection_string) as db:
         binary_sources = set()
         for source_name in sources:
-            if set(db.get_classifier_classes(source_name)) == BINARY_LABELS:
+            if set(db.get_classifier_labels(source_name)) == BINARY_LABELS:
                 binary_sources.add(source_name)
         sizes = list()
         for source in sources:
@@ -605,12 +606,16 @@ def _combine_classifiers(db_connection_string, name, sources):
                     continue
                 if source in binary_sources:
                     example_numerator = db.get_classifier_examples_with_label(source, YES_LABEL, paddings[i], batchsize)
+                    for example in example_numerator:
+                        batchX.append(example.document.text)
+                        batchy.append(source)
+                        added += 1
                 else:
                     example_numerator = db.get_classifier_examples(source, paddings[i], batchsize)
-                for example in example_numerator:
-                    batchX.append(example.document.text)
-                    batchy.append(source)
-                    added += 1
+                    for example in example_numerator:
+                        batchX.append(example.document.text)
+                        batchy.append(example.label.name)
+                        added += 1
                 paddings[i] += batchsize
             r = random.random()
             random.shuffle(batchX, lambda: r)
