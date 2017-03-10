@@ -2,14 +2,12 @@ TODO
 - rename classifier
 - rename label
 - rename dataset
-- extract binary classifiers from multilabel classifier
 - batch/background processing
-    * jobs db
+    * put jobs queue (BackgroundProcessor._queue) on db
 - file import
     * skip comment lines, i.e., those starting with #
 - file export
     * no header needed after implementation of two pass import
-- BackgroundProcessor._queue on db?
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
@@ -34,6 +32,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- extract binary classifiers from another classifier
 - sorting of datasets and classifiers
 - compose classifiers into a multilabel classifier
 - bug in picking of models: move partial into get_TEXT_analyzer (resolved after package update?)

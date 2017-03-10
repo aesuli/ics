@@ -180,7 +180,7 @@ class WebClassifierCollection(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def classes(self, name):
+    def labels(self, name):
         return self._db.get_classifier_labels(name)
 
     @cherrypy.expose
