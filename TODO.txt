@@ -1,4 +1,5 @@
 TODO
+- decouple app and services
 - rename classifier
 - rename label
 - rename dataset
