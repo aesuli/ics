@@ -84,6 +84,19 @@ class WebDatasetCollection(object):
         return 'Ok'
 
     @cherrypy.expose
+    def rename(self, name, newname):
+        try:
+            self._db.rename_dataset(name, newname)
+        except KeyError:
+            cherrypy.response.status = 404
+            return '%s does not exits' % name
+        except Exception as e:
+            cherrypy.response.status = 500
+            return 'Error (%s)' % str(e)
+        else:
+            return 'Ok'
+
+    @cherrypy.expose
     def delete(self, name):
         try:
             self._db.delete_dataset(name)
@@ -221,7 +234,7 @@ class WebDatasetCollection(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.2.4 (db: %s)" % self._db.version()
+        return "0.2.5 (db: %s)" % self._db.version()
 
 
 @logged_call

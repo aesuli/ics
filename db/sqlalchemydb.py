@@ -207,6 +207,13 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(Classifier.last_updated).filter(Classifier.name == name).scalar()
 
+    def rename_classifier(self, name, newname):
+        with self.session_scope() as session:
+            classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
+            if classifier is None:
+                return
+            classifier.name = newname
+
     def delete_classifier(self, name):
         with self.session_scope() as session:
             session.query(Classifier).filter(Classifier.name == name).delete()
@@ -268,9 +275,17 @@ class SQLAlchemyDB(object):
     def get_label(self, classifier_name, content):
         with self.session_scope() as session:
             return session.query(Label.name).filter(Document.text == content).filter(
-                Classification.document_id == Document.id).filter(Classifier.name == classifier_name) \
-                .filter(Label.classifier_id == Classifier.id).filter(Label.id == Classification.label_id).order_by(
+                Classification.document_id == Document.id).filter(Classifier.name == classifier_name).filter(
+                Label.classifier_id == Classifier.id).filter(Label.id == Classification.label_id).order_by(
                 desc(Classification.creation)).scalar()
+
+    def rename_classifier_label(self, classifier_name, label_name, newname):
+        with self.session_scope() as session:
+            label = session.query(Label).filter(Label.name == label_name).join(Label.classifier).filter(
+                Classifier.name == classifier_name).scalar()
+            if label is None:
+                return
+            label.name = newname
 
     def dataset_names(self):
         with self.session_scope() as session:
@@ -286,6 +301,15 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             dataset = Dataset(name)
             session.add(dataset)
+
+    def rename_dataset(self, name, newname):
+        if name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET:
+            return
+        with self.session_scope() as session:
+            dataset = session.query(Dataset).filter(Dataset.name == name).scalar()
+            if dataset is None:
+                return
+            dataset.name = newname
 
     def delete_dataset(self, name):
         if name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET:
@@ -441,7 +465,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "0.4.1"
+        return "0.4.2"
 
 
 class DBLock(object):

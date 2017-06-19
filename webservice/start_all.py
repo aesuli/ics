@@ -3,9 +3,9 @@ import sys
 import cherrypy
 from configargparse import ArgParser
 
-import webservice.web_classifier_client as client
+import webservice.web_client as client
 from webservice.background_processor import BackgroundProcessor
-from webservice.web_classifier_client import WebClassifierClient
+from webservice.web_client import WebClient
 from webservice.web_classifier_collection import WebClassifierCollection
 from webservice.web_dataset_collection import WebDatasetCollection
 
@@ -24,7 +24,7 @@ if __name__ == "__main__":
                         default='/service/jobs')
     args = parser.parse_args(sys.argv[1:])
 
-    with BackgroundProcessor(args.db_connection_string) as background_processor, WebClassifierClient(
+    with BackgroundProcessor(args.db_connection_string) as background_processor, WebClient(
             args.db_connection_string) as app, WebClassifierCollection(
         args.db_connection_string, background_processor) as classifier_service, WebDatasetCollection(
         args.db_connection_string, background_processor) as dataset_service:
