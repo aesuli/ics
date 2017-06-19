@@ -12,7 +12,7 @@ TEMPLATE_DIR = os.path.join(MEDIA_DIR, 'template')
 lookup = TemplateLookup(directories=[TEMPLATE_DIR])
 
 
-class WebClassifierClient(object):
+class WebClient(object):
     def __init__(self, db_connection_string):
         self._db = SQLAlchemyDB(db_connection_string)
 
@@ -96,5 +96,5 @@ config = {
 }
 
 if __name__ == "__main__":
-    with WebClassifierClient('sqlite:///%s' % 'test.db') as wcc:
+    with WebClient('sqlite:///%s' % 'test.db') as wcc:
         cherrypy.quickstart(wcc, '/app', config=config)

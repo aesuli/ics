@@ -38,11 +38,12 @@
                         for(var i = 0;i<msg.length;++i) {
                             var datasetdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'dataset_'+msg[i].name+'\'>\
                             <div id=\'dataset_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all dataset_name\'>'+msg[i].name+'</div>\
-                            <div class=\'del_button_'+msg[i].name+' right\'>Delete</div>\
-                            <div class=\'download_button_'+msg[i].name+' right\'>Download</div>\
-                            <div class=\'upload_button_'+msg[i].name+' right\'>Select for upload</div>\
-                            <div class=\'classify_button_'+msg[i].name+' right\'>Classify</div>\
-                            <div class=\'browse_button_'+msg[i].name+' right\'>Browse &amp; label</div>\
+                            <div id=\'del_button_'+msg[i].name+'\' class=\'right\'>Delete</div>\
+                            <div id=\'rename_button_'+msg[i].name+'\' class=\'right\'>Rename</div>\
+                            <div id=\'download_button_'+msg[i].name+'\' class=\'right\'>Download</div>\
+                            <div id=\'upload_button_'+msg[i].name+'\' class=\'right\'>Select for upload</div>\
+                            <div id=\'classify_button_'+msg[i].name+'\' class=\'right\'>Classify</div>\
+                            <div id=\'browse_button_'+msg[i].name+'\' class=\'right\'>Browse &amp; label</div>\
                             <div class="small margined">Size: '+msg[i].size+'</div>\
                             <div class="small margined">Created: '+msg[i].created+'</div>\
                             <div class="small margined">Updated: '+msg[i].updated+'</div></div>');
@@ -52,24 +53,24 @@
                             else {
                                 $('#dataset\\_'+msg[i].name).replaceWith(datasetdiv)
                             }
-                            $('.browse\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-search'} });
-                            $('.browse\\_button\\_'+msg[i].name).click(
+                            $('#browse\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-search'} });
+                            $('#browse\\_button\\_'+msg[i].name).click(
                                 (function() {
                                     var dataset_name = msg[i].name;
                                     return function() {
                                         window.location.href = '/browseandlabel/'+dataset_name;
                                     }
                             })());
-                            $('.classify\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
-                            $('.classify\\_button\\_'+msg[i].name).click(
+                            $('#classify\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
+                            $('#classify\\_button\\_'+msg[i].name).click(
                                 (function() {
                                     var dataset_name = msg[i].name;
                                     return function() {
                                         window.location.href = '/classify/'+dataset_name;
                                     }
                             })());
-                            $('.upload\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
-                            $('.upload\\_button\\_'+msg[i].name).click(
+                            $('#upload\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
+                            $('#upload\\_button\\_'+msg[i].name).click(
                                 (function() {
                                     var dataset_name = msg[i].name;
                                     return function() {
@@ -77,10 +78,12 @@
                                         $('#dataset\\_upload').effect("bounce", {'distance':'5', 'times':'2'}, 200)
                                     }
                             })());
-                            $('.download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                            $('.download\\_button\\_'+msg[i].name).click(download_dataset);
-                            $('.del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
-                            $('.del\\_button\\_'+msg[i].name).click(delete_dataset);
+                            $('#download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                            $('#download\\_button\\_'+msg[i].name).click(download_dataset);
+                            $('#rename\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
+                            $('#rename\\_button\\_'+msg[i].name).click(rename_dataset);
+                            $('#del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
+                            $('#del\\_button\\_'+msg[i].name).click(delete_dataset);
                         }
                         $('#datasets\\_list').append($('#datasets\\_list > div').get().sort(function (a, b) {
                             return $(a)[0].id > $(b)[0].id;
@@ -95,10 +98,12 @@
             name = $("#name").val();
             if(!name.match(/^[a-zA-Z0-9_]+$/)) {
                 custom_alert("The name of the dataset can only contain letters, numbers and the underscore character '_'");
+            delay(function() {$( "#upload\\_button" ).button( "option", "disabled", false );},2000);
                 return false;
             }
             if($('#dataFile')[0].files.length!=1) {
                 custom_alert("Must select a file.");
+                delay(function() {$( "#upload\\_button" ).button( "option", "disabled", false );},2000);
                 return false;
             }
             var data = new FormData()
@@ -117,6 +122,35 @@
             });
             delay(function() {$( "#upload\\_button" ).button( "option", "disabled", false );},2000);
             return false ;
+        };
+
+        function rename_dataset() {
+            var dataset_name = $(this).siblings('.dataset\\_name').text();
+            var rename_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_dataset_'+dataset_name+'\'><input id="rename_new_name_'+dataset_name+'" type="text"></div>');
+            rename_dialog.dialog({modal:true,
+                                    title:'Rename dataset',
+                                    width: $(window).width()*0.5,
+                                    buttons: {
+                                        'Rename': function() {
+                                            var new_name = $('#rename\\_new\\_name\\_'+dataset_name).val()
+                                            if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
+                                                custom_alert("The name of the dataset can only contain letters, numbers and the underscore character '_'");
+                                                return false;
+                                            }
+                                            $.ajax({
+                                                type: "POST",
+                                                url: "/service/datasets/rename/"+dataset_name+"/"+new_name})
+                                            .done(update)
+                                            .fail(function(errMsg) {
+                                                custom_alert(errMsg.responseText);
+                                            });
+                                            $(this).dialog('close');
+                                        },
+                                        'Cancel': function() {
+                                            $(this).dialog('close');
+                                        }
+                                    },
+                                  });
         };
 
         function delete_dataset() {

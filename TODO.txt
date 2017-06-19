@@ -1,8 +1,6 @@
 TODO
+- rename label (done on service)
 - decouple app and services
-- rename classifier
-- rename label
-- rename dataset
 - batch/background processing
     * put jobs queue (BackgroundProcessor._queue) on db
 - file import
@@ -33,6 +31,8 @@ TOMONITOR
 - strip input strings
 
 DONE
+- rename dataset
+- rename classifier
 - extract binary classifiers from another classifier
 - sorting of datasets and classifiers
 - compose classifiers into a multilabel classifier

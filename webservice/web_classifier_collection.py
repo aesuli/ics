@@ -169,6 +169,19 @@ class WebClassifierCollection(object):
         return 'Ok'
 
     @cherrypy.expose
+    def rename(self, name, newname):
+        try:
+            self._db.rename_classifier(name, newname)
+        except KeyError:
+            cherrypy.response.status = 404
+            return '%s does not exits' % name
+        except Exception as e:
+            cherrypy.response.status = 500
+            return 'Error (%s)' % str(e)
+        else:
+            return 'Ok'
+
+    @cherrypy.expose
     def delete(self, name):
         try:
             self._db.delete_classifier(name)
@@ -182,6 +195,19 @@ class WebClassifierCollection(object):
     @cherrypy.tools.json_out()
     def labels(self, name):
         return self._db.get_classifier_labels(name)
+
+    @cherrypy.expose
+    def rename_label(self, classifier_name, label_name, newname):
+        try:
+            self._db.rename_classifier_label(classifier_name, label_name, newname)
+        except KeyError:
+            cherrypy.response.status = 404
+            return '%s does not exits in %s' % (label_name, classifier_name)
+        except Exception as e:
+            cherrypy.response.status = 500
+            return 'Error (%s)' % str(e)
+        else:
+            return 'Ok'
 
     @cherrypy.expose
     def download(self, name):
@@ -455,7 +481,7 @@ class WebClassifierCollection(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.4.1 (db: %s)" % self._db.version()
+        return "0.4.2 (db: %s)" % self._db.version()
 
 
 @logged_call
