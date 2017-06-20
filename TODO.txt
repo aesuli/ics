@@ -1,5 +1,4 @@
 TODO
-- rename label (done on service)
 - decouple app and services
 - batch/background processing
     * put jobs queue (BackgroundProcessor._queue) on db
@@ -31,6 +30,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- rename label
 - rename dataset
 - rename classifier
 - extract binary classifiers from another classifier
