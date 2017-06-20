@@ -42,6 +42,7 @@
                         var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
                         <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
                         <div id=\'del_button_'+msg[i].name+'\' class=\'right\'>Delete</div>\
+                        <div id=\'rename_label_button_'+msg[i].name+'\' class=\'right\'>Rename label</div>\
                         <div id=\'rename_button_'+msg[i].name+'\' class=\'right\'>Rename</div>\
                         <div id=\'extract_button_'+msg[i].name+'\' class=\'right\'>Extract</div>\
                         <div id=\'select_button_'+msg[i].name+'\' class=\'right\'>Select</div>\
@@ -70,6 +71,8 @@
                         $('#extract\\_button\\_'+msg[i].name).click(extract_classifier);
                         $('#rename\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
                         $('#rename\\_button\\_'+msg[i].name).click(rename_classifier);
+                        $('#rename\\_label\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
+                        $('#rename\\_label\\_button\\_'+msg[i].name).click(rename_classifier_label);
                         $('#duplicate\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-copy'} });
                         $('#duplicate\\_button\\_'+msg[i].name).click(duplicate_classifier);
                         $('#del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
@@ -212,7 +215,7 @@
                                             buttons: {
                                                 'Extract': function() {
                                                     var selected = []
-                                                    $('div[id^="extract\\_"] .ui-state-focus').each(function () {
+                                                    $('div[id^="extract\\_"].ui-state-focus').each(function () {
                                                         selected.push($($(this)[0]).text());
                                                     });
                                                     var data = {name: classifier_name, labels: selected};
@@ -234,9 +237,60 @@
                 });
         };
 
+         function rename_classifier_label() {
+            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var labels = []
+            $.ajax({
+                url:'/service/classifiers/labels/'+classifier_name})
+                .done(function(msg) {
+                    var rename_label_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_classifier_label_'+classifier_name+'\'><div><label for="rename_label_new_name_'+classifier_name+'">New name:</label><input id="rename_label_new_name_'+classifier_name+'" type="text"></div></div>');
+                    labels = msg;
+                    for(var i = 0;i<labels.length;++i) {
+                        var labeldiv = jQuery('<div id="rename_label_'+labels[i]+'">'+labels[i]+'</div>');
+                        labeldiv.button({ icons: {primary:'ui-icon-radio-off'} });
+                        labeldiv.click(function(){
+                            var label = $(this).text();
+                             $('div[id^="rename\\_label\\_"].ui-state-focus').each(function () {
+                                $(this).removeClass('ui-state-focus');
+                                $(this).button({icons: {primary :'ui-icon-radio-off'}});
+                             });
+                            $(this).addClass('ui-state-focus');
+                            $(this).button({icons: {primary :'ui-icon-check'}});
+                        });
+                        rename_label_dialog.append(labeldiv);
+                    }
+                    rename_label_dialog.dialog({modal:true,
+                                            title:'Rename a label of "'+classifier_name+'"',
+                                            width: $(window).width()*0.5,
+                                            buttons: {
+                                                'Rename': function() {
+                                                    var new_name = $('#rename\\_label\\_new\\_name\\_'+classifier_name).val()
+                                                    if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
+                                                        custom_alert("The name of the label can only contain letters, numbers and the underscore character '_'");
+                                                        return false;
+                                                    }
+                                                    var selected_label =  $($('div[id^="rename\\_label\\_"].ui-state-focus')[0]).text();
+                                                    $.ajax({
+                                                        type: "POST",
+                                                        url: "/service/classifiers/rename_label/"+classifier_name+"/"+selected_label+"/"+new_name
+                                                        })
+                                                    .done(update)
+                                                    .fail(function(errMsg) {
+                                                        custom_alert(errMsg.responseText);
+                                                    });
+                                                    $(this).dialog('close');
+                                                },
+                                                'Cancel': function() {
+                                                    $(this).dialog('close');
+                                                }
+                                            },
+                                          });
+                });
+        };
+
         function rename_classifier() {
             var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var rename_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_classifier_'+classifier_name+'\'><input id="rename_new_name_'+classifier_name+'" type="text"></div>');
+            var rename_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_classifier_'+classifier_name+'\'><div><label for="rename_new_name_'+classifier_name+'">New name:</label><input id="rename_new_name_'+classifier_name+'" type="text"></div></div>');
             rename_dialog.dialog({modal:true,
                                     title:'Rename classifier',
                                     width: $(window).width()*0.5,
