@@ -1,6 +1,6 @@
 <html>
 <head>
-    <title>Classification service</title>
+    <title>${name}</title>
     <link rel="stylesheet" href="/css/style.css" />
     <link rel="stylesheet" href="/css/jquery-ui-themes-1.11.4/themes/ui-lightness/jquery-ui.min.css" />
     <script type="text/javascript" src="/js/jquery-2.1.4.min.js"></script>
@@ -20,7 +20,7 @@
             <%block name="header">
             <div id="header" class="ui-widget-content">
                 <div id="title" class="padded ui-widget ui-widget-header">
-                    Interactive Classification System
+                    ${name}
                 </div>
                 <div id="nav">
                     <ul id="menu">
@@ -41,7 +41,7 @@
             ${self.body()}
 
             <div id="footer" class="padded ui-widget ui-widget-content">
-                &copy; 2015-2016 Andrea Esuli
+                &copy; 2015-2017 Andrea Esuli
             </div>
         </div>
     </body>

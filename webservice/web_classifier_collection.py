@@ -19,9 +19,6 @@ from webservice.background_processor import BackgroundProcessor
 
 __author__ = 'Andrea Esuli'
 
-DOWNLOAD_DIR = os.path.join(os.path.abspath('.'), 'downloads')
-UPLOAD_DIR = os.path.join(os.path.abspath('.'), 'uploads')
-
 MAX_BATCH_SIZE = 1000
 
 YES_LABEL = 'yes'
@@ -30,9 +27,11 @@ BINARY_LABELS = set([YES_LABEL, NO_LABEL])
 
 
 class WebClassifierCollection(object):
-    def __init__(self, db_connection_string, background_processor):
+    def __init__(self, db_connection_string, data_dir, background_processor):
         self._db_connection_string = db_connection_string
         self._db = SQLAlchemyDB(db_connection_string)
+        self._download_dir = os.path.join(data_dir, 'downloads')
+        self._upload_dir = os.path.join(data_dir, 'uploads')
         self._background_processor = background_processor
 
     def close(self):
@@ -216,7 +215,7 @@ class WebClassifierCollection(object):
             return '%s does not exits' % name
         filename = 'training data %s %s.csv' % (name, str(self._db.get_classifier_last_update_time(name)))
         filename = get_fully_portable_file_name(filename)
-        fullpath = os.path.join(DOWNLOAD_DIR, filename)
+        fullpath = os.path.join(self._download_dir, filename)
         if not os.path.isfile(fullpath):
             header = dict()
             header['name'] = name
@@ -243,7 +242,7 @@ class WebClassifierCollection(object):
 
         filename = 'examples %s.csv' % (uuid4())
         filename = get_fully_portable_file_name(filename)
-        fullpath = os.path.join(UPLOAD_DIR, filename)
+        fullpath = os.path.join(self._upload_dir, filename)
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
@@ -659,5 +658,6 @@ def _lock_trainingset(db, name):
 
 
 if __name__ == "__main__":
-    with WebClassifierCollection('sqlite:///%s' % 'test.db', BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
-        cherrypy.quickstart(wcc, '/service')
+    with WebClassifierCollection('sqlite:///%s' % 'test.db', '.',
+                                 BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
+        cherrypy.quickstart(wcc, '/service/wcc')

@@ -15,7 +15,7 @@
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'/service/jobs',
+                url:'${processor_path}/',
                 dataType: 'json'})
             .done(function(msg) {
                 if(msg.length==0) {
@@ -69,7 +69,7 @@
             $('#job\\_'+job_id).hide();
             $.ajax({
                 type:'POST',
-                url:'/service/jobs/delete_job/'+job_id})
+                url:'${processor_path}/delete_job/'+job_id})
             .done(update)
             .fail(function () {
                     $('#job\\_'+job_id).show();
@@ -81,7 +81,7 @@
                 return;
             $.ajax({
                 type:'POST',
-                url:'/service/jobs/delete_all_jobs_done'})
+                url:'${processor_path}/delete_all_jobs_done'})
             .done(update);
         };
 

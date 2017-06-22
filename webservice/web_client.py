@@ -1,20 +1,34 @@
 import os
+
 import cherrypy
 from mako.lookup import TemplateLookup
+
 from db.sqlalchemydb import SQLAlchemyDB
 
 __author__ = 'Andrea Esuli'
 
-MEDIA_DIR = os.path.join(os.path.abspath('.'), 'media')
-CSS_DIR = os.path.join(MEDIA_DIR, 'css')
-JS_DIR = os.path.join(MEDIA_DIR, 'js')
-TEMPLATE_DIR = os.path.join(MEDIA_DIR, 'template')
-lookup = TemplateLookup(directories=[TEMPLATE_DIR])
-
 
 class WebClient(object):
-    def __init__(self, db_connection_string):
+    def __init__(self, db_connection_string, media_dir, classifier_path, dataset_path, processor_path, name):
         self._db = SQLAlchemyDB(db_connection_string)
+        self._media_dir = media_dir
+        self._template_data = {'classifier_path': classifier_path,
+                               'dataset_path': dataset_path,
+                               'processor_path': processor_path,
+                               'name': name}
+        self._lookup = TemplateLookup(os.path.join(media_dir, 'template'))
+
+    def get_config(self):
+        return {
+            '/css':
+                {'tools.staticdir.on': True,
+                 'tools.staticdir.dir': os.path.join(self._media_dir, 'css'),
+                 },
+            '/js':
+                {'tools.staticdir.on': True,
+                 'tools.staticdir.dir': os.path.join(self._media_dir, 'js'),
+                 },
+        }
 
     def close(self):
         self._db.close()
@@ -26,16 +40,15 @@ class WebClient(object):
         self.close()
         return False
 
-
     @cherrypy.expose
     def index(self):
-        template = lookup.get_template('datasets.html')
-        return template.render()
+        template = self._lookup.get_template('datasets.html')
+        return template.render(**self._template_data)
 
     @cherrypy.expose
     def typeandlabel(self):
-        template = lookup.get_template('typeandlabel.html')
-        return template.render()
+        template = self._lookup.get_template('typeandlabel.html')
+        return template.render(**self._template_data)
 
     @cherrypy.expose
     def browseandlabel(self, name=None):
@@ -45,8 +58,8 @@ class WebClient(object):
         if not self._db.dataset_exists(name):
             raise cherrypy.HTTPRedirect('/datasets')
 
-        template = lookup.get_template('browseandlabel.html')
-        return template.render()
+        template = self._lookup.get_template('browseandlabel.html')
+        return template.render(**self._template_data)
 
     @cherrypy.expose
     def classify(self, name=None):
@@ -56,45 +69,34 @@ class WebClient(object):
         if not self._db.dataset_exists(name):
             raise cherrypy.HTTPRedirect('/datasets')
 
-        template = lookup.get_template('classify.html')
-        return template.render()
+        template = self._lookup.get_template('classify.html')
+        return template.render(**self._template_data)
 
     @cherrypy.expose
     def classifiers(self):
-        template = lookup.get_template('classifiers.html')
-        return template.render()
+        template = self._lookup.get_template('classifiers.html')
+        return template.render(**self._template_data)
 
     @cherrypy.expose
     def datasets(self):
-        template = lookup.get_template('datasets.html')
-        return template.render()
+        template = self._lookup.get_template('datasets.html')
+        return template.render(**self._template_data)
 
     @cherrypy.expose
     def jobs(self):
-        template = lookup.get_template('jobs.html')
-        return template.render()
+        template = self._lookup.get_template('jobs.html')
+        return template.render(**self._template_data)
 
     @cherrypy.expose
     def about(self):
-        template = lookup.get_template('about.html')
-        return template.render()
+        template = self._lookup.get_template('about.html')
+        return template.render(**self._template_data)
 
     @cherrypy.expose
     def version(self):
-        return "0.2.1"
+        return "0.4.1"
 
-
-config = {
-    '/css':
-        {'tools.staticdir.on': True,
-         'tools.staticdir.dir': CSS_DIR,
-        },
-    '/js':
-        {'tools.staticdir.on': True,
-         'tools.staticdir.dir': JS_DIR,
-        },
-}
 
 if __name__ == "__main__":
-    with WebClient('sqlite:///%s' % 'test.db') as wcc:
-        cherrypy.quickstart(wcc, '/app', config=config)
+    with WebClient('sqlite:///%s' % 'test.db', '.', '/service/wdc', '/service/wcc', '/service/bp', 'test') as wcc:
+        cherrypy.quickstart(wcc, '/', config=wcc.get_config())
