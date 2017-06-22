@@ -14,7 +14,7 @@
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'/service/datasets/',
+                url:'${dataset_path}/',
                 dataType: 'json',
                 success: function(msg) {
                     $('#datasets\\_list div .dataset\\_name').each(function(i,item) {
@@ -86,7 +86,7 @@
                             $('#del\\_button\\_'+msg[i].name).click(delete_dataset);
                         }
                         $('#datasets\\_list').append($('#datasets\\_list > div').get().sort(function (a, b) {
-                            return $(a)[0].id > $(b)[0].id;
+                            return $(a)[0].id.localeCompare($(b)[0].id);
                         }));
                     }
                 }
@@ -111,7 +111,7 @@
             data.append("name", name);
             $.ajax({
                 type: "POST",
-                url: "/service/datasets/upload",
+                url: "${dataset_path}/upload",
                 data: data,
                 enctype: 'multipart/form-data',
                 processData: false,
@@ -139,7 +139,7 @@
                                             }
                                             $.ajax({
                                                 type: "POST",
-                                                url: "/service/datasets/rename/"+dataset_name+"/"+new_name})
+                                                url: "${dataset_path}/rename/"+dataset_name+"/"+new_name})
                                             .done(update)
                                             .fail(function(errMsg) {
                                                 custom_alert(errMsg.responseText);
@@ -160,7 +160,7 @@
             $('#dataset\\_'+dataset_name).hide();
             $.ajax({
                 type:'POST',
-                url:'/service/datasets/delete/'+dataset_name})
+                url:'${dataset_path}/delete/'+dataset_name})
             .done(update)
             .fail(function () {
                     $('#dataset\\_'+dataset_name).show();
@@ -169,7 +169,7 @@
 
         function download_dataset() {
             var dataset_name = $(this).siblings('.dataset\\_name').text();
-            var form = $('<form></form>').attr('action', '/service/datasets/download/'+dataset_name).attr('method', 'post');
+            var form = $('<form></form>').attr('action', '${dataset_path}/download/'+dataset_name).attr('method', 'post');
             form.appendTo('body').submit().remove();
         };
 

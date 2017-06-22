@@ -1,4 +1,5 @@
 TODO
+- bug in renaming labels, better destroy from divs after use
 - decouple app and services
 - batch/background processing
     * put jobs queue (BackgroundProcessor._queue) on db

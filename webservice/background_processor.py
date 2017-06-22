@@ -110,3 +110,7 @@ class BackgroundProcessor(Thread):
         for id in to_remove:
             self._db.delete_job(id)
         return 'Ok'
+
+if __name__ == "__main__":
+    with BackgroundProcessor('sqlite:///%s' % 'test.db') as wcc:
+        cherrypy.quickstart(wcc, '/service/bp')

@@ -16,7 +16,7 @@
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'/service/classifiers/',
+                url:'${classifier_path}/',
                 dataType: 'json'})
             .done( function(msg) {
                 $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
@@ -79,7 +79,7 @@
                         $('#del\\_button\\_'+msg[i].name).click(delete_classifier);
                     }
                     $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
-                        return $(a)[0].id > $(b)[0].id;
+                        return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
                 }
                 $('#uploadingdiv').remove();
@@ -102,7 +102,7 @@
             var data = {name: name, labels: labels} ;
             $.ajax({
                 type: "POST",
-                url: "/service/classifiers/create",
+                url: "${classifier_path}/create",
                 data: data})
             .done(update)
             .fail(function(errMsg) {
@@ -121,7 +121,7 @@
             var data = {name: name, sources: sources};
             $.ajax({
                 type: "POST",
-                url: "/service/classifiers/combine",
+                url: "${classifier_path}/combine",
                 data: data})
             .done(update)
             .fail(function(errMsg) {
@@ -139,7 +139,7 @@
             data.append("file", $('#dataFile')[0].files[0]);
             $.ajax({
                 type: "POST",
-                url: "/service/classifiers/upload",
+                url: "${classifier_path}/upload",
                 data: data,
                 enctype: 'multipart/form-data',
                 processData: false,
@@ -178,7 +178,7 @@
             }
             $.ajax({
                 type:'POST',
-                url:'/service/classifiers/delete/'+classifier_name })
+                url:'${classifier_path}/delete/'+classifier_name })
             .done(update)
             .fail(function () {
                 $('#classifier\\_'+classifier_name).show();
@@ -189,7 +189,7 @@
             var classifier_name = $(this).siblings('.classifier\\_name').text();
             var labels = []
             $.ajax({
-                url:'/service/classifiers/labels/'+classifier_name})
+                url:'${classifier_path}/labels/'+classifier_name})
                 .done(function(msg) {
                     var extract_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'extract_classifier_'+classifier_name+'\'></div>');
                     labels = msg;
@@ -221,7 +221,7 @@
                                                     var data = {name: classifier_name, labels: selected};
                                                     $.ajax({
                                                         type: "POST",
-                                                        url: "/service/classifiers/extract",
+                                                        url: "${classifier_path}/extract",
                                                         data: data})
                                                     .done(update)
                                                     .fail(function(errMsg) {
@@ -241,7 +241,7 @@
             var classifier_name = $(this).siblings('.classifier\\_name').text();
             var labels = []
             $.ajax({
-                url:'/service/classifiers/labels/'+classifier_name})
+                url:'${classifier_path}/labels/'+classifier_name})
                 .done(function(msg) {
                     var rename_label_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_classifier_label_'+classifier_name+'\'><div><label for="rename_label_new_name_'+classifier_name+'">New name:</label><input id="rename_label_new_name_'+classifier_name+'" type="text"></div></div>');
                     labels = msg;
@@ -272,7 +272,7 @@
                                                     var selected_label =  $($('div[id^="rename\\_label\\_"].ui-state-focus')[0]).text();
                                                     $.ajax({
                                                         type: "POST",
-                                                        url: "/service/classifiers/rename_label/"+classifier_name+"/"+selected_label+"/"+new_name
+                                                        url: "${classifier_path}/rename_label/"+classifier_name+"/"+selected_label+"/"+new_name
                                                         })
                                                     .done(update)
                                                     .fail(function(errMsg) {
@@ -303,7 +303,7 @@
                                             }
                                             $.ajax({
                                                 type: "POST",
-                                                url: "/service/classifiers/rename/"+classifier_name+"/"+new_name})
+                                                url: "${classifier_path}/rename/"+classifier_name+"/"+new_name})
                                             .done(update)
                                             .fail(function(errMsg) {
                                                 custom_alert(errMsg.responseText);
@@ -348,7 +348,7 @@
             if (new_name != null) {
                 $.ajax({
                     type:'POST',
-                    url:'/service/classifiers/duplicate/'+classifier_name+'/'+new_name})
+                    url:'${classifier_path}/duplicate/'+classifier_name+'/'+new_name})
                 .done(update)
                 .fail(function (errMsg) {
                     custom_alert(errMsg.responseText);
@@ -358,7 +358,7 @@
 
         function download_classifier() {
             var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var form = $('<form></form>').attr('action', '/service/classifiers/download').attr('method', 'post');
+            var form = $('<form></form>').attr('action', '${classifier_path}/download').attr('method', 'post');
             form.append($("<input></input>").attr('type', 'hidden').attr('name', 'name').attr('value', classifier_name));
             form.appendTo('body').submit().remove();
         };

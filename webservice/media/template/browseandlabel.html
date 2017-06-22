@@ -22,7 +22,7 @@
 
             $.ajax({
                 type: 'POST',
-                url: '/service/datasets/size',
+                url: '${dataset_path}/size',
                 data: { name : datasetname }})
             .done( function (msg) {
                     datasetsize = parseInt(msg);
@@ -32,7 +32,7 @@
 
             $.ajax({
                 type:'POST',
-                url:'/service/classifiers/',
+                url:'${classifier_path}/',
                 dataType: 'json'})
             .done(function(msg) {
                     $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
@@ -78,7 +78,7 @@
                                             $('#suggestions\\_'+classifier_name).hide();
                                             $.ajax({
                                                 type:'POST',
-                                                url:'/service/classifiers/update',
+                                                url:'${classifier_path}/update',
                                                 data: { name: classifier_name, X: [last_text], y: [label] }})
                                             .done(function() {
                                                     $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
@@ -104,7 +104,7 @@
                             }
                         }
                         $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
-                            return $(a)[0].id > $(b)[0].id;
+                            return $(a)[0].id.localeCompare($(b)[0].id);
                         }));
                         if($('#skip\\_all').length==0) {
                             skip_all = jQuery('<div id="skip_all" class="right">Skip all</div>');
@@ -164,7 +164,7 @@
             var data = {name: name, labels: labels} ;
             $.ajax({
                 type: "POST",
-                url: "/service/classifiers/create",
+                url: "${classifier_path}/create",
                 data: data})
             .done(update)
             .fail(function(errMsg) {
@@ -182,7 +182,7 @@
                     var classifier_name = $(item).text();
                     $.ajax({
                         type:'POST',
-                        url:'/service/classifiers/classify',
+                        url:'${classifier_path}/classify',
                         data: { name: classifier_name, X: [text] },
                         dataType: 'json'})
                     .done(function(msg) {
@@ -208,7 +208,7 @@
 
             $.ajax({
                 type:'POST',
-                url:'/service/datasets/document',
+                url:'${dataset_path}/document',
                 data: { name: datasetname , position: position-1 },
                 dataType: 'json'})
             .done(function(msg) {

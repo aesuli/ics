@@ -17,7 +17,7 @@
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'/service/datasets/get_classification_jobs',
+                url:'${dataset_path}/get_classification_jobs',
                 data: { name : datasetname },
                 dataType: 'json'})
             .done(function(msg) {
@@ -59,7 +59,7 @@
 
             $.ajax({
                 type:'POST',
-                url:'/service/classifiers/',
+                url:'${classifier_path}/',
                 dataType: 'json'})
             .done(function(msg) {
                     $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
@@ -111,7 +111,7 @@
             $('#job\\_'+classification_id).hide();
             $.ajax({
                 type:'POST',
-                url:'/service/datasets/delete_classification',
+                url:'${dataset_path}/delete_classification',
                 data: { id : classification_id }})
             .done(update)
             .fail(function () {
@@ -121,7 +121,7 @@
 
         function download_classification() {
             var classification_id = $(this).parent().siblings('.id').text();
-            var form = $('<form></form>').attr('action', '/service/datasets/download_classification/'+classification_id).attr('method', 'post');
+            var form = $('<form></form>').attr('action', '${dataset_path}/download_classification/'+classification_id).attr('method', 'post');
             form.appendTo('body').submit().remove();
         };
 
@@ -132,7 +132,7 @@
             })
             $.ajax({
                 type:'POST',
-                url:'/service/datasets/classify',
+                url:'${dataset_path}/classify',
                 data: { name : datasetname, classifiers : classifiers }})
             .done(update)
             .fail(function (msg) { custom_alert(msg.responseText);  });
