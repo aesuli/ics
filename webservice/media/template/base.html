@@ -13,30 +13,19 @@
 
         });
     </script>
+
     <%block name="head" />
+
 </head>
     <body>
         <div id="screen" class="ui-widget-content">
-            <%block name="header">
+
             <div id="header" class="ui-widget-content">
                 <div id="title" class="padded ui-widget ui-widget-header">
                     ${name}
                 </div>
-                <div id="nav">
-                    <ul id="menu">
-                        <li><a href="/datasets">Datasets</a></li>
-                        <li><a href="/classifiers">Classifiers</a></li>
-                        <li>Tools
-                            <ul>
-                                <li><a href="/typeandlabel">Type &amp; Label</a></li>
-                                <li><a href="/jobs">Jobs</a></li>
-                            </ul>
-                        </li>
-                        <li><a href="/about">About</a></li>
-                    </ul>
-                </div>
+                <%block name="menu" />
             </div>
-            </%block>
 
             ${self.body()}
 

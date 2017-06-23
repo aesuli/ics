@@ -40,15 +40,18 @@ class WebClient(object):
         self.close()
         return False
 
+    def session_data(self):
+        return {'username': cherrypy.request.login}
+
     @cherrypy.expose
     def index(self):
         template = self._lookup.get_template('datasets.html')
-        return template.render(**self._template_data)
+        return template.render(**{**self._template_data,**self.session_data()})
 
     @cherrypy.expose
     def typeandlabel(self):
         template = self._lookup.get_template('typeandlabel.html')
-        return template.render(**self._template_data)
+        return template.render(**{**self._template_data,**self.session_data()})
 
     @cherrypy.expose
     def browseandlabel(self, name=None):
@@ -59,7 +62,7 @@ class WebClient(object):
             raise cherrypy.HTTPRedirect('/datasets')
 
         template = self._lookup.get_template('browseandlabel.html')
-        return template.render(**self._template_data)
+        return template.render(**{**self._template_data,**self.session_data()})
 
     @cherrypy.expose
     def classify(self, name=None):
@@ -70,27 +73,27 @@ class WebClient(object):
             raise cherrypy.HTTPRedirect('/datasets')
 
         template = self._lookup.get_template('classify.html')
-        return template.render(**self._template_data)
+        return template.render(**{**self._template_data,**self.session_data()})
 
     @cherrypy.expose
     def classifiers(self):
         template = self._lookup.get_template('classifiers.html')
-        return template.render(**self._template_data)
+        return template.render(**{**self._template_data,**self.session_data()})
 
     @cherrypy.expose
     def datasets(self):
         template = self._lookup.get_template('datasets.html')
-        return template.render(**self._template_data)
+        return template.render(**{**self._template_data,**self.session_data()})
 
     @cherrypy.expose
     def jobs(self):
         template = self._lookup.get_template('jobs.html')
-        return template.render(**self._template_data)
+        return template.render(**{**self._template_data,**self.session_data()})
 
     @cherrypy.expose
     def about(self):
         template = self._lookup.get_template('about.html')
-        return template.render(**self._template_data)
+        return template.render(**{**self._template_data,**self.session_data()})
 
     @cherrypy.expose
     def version(self):
