@@ -4,6 +4,7 @@ import sys
 import cherrypy
 from configargparse import ArgParser
 
+from webservice.auth_controller import AuthController
 from webservice.background_processor import BackgroundProcessor
 from webservice.web_classifier_collection import WebClassifierCollection
 from webservice.web_client import WebClient
@@ -34,16 +35,27 @@ if __name__ == "__main__":
                       args.processor_path, args.name) as client, \
             WebClassifierCollection(args.db_connection_string, args.data_dir,
                                     background_processor) as classifier_service, \
-            WebDatasetCollection(args.db_connection_string, args.data_dir, background_processor) as dataset_service:
+            WebDatasetCollection(args.db_connection_string, args.data_dir, background_processor) as dataset_service, \
+            AuthController(media_dir=args.media_dir,name=args.name) as auth_controller:
         background_processor.start()
 
         cherrypy.server.socket_host = args.host
         cherrypy.server.socket_port = args.port
 
-        cherrypy.tree.mount(client, args.client_path, config=client.get_config())
-        cherrypy.tree.mount(classifier_service, args.classifier_path)
-        cherrypy.tree.mount(dataset_service, args.dataset_path)
-        cherrypy.tree.mount(background_processor, args.processor_path)
+        conf = {
+            '/': {
+                'tools.sessions.on': True,
+                'tools.icsauth.on': True,
+                # the following line forces login on any request
+                'tools.icsauth.require': [lambda: True],
+            },
+        }
+
+        cherrypy.tree.mount(client, args.client_path, config={**client.get_config(), **conf})
+        cherrypy.tree.mount(classifier_service, args.classifier_path, config=conf)
+        cherrypy.tree.mount(dataset_service, args.dataset_path, config=conf)
+        cherrypy.tree.mount(auth_controller, '/auth/', config=conf)
+        cherrypy.tree.mount(background_processor, args.processor_path, config=conf)
 
         cherrypy.engine.subscribe('stop', background_processor.stop)
 

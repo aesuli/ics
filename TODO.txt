@@ -1,5 +1,9 @@
 TODO
-- bug in renaming labels, better destroy from divs after use
+- user authentication
+    * add user db
+    * add args.auth_path
+- user admin page
+- user authorization
 - decouple app and services
 - batch/background processing
     * put jobs queue (BackgroundProcessor._queue) on db
@@ -23,14 +27,14 @@ TODO
     * user info
     * version
     * packages and licences
-- user authentication
 - store source of classification (which user?)
-- user authorization
 
 TOMONITOR
 - strip input strings
 
 DONE
+- user authentication
+- bug in renaming labels, better destroy from divs after use
 - rename label
 - rename dataset
 - rename classifier
