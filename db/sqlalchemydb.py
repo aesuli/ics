@@ -3,6 +3,7 @@ import time
 from contextlib import contextmanager
 from uuid import uuid4
 
+from passlib.hash import pbkdf2_sha256
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
     UniqueConstraint, desc, exists
 from sqlalchemy.exc import OperationalError
@@ -18,6 +19,28 @@ classifier_name_length = 100
 label_name_length = 50
 dataset_name_length = 100
 document_name_length = 100
+salt_length = 20
+
+
+class User(Base):
+    __tablename__ = 'user'
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(classifier_name_length), unique=True)
+    salted_password = Column(String())
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+
+    def __init__(self, name, password):
+        self.name = name
+        self.salted_password = pbkdf2_sha256.hash(password)
+
+    def verify(self, password):
+        return pbkdf2_sha256.verify(password, self.salted_password)
+
+    def change_password(self, old_password, new_password):
+        verified = self.verify(old_password)
+        if not verified:
+            return False
+        self.salted_password = pbkdf2_sha256.hash(new_password)
 
 
 class Classifier(Base):
@@ -137,6 +160,8 @@ class Lock(Base):
 
 class SQLAlchemyDB(object):
     _INTERNAL_TRAINING_DATASET = '_internal_training_dataset'
+    _ADMIN_NAME = 'admin'
+    _ADMIN_PASSWORD = 'admin'
 
     def __init__(self, name):
         self._engine = create_engine(name)
@@ -149,6 +174,8 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             if not session.query(exists().where(Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET)).scalar():
                 session.add(Dataset(SQLAlchemyDB._INTERNAL_TRAINING_DATASET))
+            if not session.query(exists().where(User.name == SQLAlchemyDB._ADMIN_NAME)).scalar():
+                session.add(User(SQLAlchemyDB._ADMIN_NAME, SQLAlchemyDB._ADMIN_PASSWORD))
 
     def __enter__(self):
         return self
@@ -172,6 +199,27 @@ class SQLAlchemyDB(object):
             raise
         finally:
             session.close()
+
+    def create_user(self, username, password):
+        with self.session_scope() as session:
+            user = User(username, password)
+            session.add(user)
+            session.commit()
+
+    def verify_user(self, username, password):
+        with self.session_scope() as session:
+            user = session.query(User).filter(User.name == username).scalar()
+            return user.verify(password)
+
+    def delete_user(self, username):
+        with self.session_scope() as session:
+            session.query(User).filter(User.name == username).delete()
+
+    def change_password(self, username, old_password, new_password):
+        with self.session_scope() as session:
+            user = session.query(User).filter(User.name == username).scalar()
+            user.change_password(old_password, new_password)
+            session.commit()
 
     def classifier_names(self):
         with self.session_scope() as session:
@@ -465,7 +513,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "0.4.2"
+        return "0.5.1"
 
 
 class DBLock(object):
