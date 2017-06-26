@@ -10,6 +10,7 @@ import os
 import cherrypy
 from mako.lookup import TemplateLookup
 
+from db.sqlalchemydb import SQLAlchemyDB
 from util.util import logged_call_with_args
 
 SESSION_KEY = '_cp_username'
@@ -119,12 +120,13 @@ def all_of(*conditions):
 # Controller to provide login and logout actions
 
 class AuthController(object):
-    def __init__(self, media_dir, name):
+    def __init__(self, db_connection_string, media_dir, name):
+        self._db = SQLAlchemyDB(db_connection_string)
         self._lookup = TemplateLookup(os.path.join(media_dir, 'template'))
         self._name = name
 
     def close(self):
-        # self._db.close()
+        self._db.close()
         pass
 
     def __enter__(self):
@@ -145,18 +147,10 @@ class AuthController(object):
     def check_credentials(self, username, password):
         """Verifies credentials for username and password.
         Returns None on success or a string describing the error on failure"""
-        # Adapt to your needs
-        if username in ('joe', 'steve') and password == 'secret':
+        if self._db.verify_user(username, password):
             return None
         else:
             return "Incorrect username or password."
-
-            # An example implementation which uses an ORM could be:
-            # u = User.get(username)
-            # if u is None:
-            #     return u"Username %s is unknown to me." % username
-            # if u.password != md5.new(password).hexdigest():
-            #     return u"Incorrect password"
 
     @cherrypy.expose
     @always_auth()
