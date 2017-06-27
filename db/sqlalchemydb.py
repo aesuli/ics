@@ -36,11 +36,8 @@ class User(Base):
     def verify(self, password):
         return pbkdf2_sha256.verify(password, self.salted_password)
 
-    def change_password(self, old_password, new_password):
-        verified = self.verify(old_password)
-        if not verified:
-            return False
-        self.salted_password = pbkdf2_sha256.hash(new_password)
+    def change_password(self, password):
+        self.salted_password = pbkdf2_sha256.hash(password)
 
 
 class Classifier(Base):
@@ -200,26 +197,41 @@ class SQLAlchemyDB(object):
         finally:
             session.close()
 
-    def create_user(self, username, password):
+    @staticmethod
+    def admin_name():
+        return SQLAlchemyDB._ADMIN_NAME
+
+    def create_user(self, name, password):
         with self.session_scope() as session:
-            user = User(username, password)
+            user = User(name, password)
             session.add(user)
             session.commit()
 
-    def verify_user(self, username, password):
+    def user_exists(self, name):
         with self.session_scope() as session:
-            user = session.query(User).filter(User.name == username).scalar()
+            return session.query(exists().where(User.name == name)).scalar()
+
+    def verify_user(self, name, password):
+        with self.session_scope() as session:
+            user = session.query(User).filter(User.name == name).scalar()
             return user.verify(password)
 
-    def delete_user(self, username):
+    def delete_user(self, name):
         with self.session_scope() as session:
-            session.query(User).filter(User.name == username).delete()
+            session.query(User).filter(User.name == name).delete()
 
-    def change_password(self, username, old_password, new_password):
+    def change_password(self, name, password):
         with self.session_scope() as session:
-            user = session.query(User).filter(User.name == username).scalar()
-            user.change_password(old_password, new_password)
-            session.commit()
+            user = session.query(User).filter(User.name == name).scalar()
+            user.change_password(password)
+
+    def user_names(self):
+        with self.session_scope() as session:
+            return list(session.query(User.name).order_by(User.name).all())
+
+    def get_user_creation_time(self, name):
+        with self.session_scope() as session:
+            return session.query(User.creation).filter(User.name == name).scalar()
 
     def classifier_names(self):
         with self.session_scope() as session:
