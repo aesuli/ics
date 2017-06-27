@@ -1,7 +1,4 @@
 TODO
-- user authentication
-    * add user db
-    * add args.auth_path
 - user admin page
 - user authorization
 - decouple app and services
@@ -34,6 +31,8 @@ TOMONITOR
 
 DONE
 - user authentication
+    * add user db
+    * add args.auth_path
 - bug in renaming labels, better destroy from divs after use
 - rename label
 - rename dataset
