@@ -85,8 +85,9 @@ def all_of(*conditions):
 
 
 class AuthController(object):
-    def __init__(self, db_connection_string):
+    def __init__(self, db_connection_string, min_password_length = 8):
         self._db = SQLAlchemyDB(db_connection_string)
+        self._min_password_length = min_password_length
 
     def close(self):
         self._db.close()
@@ -111,7 +112,14 @@ class AuthController(object):
     @cherrypy.tools.json_out()
     def index(self):
         result = []
-        for name in self._db.user_names():
+        requester = cherrypy.session[SESSION_KEY]
+        if requester is None:
+            return result
+        if requester == SQLAlchemyDB.admin_name():
+            names = self._db.user_names()
+        else:
+            names = [requester]
+        for name in names:
             user_info = dict()
             user_info['name'] = name
             user_info['created'] = str(self._db.get_user_creation_time(name))
@@ -136,6 +144,10 @@ class AuthController(object):
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))
     def create_user(self, username, password):
+        if len(password) < self._min_password_length:
+            cherrypy.response.status = 400
+            return "Password must be at least %i characters long" % self._min_password_length
+
         if self._db.user_exists(username):
             cherrypy.response.status = 403
             return 'User "%s" already exists' % username
@@ -148,10 +160,14 @@ class AuthController(object):
             cherrypy.response.status = 403
             return 'User "%s" does not exists' % username
 
+        if len(password) < self._min_password_length:
+            cherrypy.response.status = 400
+            return "Password must be at least %i characters long" % self._min_password_length
+
         requester = cherrypy.session[SESSION_KEY]
         if requester != SQLAlchemyDB.admin_name() and requester != username:
-            cherrypy.response.status = 401
-            return 'Unathorized'
+            cherrypy.response.status = 403
+            return 'Forbidden'
 
         self._db.change_password(username, password)
         return 'Ok'
