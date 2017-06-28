@@ -29,6 +29,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset_path', help='server path of the dataset web service', type=str, required=True)
     parser.add_argument('--processor_path', help='server path of the background processor web service', type=str,
                         required=True)
+    parser.add_argument('--min_password_length', help='minimum password length', type=int, required=True)
     args = parser.parse_args(sys.argv[1:])
 
     with BackgroundProcessor(args.db_connection_string) as background_processor, \
@@ -37,7 +38,7 @@ if __name__ == "__main__":
             WebClassifierCollection(args.db_connection_string, args.data_dir,
                                     background_processor) as classifier_service, \
             WebDatasetCollection(args.db_connection_string, args.data_dir, background_processor) as dataset_service, \
-            AuthController(args.db_connection_string) as auth_controller:
+            AuthController(args.db_connection_string,args.min_password_length) as auth_controller:
         background_processor.start()
 
         cherrypy.server.socket_host = args.host

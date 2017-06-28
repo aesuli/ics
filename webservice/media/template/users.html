@@ -11,16 +11,14 @@ ${parent.head()}
             setTimeout(timed_update,update_interval);
         }
 
-        selected_classifiers = {};
-
         function update() {
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'${classifier_path}/',
+                url:'${auth_path}/',
                 dataType: 'json'})
             .done( function(msg) {
-                $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
+                $('#users\\_list div .user\\_name').each(function(i,item) {
                     var found = false;
                     for(var i = 0;i<msg.length;++i) {
                         if($(item).text()==msg[i].name) {
@@ -33,77 +31,48 @@ ${parent.head()}
                     }
                 });
                 if(msg.length==0) {
-                    $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifier available</div>');
+                    $('#users\\_list').html('<div class="padded ui-widget-header ui-corner-all">No user defined</div>');
                 }
                 else {
-                    if($('#_gotclassifiers').length==0) {
-                        $('#classifiers\\_list').html('<div id="_gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
+                    if($('#_gotusers').length==0) {
+                        $('#users\\_list').html('<div id="_gotusers" class="padded ui-widget-header ui-corner-all">Users:</div>');
                     }
                     for(var i = 0;i<msg.length;++i) {
-                        var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
-                        <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
+                        var userdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'user_'+msg[i].name+'\'>\
+                        <div id=\'user_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all user_name\'>'+msg[i].name+'</div>\
                         <div id=\'del_button_'+msg[i].name+'\' class=\'right\'>Delete</div>\
-                        <div id=\'rename_label_button_'+msg[i].name+'\' class=\'right\'>Rename label</div>\
-                        <div id=\'rename_button_'+msg[i].name+'\' class=\'right\'>Rename</div>\
-                        <div id=\'extract_button_'+msg[i].name+'\' class=\'right\'>Extract</div>\
-                        <div id=\'select_button_'+msg[i].name+'\' class=\'right\'>Select</div>\
-                        <div id=\'duplicate_button_'+msg[i].name+'\' class=\'right\'>Duplicate</div>\
-                        <div id=\'download_button_'+msg[i].name+'\' class=\'right\'>Download training set</div>\
-                        <div class="small margined">Labels: '+msg[i].labels+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
-                        <div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div>\
+                        <div id=\'change_password_button_'+msg[i].name+'\' class=\'right\'>Change password</div>\
+                        <div class="small margined">Created: '+msg[i].created+'</div>\
                         </div>');
-                        if($('#classifier\\_'+msg[i].name).length==0) {
-                            $('#classifiers\\_list').append(classifierdiv)
+                        if($('#user\\_'+msg[i].name).length==0) {
+                            $('#users\\_list').append(userdiv)
                         }
                         else {
-                            $('#classifier\\_'+msg[i].name).replaceWith(classifierdiv)
+                            $('#user\\_'+msg[i].name).replaceWith(userdiv)
                         }
-                        $('#download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                        $('#download\\_button\\_'+msg[i].name).click(download_classifier);
-                        if(selected_classifiers[msg[i].name]) {
-                            $('#select\\_button\\_'+msg[i].name).addClass('ui-state-focus');
-                            $('#select\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-check'} });
-                        }
-                        else {
-                            $('#select\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-plus'} });
-                        }
-                        $('#select\\_button\\_'+msg[i].name).click(select_classifier);
-                        $('#extract\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-extlink'} });
-                        $('#extract\\_button\\_'+msg[i].name).click(extract_classifier);
-                        $('#rename\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#rename\\_button\\_'+msg[i].name).click(rename_classifier);
-                        $('#rename\\_label\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#rename\\_label\\_button\\_'+msg[i].name).click(rename_classifier_label);
-                        $('#duplicate\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-copy'} });
-                        $('#duplicate\\_button\\_'+msg[i].name).click(duplicate_classifier);
+                        $('#change\\_password\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
+                        $('#change\\_password\\_button\\_'+msg[i].name).click(change_password);
                         $('#del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
-                        $('#del\\_button\\_'+msg[i].name).click(delete_classifier);
+                        $('#del\\_button\\_'+msg[i].name).click(delete_user);
                     }
-                    $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
+                    $('#users\\_list').append($('#users\\_list > div').get().sort(function (a, b) {
                         return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
                 }
-                $('#uploadingdiv').remove();
-                $( "#upload\\_button" ).button( "option", "disabled", false );
             });
         }
 
-        function create_classifier() {
+        function create_user() {
             name = $("#create\\_name").val();
             if(!name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                custom_alert("The name of the user can only contain letters, numbers and the underscore character '_'");
                 return false;
             }
-            labelsString = $("#labels").val();
-            if(!labelsString.match(/^[a-zA-Z0-9_,]+$/)) {
-                custom_alert("The names of labels can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            labels = labelsString.split(',');
-            var data = {name: name, labels: labels} ;
+            password = $("#create\\_password").val();
+            var data = {username: name, password: password} ;
             $.ajax({
                 type: "POST",
-                url: "${classifier_path}/create",
+                url: "${auth_path}/create_user",
                 data: data})
             .done(update)
             .fail(function(errMsg) {
@@ -112,204 +81,45 @@ ${parent.head()}
             return false;
         };
 
-        function combine_classifiers() {
-            name = $("#combine\\_name").val();
-            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            sources = Object.keys(selected_classifiers);
-            var data = {name: name, sources: sources};
-            $.ajax({
-                type: "POST",
-                url: "${classifier_path}/combine",
-                data: data})
-            .done(update)
-            .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
-            });
-            return false;
-        };
-
-        function upload_examples() {
-            if($('#dataFile')[0].files.length!=1) {
-                custom_alert("Must select a file.");
-                return false;
-            }
-            var data = new FormData()
-            data.append("file", $('#dataFile')[0].files[0]);
-            $.ajax({
-                type: "POST",
-                url: "${classifier_path}/upload",
-                data: data,
-                enctype: 'multipart/form-data',
-                processData: false,
-                contentType: false})
-            .done(function() {
-                $( "#upload\\_button" ).button( "option", "disabled", true );
-                if($('#gotclassifiers').length==0) {
-                    $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
-                }
-                var uploadingdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'uploadingdiv\'>\
-                <div class=\'inline padded ui-corner-all classifier_name\'>Uploading data...</div>\
-                </div>');
-                if($('#uploadingdiv').length==0) {
-                    $('#classifiers\\_list').append(uploadingdiv)
-                }
-            })
-            .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
-            });
-            return false ;
-        };
-
-        function delete_classifier() {
+        function delete_user() {
             if(!confirm('Please confirm the DELETE request, proceed?'))
                 return;
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
-            $('#classifier\\_'+classifier_name).hide();
-            if(selected_classifiers[classifier_name]) {
-                var item = $('#select\\_button\\_'+classifier_name);
-                item.removeClass('ui-state-focus');
-                item.button({icons: {primary :'ui-icon-plus'}});
-                delete selected_classifiers[classifier_name];
-                if(Object.keys(selected_classifiers).length<2) {
-                    $('#combine\\_button').button('disable');
-                }
-            }
+            var user_name = $(this).siblings('.user\\_name').text();
+            $('#user\\_'+user_name).hide();
             $.ajax({
                 type:'POST',
-                url:'${classifier_path}/delete/'+classifier_name })
+                url:'${auth_path}/delete_user/'+user_name })
             .done(update)
             .fail(function () {
-                $('#classifier\\_'+classifier_name).show();
+                $('#user\\_'+user_name).show();
             });
         };
 
-        function extract_classifier() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var labels = []
-            $.ajax({
-                url:'${classifier_path}/labels/'+classifier_name})
-                .done(function(msg) {
-                    var extract_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'extract_classifier_'+classifier_name+'\'></div>');
-                    labels = msg;
-                    for(var i = 0;i<labels.length;++i) {
-                        var labeldiv = jQuery('<div id="extract_'+labels[i]+'">'+labels[i]+'</div>');
-                        labeldiv.button({ icons: {primary:'ui-icon-plus'} });
-                        labeldiv.click(function(){
-                            var label = $(this).text();
-                            if($(this).hasClass('ui-state-focus')) {
-                                $(this).removeClass('ui-state-focus');
-                                $(this).button({icons: {primary :'ui-icon-plus'}});
-                            }
-                            else {
-                                $(this).addClass('ui-state-focus');
-                                $(this).button({icons: {primary :'ui-icon-check'}});
-                            }
-                        });
-                        extract_dialog.append(labeldiv);
-                    }
-                    extract_dialog.dialog({modal:true,
-                                            title:'Extract binary classifiers from "'+classifier_name+'"',
-                                            width: $(window).width()*0.5,
-                                            buttons: {
-                                                'Extract': function() {
-                                                    var selected = []
-                                                    $('div[id^="extract\\_"].ui-state-focus').each(function () {
-                                                        selected.push($($(this)[0]).text());
-                                                    });
-                                                    var data = {name: classifier_name, labels: selected};
-                                                    $.ajax({
-                                                        type: "POST",
-                                                        url: "${classifier_path}/extract",
-                                                        data: data})
-                                                    .done(update)
-                                                    .fail(function(errMsg) {
-                                                        custom_alert(errMsg.responseText);
-                                                    });
-                                                    $(this).dialog('close');
-                                                },
-                                                'Cancel': function() {
-                                                    $(this).dialog('close');
-                                                }
-                                            },
-                                          });
-                });
-        };
-
-         function rename_classifier_label() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var labels = []
-            $.ajax({
-                url:'${classifier_path}/labels/'+classifier_name})
-                .done(function(msg) {
-                    var rename_label_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_classifier_label_'+classifier_name+'\'><div><label for="rename_label_new_name_'+classifier_name+'">New name:</label><input id="rename_label_new_name_'+classifier_name+'" type="text"></div></div>');
-                    labels = msg;
-                    for(var i = 0;i<labels.length;++i) {
-                        var labeldiv = jQuery('<div id="rename_label_'+labels[i]+'">'+labels[i]+'</div>');
-                        labeldiv.button({ icons: {primary:'ui-icon-radio-off'} });
-                        labeldiv.click(function(){
-                            var label = $(this).text();
-                             $('div[id^="rename\\_label\\_"].ui-state-focus').each(function () {
-                                $(this).removeClass('ui-state-focus');
-                                $(this).button({icons: {primary :'ui-icon-radio-off'}});
-                             });
-                            $(this).addClass('ui-state-focus');
-                            $(this).button({icons: {primary :'ui-icon-check'}});
-                        });
-                        rename_label_dialog.append(labeldiv);
-                    }
-                    rename_label_dialog.dialog({modal:true,
-                                            title:'Rename a label of "'+classifier_name+'"',
-                                            width: $(window).width()*0.5,
-                                            buttons: {
-                                                'Rename': function() {
-                                                    var new_name = $('#rename\\_label\\_new\\_name\\_'+classifier_name).val()
-                                                    if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
-                                                        custom_alert("The name of the label can only contain letters, numbers and the underscore character '_'");
-                                                        return false;
-                                                    }
-                                                    var selected_label =  $($('div[id^="rename\\_label\\_"].ui-state-focus')[0]).text();
-                                                    $.ajax({
-                                                        type: "POST",
-                                                        url: "${classifier_path}/rename_label/"+classifier_name+"/"+selected_label+"/"+new_name
-                                                        })
-                                                    .done(update)
-                                                    .fail(function(errMsg) {
-                                                        custom_alert(errMsg.responseText);
-                                                    });
-                                                    $(this).dialog('close');
-                                                },
-                                                'Cancel': function() {
-                                                    $(this).dialog('close');
-                                                }
-                                            },
-                                          });
-                });
-        };
-
-        function rename_classifier() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var rename_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_classifier_'+classifier_name+'\'><div><label for="rename_new_name_'+classifier_name+'">New name:</label><input id="rename_new_name_'+classifier_name+'" type="text"></div></div>');
-            rename_dialog.dialog({modal:true,
-                                    title:'Rename classifier',
+        function change_password() {
+            var user_name = $(this).siblings('.user\\_name').text();
+            var change_password_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'change_password_'+user_name+'\'><div><label for="change_password_new_password_'+user_name+'">New password:</label><input id="change_password_new_password_'+user_name+'" type="password"><label for="change_password_confirm_password_'+user_name+'">Confirm new password:</label><input id="change_password_confirm_password_'+user_name+'" type="password"></div></div>');
+            change_password_dialog.dialog({modal:true,
+                                    title:'Change password',
                                     width: $(window).width()*0.5,
                                     buttons: {
-                                        'Rename': function() {
-                                            var new_name = $('#rename\\_new\\_name\\_'+classifier_name).val()
-                                            if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
-                                                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                                        'Change': function() {
+                                            var new_password = $('#change\\_password\\_new\\_password\\_'+user_name).val()
+                                            var confirm_password = $('#change\\_password\\_confirm\\_password\\_'+user_name).val()
+                                            if(new_password!=confirm_password) {
+                                                custom_alert("The passwords typed in the two fields are different.");
                                                 return false;
                                             }
+                                            var data = {username: user_name, password: new_password} ;
                                             $.ajax({
                                                 type: "POST",
-                                                url: "${classifier_path}/rename/"+classifier_name+"/"+new_name})
-                                            .done(update)
+                                                url: "${auth_path}/change_password",
+                                                data: data})
+                                            .done(function() {
+                                                change_password_dialog.dialog('close');
+                                                update();})
                                             .fail(function(errMsg) {
                                                 custom_alert(errMsg.responseText);
                                             });
-                                            $(this).dialog('close');
                                         },
                                         'Cancel': function() {
                                             $(this).dialog('close');
@@ -318,64 +128,14 @@ ${parent.head()}
                                   });
         };
 
-        function select_classifier() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var item = $('#select\\_button\\_'+classifier_name);
-            if(item.hasClass('ui-state-focus')) {
-                item.removeClass('ui-state-focus');
-                item.button({icons: {primary :'ui-icon-plus'}});
-                delete selected_classifiers[classifier_name];
-                if(Object.keys(selected_classifiers).length<2) {
-                    $('#combine\\_button').button('disable');
-                }
-            }
-            else {
-                item.addClass('ui-state-focus');
-                item.button({icons: {primary :'ui-icon-check'}});
-                selected_classifiers[classifier_name] = true;
-                if(Object.keys(selected_classifiers).length>=2) {
-                    $('#combine\\_button').button('enable');
-                }
-            }
-        };
-
-        function duplicate_classifier() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var new_name = prompt("Please enter the new name for the classifier", "copy_of_"+classifier_name);
-            if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            if (new_name != null) {
-                $.ajax({
-                    type:'POST',
-                    url:'${classifier_path}/duplicate/'+classifier_name+'/'+new_name})
-                .done(update)
-                .fail(function (errMsg) {
-                    custom_alert(errMsg.responseText);
-                });
-            }
-        };
-
-        function download_classifier() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var form = $('<form></form>').attr('action', '${classifier_path}/download').attr('method', 'post');
-            form.append($("<input></input>").attr('type', 'hidden').attr('name', 'name').attr('value', classifier_name));
-            form.appendTo('body').submit().remove();
-        };
-
         $( document ).ready(function() {
 
-            $('#upload\\_form').submit(upload_examples);
-            $('#combine\\_form').submit(combine_classifiers);
-            $('#create\\_classifier').submit(create_classifier);
+            $('#create\\_user').submit(create_user);
 
             //$('#force\\_update').button().click(update);
 
             $( "input[type=submit]" ).button();
             $( "input[type=file]" ).button();
-
-            $('#combine\\_button').button('disable');
 
             timed_update();
         });
@@ -386,43 +146,24 @@ ${parent.head()}
     <div id="sidebar">
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
-            <div class="padded ui-widget-header ui-corner-all">Create a classifier:</div>
-            <form id="create_classifier" class="margined" action="#" method="post">
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="user_create">
+            <div class="padded ui-widget-header ui-corner-all">Create a user:</div>
+            <form id="create_user" class="margined" action="#" method="post">
                 <p>
                 <label for="create_name">Name:</label>
                 <input type="text" id="create_name" /> </p>
                 <p>
-                <label for="labels">Labels (comma separated):</label>
-                <input type="text" id="labels" /> </p>
+                <p>
+                <label for="create_password">Password:</label>
+                <input type="password" id="create_password" /> </p>
                 <p><label></label>
                 <input type="submit" value="Create" />
                 </p>
             </form>
         </div>
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_combine">
-            <div class="padded ui-widget-header ui-corner-all">Combine selected classifiers:</div>
-            <form id="combine_form" class="margined" action="#" method="post">
-                <p>
-                <label for="combine_name">Name:</label>
-                <input type="text" id="combine_name" /> </p>
-                <p><label></label>
-                <input id="combine_button" type="submit" value="Combine" />
-                </p>
-            </form>
-            <!--<div class="margined" id="combine_button">Combine selected classifiers</div>-->
-        </div>
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_upload">
-            <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to classifiers (create if missing):</div>
-            <form enctype="multipart/form-data" id="upload_form" class="margined" action="#" method="post">
-                <p><label>Data file:</label><input type="file" id="dataFile"/></p>
-
-                <p><label></label><input id="upload_button" type="submit" value="Upload"/></p>
-            </form>
-        </div>
     </div>
     <div id="center">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
+        <div class="margined ui-corner-all ui-widget ui-widget-content" id="users_list">
         </div>
     </div>
 </div>
