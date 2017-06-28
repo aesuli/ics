@@ -4,7 +4,7 @@ import cherrypy
 from mako.lookup import TemplateLookup
 
 from db.sqlalchemydb import SQLAlchemyDB
-from webservice.auth_controller import always_auth
+from webservice.auth_controller_service import always_auth
 
 __author__ = 'Andrea Esuli'
 

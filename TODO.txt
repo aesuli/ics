@@ -1,5 +1,5 @@
 TODO
-- user admin page
+- python client
 - user authorization
 - decouple app and services
 - batch/background processing
@@ -30,6 +30,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- user admin page
 - user authentication
     * add user db
     * add args.auth_path

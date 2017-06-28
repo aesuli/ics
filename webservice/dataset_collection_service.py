@@ -12,14 +12,14 @@ from cherrypy.lib.static import serve_file
 
 from db.sqlalchemydb import SQLAlchemyDB, Job
 from util.util import get_fully_portable_file_name, logged_call
-from webservice.background_processor import BackgroundProcessor
+from webservice.background_processor_service import BackgroundProcessor
 
 __author__ = 'Andrea Esuli'
 
 MAX_BATCH_SIZE = 1000
 
 
-class WebDatasetCollection(object):
+class DatasetCollectionService(object):
     def __init__(self, db_connection_string, data_dir, background_processor):
         self._db_connection_string = db_connection_string
         self._db = SQLAlchemyDB(db_connection_string)
@@ -310,5 +310,5 @@ def _create_documents(db_connection_string, dataset_name, filename):
 
 
 if __name__ == "__main__":
-    with WebDatasetCollection('sqlite:///%s' % 'test.db', '.', BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
+    with DatasetCollectionService('sqlite:///%s' % 'test.db', '.', BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
         cherrypy.quickstart(wcc, '/service/wdc')

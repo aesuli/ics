@@ -15,7 +15,7 @@ from cherrypy.lib.static import serve_file
 from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB, DBLock
 from util.util import get_fully_portable_file_name, logged_call, logged_call_with_args
-from webservice.background_processor import BackgroundProcessor
+from webservice.background_processor_service import BackgroundProcessor
 
 __author__ = 'Andrea Esuli'
 
@@ -26,7 +26,7 @@ NO_LABEL = 'no'
 BINARY_LABELS = set([YES_LABEL, NO_LABEL])
 
 
-class WebClassifierCollection(object):
+class ClassifierCollectionService(object):
     def __init__(self, db_connection_string, data_dir, background_processor):
         self._db_connection_string = db_connection_string
         self._db = SQLAlchemyDB(db_connection_string)
@@ -658,6 +658,6 @@ def _lock_trainingset(db, name):
 
 
 if __name__ == "__main__":
-    with WebClassifierCollection('sqlite:///%s' % 'test.db', '.',
-                                 BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
+    with ClassifierCollectionService('sqlite:///%s' % 'test.db', '.',
+                                     BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
         cherrypy.quickstart(wcc, '/service/wcc')

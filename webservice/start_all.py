@@ -4,11 +4,11 @@ import sys
 import cherrypy
 from configargparse import ArgParser
 
-from webservice.auth_controller import AuthController, SESSION_KEY
-from webservice.background_processor import BackgroundProcessor
-from webservice.web_classifier_collection import WebClassifierCollection
+from webservice.auth_controller_service import AuthControllerService, SESSION_KEY
+from webservice.background_processor_service import BackgroundProcessor
+from webservice.classifier_collection_service import ClassifierCollectionService
 from webservice.web_client import WebClient
-from webservice.web_dataset_collection import WebDatasetCollection
+from webservice.dataset_collection_service import DatasetCollectionService
 
 __author__ = 'Andrea Esuli'
 
@@ -35,10 +35,10 @@ if __name__ == "__main__":
     with BackgroundProcessor(args.db_connection_string) as background_processor, \
             WebClient(args.db_connection_string, args.media_dir, args.auth_path, args.classifier_path, args.dataset_path,
                       args.processor_path, args.name) as client, \
-            WebClassifierCollection(args.db_connection_string, args.data_dir,
-                                    background_processor) as classifier_service, \
-            WebDatasetCollection(args.db_connection_string, args.data_dir, background_processor) as dataset_service, \
-            AuthController(args.db_connection_string,args.min_password_length) as auth_controller:
+            ClassifierCollectionService(args.db_connection_string, args.data_dir,
+                                        background_processor) as classifier_service, \
+            DatasetCollectionService(args.db_connection_string, args.data_dir, background_processor) as dataset_service, \
+            AuthControllerService(args.db_connection_string, args.min_password_length) as auth_controller:
         background_processor.start()
 
         cherrypy.server.socket_host = args.host
