@@ -22,8 +22,7 @@ def check_auth(*args, **kwargs):
         cherrypy.request.login = cherrypy.session.get(SESSION_KEY)
         for condition in conditions:
             if not condition():
-                cherrypy.response.status = 401
-                return 'Unathorized'
+                raise cherrypy.HTTPError(401)
 
 
 cherrypy.tools.icsauth = cherrypy.Tool('before_handler', check_auth)
@@ -44,7 +43,7 @@ def require(*conditions):
     def decorate(f):
         if not hasattr(f, '_cp_config'):
             f._cp_config = dict()
-        if 'auth.require' not in f._cp_config:
+        if 'tools.icsauth.require' not in f._cp_config:
             f._cp_config['tools.icsauth.require'] = []
         f._cp_config['tools.icsauth.require'].extend(conditions)
         return f
