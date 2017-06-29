@@ -25,10 +25,12 @@ class WebClient(object):
             '/css':
                 {'tools.staticdir.on': True,
                  'tools.staticdir.dir': os.path.join(self._media_dir, 'css'),
+                 'tools.icsauth.always_auth': True,
                  },
             '/js':
                 {'tools.staticdir.on': True,
                  'tools.staticdir.dir': os.path.join(self._media_dir, 'js'),
+                 'tools.icsauth.always_auth': True,
                  },
         }
 
