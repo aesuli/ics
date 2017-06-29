@@ -1,5 +1,6 @@
 from functools import partial
 
+import numpy as np
 from sklearn.feature_extraction.text import HashingVectorizer
 
 from classifier.passive_aggressive import PassiveAggressiveClassifier
@@ -30,6 +31,9 @@ class OnlineClassifier(object):
     def decision_function(self, X):
         X = self._vec.transform(X)
         return self._clf.decision_function(X)
+
+    def rename_class(self, label_name, new_name):
+        self._clf.classes_ = np.asarray([new_name if name == label_name else name for name in self._clf.classes_])
 
     def classes(self):
         return self._clf.classes_

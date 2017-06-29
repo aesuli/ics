@@ -108,6 +108,9 @@ class ClassifierCollectionService(object):
     def duplicate(self, name, new_name, overwrite=False):
         name = str.strip(name)
         new_name = str.strip(new_name)
+        if not self._db.classifier_exists(name):
+            cherrypy.response.status = 404
+            return '%s does not exist' % name
         if len(new_name) < 1:
             cherrypy.response.status = 400
             return 'Classifier name too short'
@@ -116,7 +119,7 @@ class ClassifierCollectionService(object):
                 self._db.create_classifier(new_name, self._db.get_classifier_labels(name))
             elif not overwrite:
                 cherrypy.response.status = 403
-                return '%s is already in the collection' % name
+                return '%s is already in the collection' % new_name
             else:
                 self.delete(new_name)
                 self._db.create_classifier(new_name, self._db.get_classifier_labels(name))
@@ -168,12 +171,12 @@ class ClassifierCollectionService(object):
         return 'Ok'
 
     @cherrypy.expose
-    def rename(self, name, newname):
+    def rename(self, name, new_name):
         try:
-            self._db.rename_classifier(name, newname)
+            self._db.rename_classifier(name, new_name)
         except KeyError:
             cherrypy.response.status = 404
-            return '%s does not exits' % name
+            return '%s does not exist' % name
         except Exception as e:
             cherrypy.response.status = 500
             return 'Error (%s)' % str(e)
@@ -196,9 +199,9 @@ class ClassifierCollectionService(object):
         return self._db.get_classifier_labels(name)
 
     @cherrypy.expose
-    def rename_label(self, classifier_name, label_name, newname):
+    def rename_label(self, classifier_name, label_name, new_name):
         try:
-            self._db.rename_classifier_label(classifier_name, label_name, newname)
+            self._db.rename_classifier_label(classifier_name, label_name, new_name)
         except KeyError:
             cherrypy.response.status = 404
             return '%s does not exits in %s' % (label_name, classifier_name)
@@ -209,7 +212,7 @@ class ClassifierCollectionService(object):
             return 'Ok'
 
     @cherrypy.expose
-    def download(self, name):
+    def download_training_data(self, name):
         if not self._db.classifier_exists(name):
             cherrypy.response.status = 404
             return '%s does not exits' % name
@@ -233,7 +236,7 @@ class ClassifierCollectionService(object):
         return serve_file(fullpath, "text/csv", "attachment")
 
     @cherrypy.expose
-    def upload(self, **data):
+    def upload_training_data(self, **data):
         try:
             file = data['file']
         except KeyError:
@@ -480,7 +483,7 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.4.2 (db: %s)" % self._db.version()
+        return "0.4.3 (db: %s)" % self._db.version()
 
 
 @logged_call
