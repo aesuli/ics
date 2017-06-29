@@ -48,7 +48,7 @@ ${parent.head()}
                         <div id=\'extract_button_'+msg[i].name+'\' class=\'right\'>Extract</div>\
                         <div id=\'select_button_'+msg[i].name+'\' class=\'right\'>Select</div>\
                         <div id=\'duplicate_button_'+msg[i].name+'\' class=\'right\'>Duplicate</div>\
-                        <div id=\'download_button_'+msg[i].name+'\' class=\'right\'>Download training set</div>\
+                        <div id=\'download_button_'+msg[i].name+'\' class=\'right\'>Download training data</div>\
                         <div class="small margined">Labels: '+msg[i].labels+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
                         <div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div>\
                         </div>');
@@ -140,7 +140,7 @@ ${parent.head()}
             data.append("file", $('#dataFile')[0].files[0]);
             $.ajax({
                 type: "POST",
-                url: "${classifier_path}/upload",
+                url: "${classifier_path}/upload_training_data",
                 data: data,
                 enctype: 'multipart/form-data',
                 processData: false,
@@ -359,7 +359,7 @@ ${parent.head()}
 
         function download_classifier() {
             var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var form = $('<form></form>').attr('action', '${classifier_path}/download').attr('method', 'post');
+            var form = $('<form></form>').attr('action', '${classifier_path}/download_training_data').attr('method', 'post');
             form.append($("<input></input>").attr('type', 'hidden').attr('name', 'name').attr('value', classifier_name));
             form.appendTo('body').submit().remove();
         };

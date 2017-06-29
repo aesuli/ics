@@ -205,7 +205,6 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             user = User(name, password)
             session.add(user)
-            session.commit()
 
     def user_exists(self, name):
         with self.session_scope() as session:
@@ -339,13 +338,17 @@ class SQLAlchemyDB(object):
                 Label.classifier_id == Classifier.id).filter(Label.id == Classification.label_id).order_by(
                 desc(Classification.creation)).scalar()
 
-    def rename_classifier_label(self, classifier_name, label_name, newname):
+    def rename_classifier_label(self, classifier_name, label_name, new_name):
         with self.session_scope() as session:
             label = session.query(Label).filter(Label.name == label_name).join(Label.classifier).filter(
                 Classifier.name == classifier_name).scalar()
             if label is None:
                 return
-            label.name = newname
+            label.name = new_name
+        clf = self.get_classifier_model(classifier_name)
+        if clf is not None:
+            clf.rename_class(label_name, new_name)
+            self.update_classifier_model(classifier_name ,clf)
 
     def dataset_names(self):
         with self.session_scope() as session:
@@ -525,7 +528,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "0.5.1"
+        return "0.5.2"
 
 
 class DBLock(object):
