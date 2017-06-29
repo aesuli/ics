@@ -158,7 +158,7 @@ class Lock(Base):
 class SQLAlchemyDB(object):
     _INTERNAL_TRAINING_DATASET = '_internal_training_dataset'
     _ADMIN_NAME = 'admin'
-    _ADMIN_PASSWORD = 'admin'
+    _ADMIN_PASSWORD = 'adminadmin'
 
     def __init__(self, name):
         self._engine = create_engine(name)
