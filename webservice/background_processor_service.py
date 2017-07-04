@@ -1,8 +1,9 @@
 import logging
 from functools import partial
-from multiprocessing import Queue, BoundedSemaphore
+from multiprocessing import BoundedSemaphore
 from multiprocessing.pool import Pool
 from threading import Thread
+from time import sleep
 
 import cherrypy
 
@@ -11,41 +12,39 @@ from util.util import logged_call
 
 __author__ = 'Andrea Esuli'
 
+LOOP_WAIT = 1
+
 
 class BackgroundProcessor(Thread):
     def __init__(self, db_connection_string, pool_size=10):
         Thread.__init__(self)
-        self._queue = Queue()
         self._semaphore = BoundedSemaphore(pool_size)
         self._pool = Pool(processes=pool_size)
         self._db = SQLAlchemyDB(db_connection_string)
+        self._running = False
 
     def run(self):
-        while True:
-            obj = self._queue.get()
+        self._running = True
+        while self._running:
+            job = self._db.get_next_pending_job()
+            if job is None:
+                sleep(LOOP_WAIT)
+                continue
             self._semaphore.acquire()
-            if obj[0] == 'stop':
-                self._pool.close()
-                self._pool.join()
+            try:
+                self._db.set_job_start_time(job.id)
+                self._db.set_job_status(job.id, Job.status_running)
+                self._pool.apply_async(job.action['function'], job.action['args'], job.action['kwargs'],
+                                       callback=partial(self._release, job.id, Job.status_done),
+                                       error_callback=partial(self._release, job.id, Job.status_error))
+            except Exception as e:
                 self._semaphore.release()
-                break
-            elif obj[0] == 'action':
-                try:
-                    job_id = obj[1]
-                    if self._db.job_exists(job_id):
-                        self._db.set_job_start_time(job_id)
-                        self._db.set_job_status(job_id, Job.status_running)
-                        self._pool.apply_async(obj[2], obj[3], obj[4], callback=partial(self._release, job_id),
-                                               error_callback=partial(self._error_release, job_id))
-                except:
-                    self._semaphore.release()
-            else:
-                cherrypy.log('Unknown request ' + str(obj), severity=logging.ERROR)
-                self._semaphore.release()
+                cherrypy.log('Error on job ' + str(job) + ':' + str(e), severity=logging.ERROR)
 
     def close(self):
-        self._queue.empty()
-        self._queue.put(('stop',))
+        self.stop()
+        self._pool.close()
+        self._pool.join()
 
     def __enter__(self):
         return self
@@ -55,30 +54,15 @@ class BackgroundProcessor(Thread):
         return False
 
     @logged_call
-    def _release(self, job_id, msg):
+    def _release(self, job_id, status, msg):
         try:
             self._db.set_job_completion_time(job_id)
-            self._db.set_job_status(job_id, Job.status_done)
-        finally:
-            self._semaphore.release()
-
-    @logged_call
-    def _error_release(self, job_id, msg):
-        try:
-            self._db.set_job_completion_time(job_id)
-            self._db.set_job_status(job_id, Job.status_error)
+            self._db.set_job_status(job_id, status)
         finally:
             self._semaphore.release()
 
     def stop(self):
-        self._queue.put(('stop',))
-
-    def put(self, function, args=(), kwargs={}, description=None):
-        if description is None:
-            description = function.__name__
-        job_id = self._db.create_job(description)
-        self._queue.put(('action', job_id, function, args, kwargs))
-        return job_id
+        self._running = False
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -96,6 +80,11 @@ class BackgroundProcessor(Thread):
         return jobslist
 
     @cherrypy.expose
+    def rerun_job(self, id):
+        self._db.set_job_status(id, Job.status_pending)
+        return 'Ok'
+
+    @cherrypy.expose
     def delete_job(self, id):
         self._db.delete_job(id)
         return 'Ok'
@@ -110,6 +99,7 @@ class BackgroundProcessor(Thread):
         for id in to_remove:
             self._db.delete_job(id)
         return 'Ok'
+
 
 if __name__ == "__main__":
     with BackgroundProcessor('sqlite:///%s' % 'test.db') as wcc:

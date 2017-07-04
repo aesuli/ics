@@ -45,6 +45,7 @@ ${parent.head()}
                         <div>'+msg[i].start+'</div>\
                         <div>'+msg[i].completion+'</div>\
                         <div>'+msg[i].status+'</div>\
+                        <div><div id="rerun_'+msg[i].id+'">Rerun</div></div>\
                         <div><div id="delete_'+msg[i].id+'">Delete</div></div>\
                         </div>');
                         if ($('#job\\_'+msg[i].id).length!=0) {
@@ -53,6 +54,8 @@ ${parent.head()}
                         }
                         else
                             $('#job').append(item);
+                        $('#rerun\\_'+msg[i].id).button({ icons: {primary:'ui-icon-refresh'} });
+                        $('#rerun\\_'+msg[i].id).click(rerun_job);
                         $('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
                         $('#delete\\_'+msg[i].id).click(delete_job);
                     }
@@ -62,6 +65,15 @@ ${parent.head()}
                 }
             });
         }
+
+        function rerun_job() {
+            var job_id = $(this).parent().siblings('.id').text();
+            $.ajax({
+                type:'POST',
+                url:'${processor_path}/rerun_job/'+job_id})
+            .done(update)
+            .fail(update);
+        };
 
         function delete_job() {
             if(!confirm('Please confirm the DELETE request, proceed?'))

@@ -2,8 +2,8 @@ from functools import partial
 
 import numpy as np
 from sklearn.feature_extraction.text import HashingVectorizer
+from sklearn.linear_model import SGDClassifier
 
-from classifier.passive_aggressive import PassiveAggressiveClassifier
 from classifier.rich_analyzer import rich_analyzer
 
 __author__ = 'Andrea Esuli'
@@ -17,7 +17,7 @@ class OnlineClassifier(object):
         # the entire classifier when the one-vs-all multi-class method
         analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[4])
         self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), analyzer=analyzer)
-        self._clf = PassiveAggressiveClassifier(average=average, n_jobs=-1)
+        self._clf = SGDClassifier(average=average, n_jobs=-1)
         self._clf.partial_fit(self._vec.transform(['']), [classes[0]], classes)
 
     def partial_fit(self, X, y):

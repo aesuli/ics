@@ -12,7 +12,6 @@ from cherrypy.lib.static import serve_file
 
 from db.sqlalchemydb import SQLAlchemyDB, Job
 from util.util import get_fully_portable_file_name, logged_call
-from webservice.background_processor_service import BackgroundProcessor
 
 __author__ = 'Andrea Esuli'
 
@@ -20,12 +19,11 @@ MAX_BATCH_SIZE = 1000
 
 
 class DatasetCollectionService(object):
-    def __init__(self, db_connection_string, data_dir, background_processor):
+    def __init__(self, db_connection_string, data_dir):
         self._db_connection_string = db_connection_string
         self._db = SQLAlchemyDB(db_connection_string)
         self._download_dir = os.path.join(data_dir, 'downloads')
         self._upload_dir = os.path.join(data_dir, 'uploads')
-        self._background_processor = background_processor
 
     def close(self):
         self._db.close()
@@ -56,6 +54,19 @@ class DatasetCollectionService(object):
         return 'Ok'
 
     @cherrypy.expose
+    def add_document(self, dataset_name, document_name, document_content):
+        if not self._db.dataset_exists(dataset_name):
+            self._db.create_dataset(dataset_name)
+        self._db.create_document(dataset_name, document_name, document_content)
+
+    @cherrypy.expose
+    def delete_document(self, dataset_name, document_name):
+        if not self._db.dataset_exists(dataset_name):
+            cherrypy.response.status = 404
+            return '%s does not exits' % dataset_name
+        self._db.delete_document(dataset_name, document_name)
+
+    @cherrypy.expose
     def upload(self, **data):
         try:
             dataset_name = data['name']
@@ -77,8 +88,8 @@ class DatasetCollectionService(object):
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
-        self._background_processor.put(_create_documents, (self._db_connection_string, dataset_name, fullpath),
-                                       description='upload to dataset \'%s\'' % dataset_name)
+        self._db.create_job(_create_documents, (self._db_connection_string, dataset_name, fullpath),
+                            description='upload to dataset \'%s\'' % dataset_name)
 
         return 'Ok'
 
@@ -180,11 +191,11 @@ class DatasetCollectionService(object):
             cherrypy.response.status = 409
             return 'An up-to-date classification is already available.'
 
-        job_id = self._background_processor.put(_classify,
-                                                (self._db_connection_string, datasetname, classifiers, fullpath),
-                                                description='classify dataset \'%s\' with %s' % (
-                                                    datasetname,
-                                                    ', '.join(['\'%s\'' % classifier for classifier in classifiers])))
+        job_id = self._db.create_job(_classify,
+                                 (self._db_connection_string, datasetname, classifiers, fullpath),
+                                 description='classify dataset \'%s\' with %s' % (
+                                     datasetname,
+                                     ', '.join(['\'%s\'' % classifier for classifier in classifiers])))
 
         self._db.create_classification_job(datasetname, classifiers, job_id, fullpath)
 
@@ -248,9 +259,9 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                     if db.classifier_exists(classifier):
                         classifiers_header = dict()
                         classifiers_header['name'] = classifier
-                        classifiers_header['classes'] = db.get_classifier_labels(classifier)
+                        classifiers_header['labels'] = db.get_classifier_labels(classifier)
                         header.append(classifiers_header)
-                writer.writerow([json.dumps(header)])
+                writer.writerow(['# ' + json.dumps({'classifier': header})])
 
                 X = list()
                 id = list()
@@ -310,5 +321,5 @@ def _create_documents(db_connection_string, dataset_name, filename):
 
 
 if __name__ == "__main__":
-    with DatasetCollectionService('sqlite:///%s' % 'test.db', '.', BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
+    with DatasetCollectionService('sqlite:///%s' % 'test.db', '.') as wcc:
         cherrypy.quickstart(wcc, '/service/wdc')

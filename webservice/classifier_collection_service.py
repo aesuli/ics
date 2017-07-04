@@ -15,7 +15,6 @@ from cherrypy.lib.static import serve_file
 from classifier.online_classifier import OnlineClassifier
 from db.sqlalchemydb import SQLAlchemyDB, DBLock
 from util.util import get_fully_portable_file_name, logged_call, logged_call_with_args
-from webservice.background_processor_service import BackgroundProcessor
 
 __author__ = 'Andrea Esuli'
 
@@ -23,16 +22,15 @@ MAX_BATCH_SIZE = 1000
 
 YES_LABEL = 'yes'
 NO_LABEL = 'no'
-BINARY_LABELS = set([YES_LABEL, NO_LABEL])
+BINARY_LABELS = {YES_LABEL, NO_LABEL}
 
 
 class ClassifierCollectionService(object):
-    def __init__(self, db_connection_string, data_dir, background_processor):
+    def __init__(self, db_connection_string, data_dir):
         self._db_connection_string = db_connection_string
         self._db = SQLAlchemyDB(db_connection_string)
         self._download_dir = os.path.join(data_dir, 'downloads')
         self._upload_dir = os.path.join(data_dir, 'uploads')
-        self._background_processor = background_processor
 
     def close(self):
         self._db.close()
@@ -123,10 +121,10 @@ class ClassifierCollectionService(object):
             else:
                 self.delete(new_name)
                 self._db.create_classifier(new_name, self._db.get_classifier_labels(name))
-        self._background_processor.put(_duplicate_model, (self._db_connection_string, name, new_name),
-                                       description='duplicate model \'%s\' to \'%s\'' % (name, new_name))
-        self._background_processor.put(_duplicate_trainingset, (self._db_connection_string, name, new_name),
-                                       description='duplicate training set \'%s\' to \'%s\'' % (name, new_name))
+        self._db.create_job(_duplicate_model, (self._db_connection_string, name, new_name),
+                            description='duplicate model \'%s\' to \'%s\'' % (name, new_name))
+        self._db.create_job(_duplicate_trainingset, (self._db_connection_string, name, new_name),
+                            description='duplicate training set \'%s\' to \'%s\'' % (name, new_name))
         return 'Ok'
 
     @cherrypy.expose
@@ -163,10 +161,9 @@ class ClassifierCollectionService(object):
             cherrypy.response.status = 400
             return 'Must specify the same numbers of strings and labels'
 
-        self._background_processor.put(_update_model, (self._db_connection_string, name, X, y),
-                                       description='update model')
-        self._background_processor.put(_update_trainingset, (self._db_connection_string, name, X, y),
-                                       description='update training set')
+        self._db.create_job(_update_model, (self._db_connection_string, name, X, y), description='update model')
+        self._db.create_job(_update_trainingset, (self._db_connection_string, name, X, y),
+                            description='update training set')
 
         return 'Ok'
 
@@ -221,12 +218,11 @@ class ClassifierCollectionService(object):
         fullpath = os.path.join(self._download_dir, filename)
         if not os.path.isfile(fullpath):
             header = dict()
-            header['name'] = name
-            header['labels'] = self._db.get_classifier_labels(name)
+            header['classifiers'] = [{'name': name, 'labels': self._db.get_classifier_labels(name)}]
             try:
                 with open(fullpath, 'w') as file:
                     writer = csv.writer(file, lineterminator='\n')
-                    writer.writerow([json.dumps([header])])
+                    writer.writerow([json.dumps(header)])
                     for i, classification in enumerate(self._db.get_classifier_examples(name)):
                         writer.writerow([i, classification.document.text,
                                          '%s:%s' % (name, classification.label.name)])
@@ -262,10 +258,13 @@ class ClassifierCollectionService(object):
         with open(fullpath, 'r', encoding=encoding, errors='ignore') as file:
             try:
                 reader = csv.reader(file)
-                header = json.loads(next(reader)[0])
-                for classifier_definition in header:
+                line = next(reader)[0].strip()
+                if len(line) > 0 and line[0] == '#':
+                    line = line[1:].strip()
+                header = json.loads(line)
+                for classifier_definition in header['classifiers']:
                     classifier_name = classifier_definition['name']
-                    classifiers_definition[classifier_name].add(classifier_definition['labels'])
+                    classifiers_definition[classifier_name].update(classifier_definition['labels'])
             except Exception as e:
                 cherrypy.log(
                     'No JSON header in uploaded file, scanning labels from the whole file. Exception:' + repr(e),
@@ -297,9 +296,8 @@ class ClassifierCollectionService(object):
                 if len(labels) < 2:
                     cherrypy.response.status = 400
                     return 'Must specify at least two labels for classifier \'%s\'' % classifier_name
-                self._background_processor.put(_create_model,
-                                               (self._db_connection_string, classifier_name, labels),
-                                               description='create model \'%s\'' % classifier_name)
+                self._db.create_job(_create_model, (self._db_connection_string, classifier_name, labels),
+                                    description='create model \'%s\'' % classifier_name)
             else:
                 if not len(set(self._db.get_classifier_labels(classifier_name)).intersection(labels)) == len(
                         labels):
@@ -307,14 +305,12 @@ class ClassifierCollectionService(object):
                     return 'Existing classifier \'%s\' uses a different set of labels than input file' % classifier_name
 
         for classifier_name in classifiers_definition:
-            self._background_processor.put(_update_from_file,
-                                           (_update_model, encoding, self._db_connection_string, fullpath,
-                                            classifier_name),
-                                           description='update model \'%s\' from file' % classifier_name)
-            self._background_processor.put(_update_from_file,
-                                           (_update_trainingset, encoding, self._db_connection_string, fullpath,
-                                            classifier_name),
-                                           description='update training set \'%s\' from file' % classifier_name)
+            self._db.create_job(_update_from_file,
+                                (_update_model, encoding, self._db_connection_string, fullpath, classifier_name),
+                                description='update model \'%s\' from file' % classifier_name)
+            self._db.create_job(_update_from_file,
+                                (_update_trainingset, encoding, self._db_connection_string, fullpath, classifier_name),
+                                description='update training set \'%s\' from file' % classifier_name)
 
         return 'Ok'
 
@@ -415,10 +411,8 @@ class ClassifierCollectionService(object):
                 else:
                     self.delete(label)
                     self._db.create_classifier(label, BINARY_LABELS)
-                self._background_processor.put(_extract_binary_trainingset,
-                                               (self._db_connection_string, name, label),
-                                               description='extract binary classifier from \'%s\' to \'%s\'' % (
-                                                   name, label))
+                self._db.create_job(_extract_binary_trainingset, (self._db_connection_string, name, label),
+                                    description='extract binary classifier from \'%s\' to \'%s\'' % (name, label))
         return 'Ok'
 
     @cherrypy.expose
@@ -475,10 +469,8 @@ class ClassifierCollectionService(object):
             else:
                 self.delete(name)
                 self._db.create_classifier(name, sources)
-            self._background_processor.put(_combine_classifiers,
-                                           (self._db_connection_string, name, sources),
-                                           description='combining classifiers from \'%s\' to \'%s\'' % (
-                                               ', '.join(sources), name))
+            self._db.create_job(_combine_classifiers, (self._db_connection_string, name, sources),
+                                description='combining classifiers from \'%s\' to \'%s\'' % (', '.join(sources), name))
         return 'Ok'
 
     @cherrypy.expose
@@ -661,6 +653,5 @@ def _lock_trainingset(db, name):
 
 
 if __name__ == "__main__":
-    with ClassifierCollectionService('sqlite:///%s' % 'test.db', '.',
-                                     BackgroundProcessor('sqlite:///%s' % 'test.db')) as wcc:
+    with ClassifierCollectionService('sqlite:///%s' % 'test.db', '.') as wcc:
         cherrypy.quickstart(wcc, '/service/wcc')

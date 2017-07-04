@@ -35,9 +35,8 @@ if __name__ == "__main__":
     with BackgroundProcessor(args.db_connection_string) as background_processor, \
             WebClient(args.db_connection_string, args.media_dir, args.auth_path, args.classifier_path, args.dataset_path,
                       args.processor_path, args.name) as client, \
-            ClassifierCollectionService(args.db_connection_string, args.data_dir,
-                                        background_processor) as classifier_service, \
-            DatasetCollectionService(args.db_connection_string, args.data_dir, background_processor) as dataset_service, \
+            ClassifierCollectionService(args.db_connection_string, args.data_dir) as classifier_service, \
+            DatasetCollectionService(args.db_connection_string, args.data_dir) as dataset_service, \
             AuthControllerService(args.db_connection_string, args.min_password_length) as auth_controller:
         background_processor.start()
 
