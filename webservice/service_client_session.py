@@ -63,6 +63,11 @@ class ServiceClientSession:
         r = self._session.post(url, data={'id': id})
         r.raise_for_status()
 
+    def job_rerun(self, id):
+        url = self._build_url(self._processor_path + '/rerun_job/')
+        r = self._session.post(url, data={'id': id})
+        r.raise_for_status()
+
     def jobs_delete_all_done(self):
         url = self._build_url(self._processor_path + '/delete_all_jobs_done/')
         r = self._session.get(url)
@@ -76,7 +81,7 @@ class ServiceClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
-    def classifier_create(self, name, labels, overwrite = False):
+    def classifier_create(self, name, labels, overwrite=False):
         url = self._build_url(self._classifier_path + '/create/')
         r = self._session.post(url, data={'name': name, 'labels': labels, 'overwrite': overwrite})
         r.raise_for_status()
@@ -91,7 +96,7 @@ class ServiceClientSession:
         r = self._session.post(url, data={'name': name, 'new_name': new_name, 'overwrite': overwrite})
         r.raise_for_status()
 
-    def classifier_update(self,name, X, y):
+    def classifier_update(self, name, X, y):
         url = self._build_url(self._classifier_path + '/update/')
         r = self._session.post(url, data={'name': name, 'X': X, 'y': y})
         r.raise_for_status()
@@ -102,18 +107,19 @@ class ServiceClientSession:
         r.raise_for_status()
 
     def classifier_labels(self, name):
-        url = self._build_url(self._classifier_path + '/labels/'+name)
+        url = self._build_url(self._classifier_path + '/labels/' + name)
         r = self._session.get(url)
         r.raise_for_status()
         return json.loads(r.content.decode())
 
     def classifier_rename_label(self, classifier_name, label_name, new_name):
         url = self._build_url(self._classifier_path + '/rename_label/')
-        r = self._session.post(url, data={'classifier_name': classifier_name, 'label_name': label_name, 'new_name': new_name})
+        r = self._session.post(url, data={'classifier_name': classifier_name, 'label_name': label_name,
+                                          'new_name': new_name})
         r.raise_for_status()
 
-    def classifier_download_training_data(self, name, file, chunk_size = 2048):
-        url = self._build_url(self._classifier_path + '/download_training_data/'+name)
+    def classifier_download_training_data(self, name, file, chunk_size=2048):
+        url = self._build_url(self._classifier_path + '/download_training_data/' + name)
         r = self._session.get(url, stream=True)
         for chunk in r.iter_content(chunk_size=chunk_size, decode_unicode=True):
             if chunk:
@@ -122,24 +128,30 @@ class ServiceClientSession:
     def classifier_upload_training_data(self, file):
         url = self._build_url(self._classifier_path + '/upload_training_data/')
         files = {'file': file}
-        r = self._session.post(url,files=files)
+        r = self._session.post(url, files=files)
         r.raise_for_status()
 
-    def classifier_classify(self, **data):
-        # TODO
-        pass
+    def classifier_classify(self, name, X):
+        url = self._build_url(self._classifier_path + '/classify/')
+        r = self._session.post(url, data={'name': name, 'X': X})
+        r.raise_for_status()
+        return json.loads(r.content.decode())
 
-    def classifier_score(self, **data):
-        # TODO
-        pass
+    def classifier_score(self, name, X):
+        url = self._build_url(self._classifier_path + '/score/')
+        r = self._session.post(url, data={'name': name, 'X': X})
+        r.raise_for_status()
+        return json.loads(r.content.decode())
 
-    def classifier_extract(self, **data):
-        # TODO
-        pass
+    def classifier_extract(self, name, labels):
+        url = self._build_url(self._classifier_path + '/extract/')
+        r = self._session.post(url, data={'name': name, 'labels': labels})
+        r.raise_for_status()
 
-    def classifier_combine(self, **data):
-        # TODO
-        pass
+    def classifier_combine(self, name, sources):
+        url = self._build_url(self._classifier_path + '/combine/')
+        r = self._session.post(url, data={'name': name, 'sources': sources})
+        r.raise_for_status()
 
     # datasets
 
@@ -148,3 +160,72 @@ class ServiceClientSession:
         r = self._session.get(url)
         r.raise_for_status()
         return json.loads(r.content.decode())
+
+    def dataset_create(self, name):
+        url = self._build_url(self._dataset_path + '/create/')
+        r = self._session.post(url, data={'name': name})
+        r.raise_for_status()
+
+    def dataset_add_document(self, dataset_name, document_name, document_content):
+        url = self._build_url(self._dataset_path + '/add_document/')
+        r = self._session.post(url, data={'dataset_name': dataset_name, 'document_name': document_name,
+                                          'document_content': document_content})
+        r.raise_for_status()
+
+    def dataset_delete_document(self, dataset_name, document_name):
+        url = self._build_url(self._dataset_path + '/delete_document/')
+        r = self._session.post(url, data={'dataset_name': dataset_name, 'document_name': document_name})
+        r.raise_for_status()
+
+    def dataset_rename(self, name, newname):
+        url = self._build_url(self._dataset_path + '/rename/')
+        r = self._session.post(url, data={'name': name, 'newname': newname})
+        r.raise_for_status()
+
+    def dataset_delete(self, name):
+        url = self._build_url(self._dataset_path + '/delete/')
+        r = self._session.post(url, data={'name': name})
+        r.raise_for_status()
+
+    def dataset_upload(self, name, file):
+        url = self._build_url(self._dataset_path + '/upload/')
+        files = {'file': file}
+        data = {'name': name}
+        r = self._session.post(url, data=data, files=files)
+        r.raise_for_status()
+
+    def dataset_download(self, name, file, chunk_size=2048):
+        url = self._build_url(self._dataset_path + '/download/' + name)
+        r = self._session.get(url, stream=True)
+        for chunk in r.iter_content(chunk_size=chunk_size, decode_unicode=True):
+            if chunk:
+                file.write(chunk)
+
+    def dataset_size(self, name):
+        url = self._build_url(self._dataset_path + '/size/' + name)
+        r = self._session.get(url)
+        r.raise_for_status()
+        return int(r.content.decode())
+
+    def dataset_classify(self, name, classifiers):
+        url = self._build_url(self._dataset_path + '/classify/')
+        r = self._session.post(url, data={'name': name, 'classifiers': classifiers})
+        r.raise_for_status()
+
+    def dataset_get_classification_jobs(self, name):
+        url = self._build_url(self._dataset_path + '/get_classification_jobs/' + name)
+        r = self._session.get(url)
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
+    def dataset_download_classification(self, id, file, chunk_size=2048):
+        url = self._build_url(self._dataset_path + '/download_classification/' + str(id))
+        r = self._session.get(url, stream=True)
+        for chunk in r.iter_content(chunk_size=chunk_size, decode_unicode=True):
+            if chunk:
+                file.write(chunk)
+
+    def dataset_delete_classification(self, id):
+        url = self._build_url(self._dataset_path + '/delete_classification/')
+        r = self._session.post(url, data={'id': id})
+        r.raise_for_status()

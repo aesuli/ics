@@ -113,6 +113,7 @@ class Job(Base):
     __tablename__ = 'job'
     id = Column(Integer(), primary_key=True)
     description = Column(Text())
+    action = deferred(Column(PickleType()))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     start = Column(DateTime(timezone=True))
     completion = Column(DateTime(timezone=True))
@@ -122,8 +123,9 @@ class Job(Base):
     status_running = 'running'
     status = Column(String(10), default=status_pending)
 
-    def __init__(self, description):
+    def __init__(self, description, action):
         self.description = description
+        self.action = action
 
 
 class ClassificationJob(Base):
@@ -348,7 +350,7 @@ class SQLAlchemyDB(object):
         clf = self.get_classifier_model(classifier_name)
         if clf is not None:
             clf.rename_class(label_name, new_name)
-            self.update_classifier_model(classifier_name ,clf)
+            self.update_classifier_model(classifier_name, clf)
 
     def dataset_names(self):
         with self.session_scope() as session:
@@ -405,6 +407,13 @@ class SQLAlchemyDB(object):
                 document.text = content
             dataset.last_updated = datetime.datetime.now()
 
+    def delete_document(self, dataset_name, external_id):
+        with self.session_scope() as session:
+            dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
+            session.query(Document).filter(Document.dataset_id == dataset.id).filter(
+                Document.external_id == external_id).delete()
+            dataset.last_updated = datetime.datetime.now()
+
     def get_classifier_examples_count(self, name):
         with self.session_scope() as session:
             return session.query(Classification.id).filter(Classifier.name == name).filter(
@@ -447,12 +456,23 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(Job).order_by(Job.creation.desc()).filter(Job.creation > starttime)
 
-    def create_job(self, description):
+    def create_job(self, function, args=(), kwargs={}, description=None):
         with self.session_scope() as session:
-            job = Job(description)
+            if description is None:
+                description = function.__name__
+            job = Job(description, {'function': function, 'args': args, 'kwargs': kwargs})
             session.add(job)
             session.commit()
             return job.id
+
+    def get_next_pending_job(self):
+        with self.session_scope() as session:
+            job = session.query(Job).order_by(Job.creation.asc()).filter(Job.status == Job.status_pending).first()
+            if job is None:
+                return None
+            job.action
+            session.expunge(job)
+            return job
 
     def set_job_completion_time(self, job_id, completion=datetime.datetime.now()):
         with self.session_scope() as session:

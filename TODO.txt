@@ -1,9 +1,7 @@
 TODO
-- python client
 - user authorization
-- decouple app and services
 - batch/background processing
-    * put jobs queue (BackgroundProcessor._queue) on db
+    * job completion waiting
 - file import
     * skip comment lines, i.e., those starting with #
 - file export
@@ -30,6 +28,8 @@ TOMONITOR
 - strip input strings
 
 DONE
+- python client
+- decouple app and services
 - user admin page
 - user authentication
     * add user db
@@ -51,6 +51,7 @@ DONE
 - lock classifiers on update
 - logging
 - batch/background processing
+    * put jobs queue (BackgroundProcessor._queue) on db
     * upload
     * training with uploaded examples
     * jobs update
