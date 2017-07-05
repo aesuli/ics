@@ -1,16 +1,17 @@
 import json
+from time import sleep
 
 from requests import Session
 
 
 class ServiceClientSession:
-    def __init__(self, protocol, host, port, classifier_path, dataset_path, processor_path, auth_path):
+    def __init__(self, protocol, host, port, classifier_path, dataset_path, jobs_path, auth_path):
         self._protocol = protocol
         self._host = host
         self._port = port
         self._classifier_path = classifier_path
         self._dataset_path = dataset_path
-        self._processor_path = processor_path
+        self._jobs_path = jobs_path
         self._auth_path = auth_path
         self._session = Session()
 
@@ -53,25 +54,36 @@ class ServiceClientSession:
     # jobs
 
     def jobs(self):
-        url = self._build_url(self._processor_path)
+        url = self._build_url(self._jobs_path)
         r = self._session.get(url)
         r.raise_for_status()
         return json.loads(r.content.decode())
 
     def job_delete(self, id):
-        url = self._build_url(self._processor_path + '/delete_job/')
+        url = self._build_url(self._jobs_path + '/delete_job/')
         r = self._session.post(url, data={'id': id})
         r.raise_for_status()
 
     def job_rerun(self, id):
-        url = self._build_url(self._processor_path + '/rerun_job/')
+        url = self._build_url(self._jobs_path + '/rerun_job/')
         r = self._session.post(url, data={'id': id})
         r.raise_for_status()
 
     def jobs_delete_all_done(self):
-        url = self._build_url(self._processor_path + '/delete_all_jobs_done/')
+        url = self._build_url(self._jobs_path + '/delete_all_jobs_done/')
         r = self._session.get(url)
         r.raise_for_status()
+
+    def job_completed(self, id):
+        url = self._build_url(self._jobs_path + '/job_completed/')
+        r = self._session.post(url, data={'id': id})
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
+    def wait_for_jobs(self, job_ids, loop_wait=1):
+        for job_id in job_ids:
+            while not self.job_completed(job_id):
+                sleep(loop_wait)
 
     # classifiers
 
@@ -95,11 +107,13 @@ class ServiceClientSession:
         url = self._build_url(self._classifier_path + '/duplicate/')
         r = self._session.post(url, data={'name': name, 'new_name': new_name, 'overwrite': overwrite})
         r.raise_for_status()
+        return json.loads(r.content.decode())
 
     def classifier_update(self, name, X, y):
         url = self._build_url(self._classifier_path + '/update/')
         r = self._session.post(url, data={'name': name, 'X': X, 'y': y})
         r.raise_for_status()
+        return json.loads(r.content.decode())
 
     def classifier_rename(self, name, new_name):
         url = self._build_url(self._classifier_path + '/rename/')
@@ -130,6 +144,7 @@ class ServiceClientSession:
         files = {'file': file}
         r = self._session.post(url, files=files)
         r.raise_for_status()
+        return json.loads(r.content.decode())
 
     def classifier_classify(self, name, X):
         url = self._build_url(self._classifier_path + '/classify/')
@@ -147,11 +162,13 @@ class ServiceClientSession:
         url = self._build_url(self._classifier_path + '/extract/')
         r = self._session.post(url, data={'name': name, 'labels': labels})
         r.raise_for_status()
+        return json.loads(r.content.decode())
 
     def classifier_combine(self, name, sources):
         url = self._build_url(self._classifier_path + '/combine/')
         r = self._session.post(url, data={'name': name, 'sources': sources})
         r.raise_for_status()
+        return json.loads(r.content.decode())
 
     # datasets
 
@@ -193,6 +210,7 @@ class ServiceClientSession:
         data = {'name': name}
         r = self._session.post(url, data=data, files=files)
         r.raise_for_status()
+        return json.loads(r.content.decode())
 
     def dataset_download(self, name, file, chunk_size=2048):
         url = self._build_url(self._dataset_path + '/download/' + name)
@@ -211,6 +229,7 @@ class ServiceClientSession:
         url = self._build_url(self._dataset_path + '/classify/')
         r = self._session.post(url, data={'name': name, 'classifiers': classifiers})
         r.raise_for_status()
+        return json.loads(r.content.decode())
 
     def dataset_get_classification_jobs(self, name):
         url = self._build_url(self._dataset_path + '/get_classification_jobs/' + name)

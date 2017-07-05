@@ -16,7 +16,7 @@ ${parent.head()}
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'${processor_path}/',
+                url:'${jobs_path}/',
                 dataType: 'json'})
             .done(function(msg) {
                 if(msg.length==0) {
@@ -70,7 +70,7 @@ ${parent.head()}
             var job_id = $(this).parent().siblings('.id').text();
             $.ajax({
                 type:'POST',
-                url:'${processor_path}/rerun_job/'+job_id})
+                url:'${jobs_path}/rerun_job/'+job_id})
             .done(update)
             .fail(update);
         };
@@ -82,7 +82,7 @@ ${parent.head()}
             $('#job\\_'+job_id).hide();
             $.ajax({
                 type:'POST',
-                url:'${processor_path}/delete_job/'+job_id})
+                url:'${jobs_path}/delete_job/'+job_id})
             .done(update)
             .fail(function () {
                     $('#job\\_'+job_id).show();
@@ -94,7 +94,7 @@ ${parent.head()}
                 return;
             $.ajax({
                 type:'POST',
-                url:'${processor_path}/delete_all_jobs_done'})
+                url:'${jobs_path}/delete_all_jobs_done'})
             .done(update);
         };
 

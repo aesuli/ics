@@ -84,7 +84,7 @@ def all_of(*conditions):
 
 
 class AuthControllerService(object):
-    def __init__(self, db_connection_string, min_password_length = 8):
+    def __init__(self, db_connection_string, min_password_length=8):
         self._db = SQLAlchemyDB(db_connection_string)
         self._min_password_length = min_password_length
 
@@ -191,4 +191,4 @@ class AuthControllerService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.1.3"
+        return "0.1.3 (db: %s)" % self._db.version()
