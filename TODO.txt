@@ -1,7 +1,5 @@
 TODO
 - user authorization
-- batch/background processing
-    * job completion waiting
 - file import
     * skip comment lines, i.e., those starting with #
 - file export
@@ -28,13 +26,14 @@ TOMONITOR
 - strip input strings
 
 DONE
+- split actual job processor from job managing web service interface
 - python client
 - decouple app and services
 - user admin page
 - user authentication
     * add user db
     * add args.auth_path
-- bug in renaming labels, better destroy from divs after use
+- bug in renaming labels
 - rename label
 - rename dataset
 - rename classifier
@@ -51,6 +50,7 @@ DONE
 - lock classifiers on update
 - logging
 - batch/background processing
+    * job completion waiting
     * put jobs queue (BackgroundProcessor._queue) on db
     * upload
     * training with uploaded examples

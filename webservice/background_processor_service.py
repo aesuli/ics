@@ -43,6 +43,7 @@ class BackgroundProcessor(Thread):
 
     def close(self):
         self.stop()
+        self._db.close()
         self._pool.close()
         self._pool.join()
 
@@ -64,43 +65,10 @@ class BackgroundProcessor(Thread):
     def stop(self):
         self._running = False
 
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def index(self):
-        jobslist = list()
-        for job in self._db.get_jobs():
-            jobinfo = dict()
-            jobinfo['id'] = job.id
-            jobinfo['description'] = job.description
-            jobinfo['creation'] = str(job.creation)
-            jobinfo['start'] = str(job.start)
-            jobinfo['completion'] = str(job.completion)
-            jobinfo['status'] = job.status
-            jobslist.append(jobinfo)
-        return jobslist
-
-    @cherrypy.expose
-    def rerun_job(self, id):
-        self._db.set_job_status(id, Job.status_pending)
-        return 'Ok'
-
-    @cherrypy.expose
-    def delete_job(self, id):
-        self._db.delete_job(id)
-        return 'Ok'
-
-    @cherrypy.expose
-    def delete_all_jobs_done(self):
-        to_remove = set()
-        for job in self._db.get_jobs():
-            if job.status == Job.status_done:
-                if len(job.classification_job) == 0:
-                    to_remove.add(job.id)
-        for id in to_remove:
-            self._db.delete_job(id)
-        return 'Ok'
+    def version(self):
+        return "0.2.1 (db: %s)" % self._db.version()
 
 
 if __name__ == "__main__":
-    with BackgroundProcessor('sqlite:///%s' % 'test.db') as wcc:
-        cherrypy.quickstart(wcc, '/service/bp')
+    with BackgroundProcessor('sqlite:///%s' % 'test.db') as bp:
+        bp.start()

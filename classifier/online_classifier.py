@@ -3,6 +3,7 @@ from functools import partial
 import numpy as np
 from sklearn.feature_extraction.text import HashingVectorizer
 from sklearn.linear_model import SGDClassifier
+from sklearn.utils.multiclass import unique_labels
 
 from classifier.rich_analyzer import rich_analyzer
 
@@ -33,7 +34,7 @@ class OnlineClassifier(object):
         return self._clf.decision_function(X)
 
     def rename_class(self, label_name, new_name):
-        self._clf.classes_ = np.asarray([new_name if name == label_name else name for name in self._clf.classes_])
+        self._clf.classes_ = unique_labels(np.asarray([new_name if name == label_name else name for name in self._clf.classes_]))
 
     def classes(self):
         return self._clf.classes_

@@ -121,6 +121,8 @@ class Job(Base):
     status_done = 'done'
     status_error = 'error'
     status_running = 'running'
+    status_missing = 'missing'
+
     status = Column(String(10), default=status_pending)
 
     def __init__(self, description, action):
@@ -489,6 +491,13 @@ class SQLAlchemyDB(object):
             job = session.query(Job).filter(Job.id == job_id).one()
             job.status = status
 
+    def get_job_status(self, job_id):
+        with self.session_scope() as session:
+            job = session.query(Job).filter(Job.id == job_id).first()
+            if job is None:
+                return Job.status_missing
+            return job.status
+
     def get_most_recent_classifier_update_time(self, classifiers):
         with self.session_scope() as session:
             return session.query(Classifier.last_updated).filter(Classifier.name.in_(classifiers)).order_by(
@@ -549,6 +558,7 @@ class SQLAlchemyDB(object):
     @staticmethod
     def version():
         return "0.5.2"
+
 
 
 class DBLock(object):

@@ -10,13 +10,13 @@ __author__ = 'Andrea Esuli'
 
 
 class WebClient(object):
-    def __init__(self, db_connection_string, media_dir, auth_path, classifier_path, dataset_path, processor_path, name):
+    def __init__(self, db_connection_string, media_dir, auth_path, classifier_path, dataset_path, jobs_path, name):
         self._db = SQLAlchemyDB(db_connection_string)
         self._media_dir = media_dir
         self._template_data = {'auth_path': auth_path,
                                'classifier_path': classifier_path,
                                'dataset_path': dataset_path,
-                               'processor_path': processor_path,
+                               'jobs_path': jobs_path,
                                'name': name}
         self._lookup = TemplateLookup(os.path.join(media_dir, 'template'))
 
@@ -118,7 +118,7 @@ class WebClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.4.1"
+        return "0.4.2"
 
 
 if __name__ == "__main__":

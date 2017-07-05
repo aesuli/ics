@@ -67,6 +67,7 @@ class DatasetCollectionService(object):
         self._db.delete_document(dataset_name, document_name)
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def upload(self, **data):
         try:
             dataset_name = data['name']
@@ -88,10 +89,10 @@ class DatasetCollectionService(object):
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
-        self._db.create_job(_create_documents, (self._db_connection_string, dataset_name, fullpath),
+        job_id = self._db.create_job(_create_documents, (self._db_connection_string, dataset_name, fullpath),
                             description='upload to dataset \'%s\'' % dataset_name)
 
-        return 'Ok'
+        return [job_id]
 
     @cherrypy.expose
     def rename(self, name, newname):
@@ -161,6 +162,7 @@ class DatasetCollectionService(object):
             return 'Position %i does not exits in \'%s\'' % (position, name)
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def classify(self, **data):
         try:
             datasetname = data['name']
@@ -199,7 +201,7 @@ class DatasetCollectionService(object):
 
         self._db.create_classification_job(datasetname, classifiers, job_id, fullpath)
 
-        return 'Ok'
+        return [job_id]
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -244,7 +246,7 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.2.5 (db: %s)" % self._db.version()
+        return "0.3.1 (db: %s)" % self._db.version()
 
 
 @logged_call
