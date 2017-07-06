@@ -89,6 +89,8 @@ class ClassifierCollectionService(object):
                 return 'Label name too short'
         try:
             overwrite = data['overwrite']
+            if overwrite == 'false' or overwrite == 'False':
+                overwrite = False
         except KeyError:
             overwrite = False
         with _lock_trainingset(self._db, name), _lock_model(self._db, name):
@@ -113,6 +115,8 @@ class ClassifierCollectionService(object):
         if len(new_name) < 1:
             cherrypy.response.status = 400
             return 'Classifier name too short'
+        if overwrite == 'false' or overwrite == 'False':
+            overwrite = False
         with _lock_trainingset(self._db, new_name), _lock_model(self._db, new_name):
             if not self._db.classifier_exists(new_name):
                 self._db.create_classifier(new_name, self._db.get_classifier_labels(name))
@@ -399,6 +403,8 @@ class ClassifierCollectionService(object):
                 return 'Label name too short'
         try:
             overwrite = data['overwrite']
+            if overwrite == 'false' or overwrite == 'False':
+                overwrite = False
         except KeyError:
             overwrite = False
         for label in labels:
@@ -458,6 +464,8 @@ class ClassifierCollectionService(object):
                 return 'Source name too short'
         try:
             overwrite = data['overwrite']
+            if overwrite == 'false' or overwrite == 'False':
+                overwrite = False
         except KeyError:
             overwrite = False
 
