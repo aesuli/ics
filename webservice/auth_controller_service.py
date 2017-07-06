@@ -1,8 +1,4 @@
-#!python
-# -*- encoding: UTF-8 -*-
-#
-# Form based authentication for CherryPy. Requires the Session tool to be loaded.
-# original source: https://github.com/cherrypy/tools/blob/master/AuthenticationAndAccessRestrictions
+# Original source: https://github.com/cherrypy/tools/blob/master/AuthenticationAndAccessRestrictions
 
 import cherrypy
 
@@ -139,6 +135,10 @@ class AuthControllerService(object):
         else:
             cherrypy.response.status = 401
             return 'Wrong credentials'
+
+    @cherrypy.expose
+    def whoami(self):
+        return cherrypy.session[SESSION_KEY]
 
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))

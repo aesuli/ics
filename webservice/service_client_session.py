@@ -3,11 +3,15 @@ from time import sleep
 
 from requests import Session
 
+__author__ = 'Andrea Esuli'
+
 
 class ServiceClientSession:
     def __init__(self, protocol, host, port, classifier_path, dataset_path, jobs_path, auth_path):
         self._protocol = protocol
         self._host = host
+        if type(port) == int:
+            port = str(port)
         self._port = port
         self._classifier_path = classifier_path
         self._dataset_path = dataset_path
@@ -24,6 +28,12 @@ class ServiceClientSession:
         url = self._build_url(self._auth_path + '/login/')
         r = self._session.post(url, data={'username': username, 'password': password})
         r.raise_for_status()
+
+    def whoami(self):
+        url = self._build_url(self._auth_path + '/whoami/')
+        r = self._session.get(url)
+        r.raise_for_status()
+        return r.content.decode()
 
     def logout(self):
         url = self._build_url(self._auth_path + '/logout/')
