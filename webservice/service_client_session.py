@@ -125,9 +125,9 @@ class ServiceClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
-    def classifier_rename(self, name, new_name):
+    def classifier_rename(self, name, new_name, overwrite=False):
         url = self._build_url(self._classifier_path + '/rename/')
-        r = self._session.post(url, data={'name': name, 'new_name': new_name})
+        r = self._session.post(url, data={'name': name, 'new_name': new_name, 'overwrite': overwrite})
         r.raise_for_status()
 
     def classifier_labels(self, name):
@@ -152,7 +152,7 @@ class ServiceClientSession:
     def classifier_upload_training_data(self, file):
         url = self._build_url(self._classifier_path + '/upload_training_data/')
         files = {'file': file}
-        r = self._session.post(url, files=files)
+        r = self._session.post(url, data=data, files=files)
         r.raise_for_status()
         return json.loads(r.content.decode())
 
