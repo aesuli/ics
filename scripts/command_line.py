@@ -3,7 +3,10 @@ import re
 import sys
 from argparse import ArgumentParser
 from cmd import Cmd
+from os import remove
 from pprint import pprint
+
+from os.path import exists
 
 from webservice.service_client_session import ServiceClientSession
 
@@ -25,6 +28,9 @@ class CommandLine(Cmd):
         Cmd.__init__(self)
         self.prompt = '> '
 
+    def emptyline(self):
+        pass
+
     def do_exit(self, args):
         sys.exit()
 
@@ -36,8 +42,10 @@ class CommandLine(Cmd):
         Password: <typing of password is hidden>
         Logged in as 'username'
         '''
-        username = args
-        password = getpass.getpass()
+        username = args.strip()
+        if len(username) == 0:
+            username = input('Username: ').strip()
+        password = getpass.getpass('Password: ')
         self._sc.login(username, password)
         print('Logged in as \'%s\'' % username)
 
@@ -170,6 +178,7 @@ class CommandLine(Cmd):
         '''
         args = re.split('[,\s]+', args)
         name = args[0]
+        args = args[1:]
         overwrite = False
         if args[-1] == '-o':
             overwrite = True
@@ -202,42 +211,84 @@ class CommandLine(Cmd):
             overwrite = True
         self._sc.classifier_duplicate(name, new_name, overwrite)
 
-    def classifier_update(self, name, X, y):
-        url = self._build_url(self._classifier_path + '/update/')
-        r = self._session.post(url, data={'name': name, 'X': X, 'y': y})
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_classifier_update(self, args):
+        '''
+        Updates a classifier with an example
+        > classifier_update classifier_name label_name text...
+        '''
+        match = re.match('^([^,\s]+)[,\s]+([^,\s]+)[,\s]+(.+)$', args.strip())
+        name = match.group(1)
+        X = [match.group(3)]
+        y = [match.group(2)]
+        self._sc.classifier_update(name, X, y)
 
-    def classifier_rename(self, name, new_name):
-        url = self._build_url(self._classifier_path + '/rename/')
-        r = self._session.post(url, data={'name': name, 'new_name': new_name})
-        r.raise_for_status()
+    @print_exception
+    def do_classifier_rename(self, args):
+        '''
+        Renames a classifier with a new name
+        > classifier_rename name new_name
+        the -o option at the end overwrites any existing classifier with the same new_name
+        > classifier_rename name new_name -o
+        '''
+        args = re.split('[,\s]+', args)
+        name = args[0]
+        new_name = args[1]
+        overwrite = False
+        if args[-1] == '-o':
+            overwrite = True
+        self._sc.classifier_rename(name, new_name, overwrite)
 
-    def classifier_labels(self, name):
-        url = self._build_url(self._classifier_path + '/labels/' + name)
-        r = self._session.get(url)
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_classifier_labels(self, args):
+        '''
+        Prints the labes for a classifier
+        > classifier_labels classifiername
+        '''
+        labels = self._sc.classifier_labels(args)
+        pprint(labels)
 
-    def classifier_rename_label(self, classifier_name, label_name, new_name):
-        url = self._build_url(self._classifier_path + '/rename_label/')
-        r = self._session.post(url, data={'classifier_name': classifier_name, 'label_name': label_name,
-                                          'new_name': new_name})
-        r.raise_for_status()
+    @print_exception
+    def do_classifier_rename_label(self, args):
+        '''
+        Renames a label of a classifier with a new name
+        > classifier_rename classifiername label_name new_label_name
+        '''
+        match = re.match('^([^,\s]+)[,\s]+([^,\s]+)[,\s]+(.+)$', args.strip())
+        classifier_name = match.group(1)
+        label_name = match.group(2)
+        new_name = match.group(3)
+        self._sc.classifier_rename_label(classifier_name,label_name,new_name)
 
-    def classifier_download_training_data(self, name, file, chunk_size=2048):
-        url = self._build_url(self._classifier_path + '/download_training_data/' + name)
-        r = self._session.get(url, stream=True)
-        for chunk in r.iter_content(chunk_size=chunk_size, decode_unicode=True):
-            if chunk:
-                file.write(chunk)
+    @print_exception
+    def do_classifier_download_training_data(self, args):
+        '''
+        Downloads training data for a classifier to a file
+        > classifier_download_training_data classifiername filename
+        '''
+        args = re.split('[,\s]+', args)
+        name = args[0]
+        filename = args[1]
+        overwrite = False
+        if args[-1] == '-o':
+            overwrite = True
+        if not overwrite:
+            if exists(filename):
+                raise FileExistsError('File %s already exists'%filename)
+        else:
+            if exists(filename):
+                remove(filename)
+        with open(filename, mode='w', encoding='utf-8') as outfile:
+            self._sc.classifier_download_training_data(name,outfile)
 
-    def classifier_upload_training_data(self, file):
-        url = self._build_url(self._classifier_path + '/upload_training_data/')
-        files = {'file': file}
-        r = self._session.post(url, files=files)
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_classifier_upload_training_data(self, args):
+        '''
+        Uploaded training data to the classifiers defined in the file given as input
+        > classifier_upload_training_data filename
+        '''
+        with open(args, mode='r', encoding='utf-8') as infile:
+            self._sc.classifier_upload_training_data(infile)
 
     def classifier_classify(self, name, X):
         url = self._build_url(self._classifier_path + '/classify/')

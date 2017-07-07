@@ -71,7 +71,7 @@ class ClassifierCollectionService(object):
             except KeyError:
                 cherrypy.response.status = 400
                 return 'Must specify the labels'
-        if type(labels) is not list:
+        if not (type(labels) is list or type(labels) is set):
             cherrypy.response.status = 400
             return 'Must specify at least two labels'
         name = str.strip(name)
@@ -127,9 +127,9 @@ class ClassifierCollectionService(object):
                 self.delete(new_name)
                 self._db.create_classifier(new_name, self._db.get_classifier_labels(name))
         job_id_model = self._db.create_job(_duplicate_model, (self._db_connection_string, name, new_name),
-                            description='duplicate model \'%s\' to \'%s\'' % (name, new_name))
+                                           description='duplicate model \'%s\' to \'%s\'' % (name, new_name))
         job_id_training = self._db.create_job(_duplicate_trainingset, (self._db_connection_string, name, new_name),
-                            description='duplicate training set \'%s\' to \'%s\'' % (name, new_name))
+                                              description='duplicate training set \'%s\' to \'%s\'' % (name, new_name))
         return [job_id_model, job_id_training]
 
     @cherrypy.expose
@@ -167,16 +167,19 @@ class ClassifierCollectionService(object):
             cherrypy.response.status = 400
             return 'Must specify the same numbers of strings and labels'
 
-        job_id_model = self._db.create_job(_update_model, (self._db_connection_string, name, X, y), description='update model')
+        job_id_model = self._db.create_job(_update_model, (self._db_connection_string, name, X, y),
+                                           description='update model')
         job_id_training = self._db.create_job(_update_trainingset, (self._db_connection_string, name, X, y),
-                            description='update training set')
+                                              description='update training set')
 
         return [job_id_model, job_id_training]
 
     @cherrypy.expose
-    def rename(self, name, new_name):
+    def rename(self, name, new_name, overwrite=False):
+        if overwrite == 'false' or overwrite == 'False':
+            overwrite = False
         try:
-            self._db.rename_classifier(name, new_name)
+            self._db.rename_classifier(name, new_name, overwrite)
         except KeyError:
             cherrypy.response.status = 404
             return '%s does not exist' % name
@@ -305,8 +308,7 @@ class ClassifierCollectionService(object):
                 if len(labels) < 2:
                     cherrypy.response.status = 400
                     return 'Must specify at least two labels for classifier \'%s\'' % classifier_name
-                jobs.append(self._db.create_job(_create_model, (self._db_connection_string, classifier_name, labels),
-                                    description='create model \'%s\'' % classifier_name))
+                self.create(**{'name':classifier_name, 'labels':labels})
             else:
                 if not len(set(self._db.get_classifier_labels(classifier_name)).intersection(labels)) == len(
                         labels):
@@ -315,11 +317,13 @@ class ClassifierCollectionService(object):
 
         for classifier_name in classifiers_definition:
             jobs.append(self._db.create_job(_update_from_file,
-                                (_update_model, encoding, self._db_connection_string, fullpath, classifier_name),
-                                description='update model \'%s\' from file' % classifier_name))
+                                            (_update_model, encoding, self._db_connection_string, fullpath,
+                                             classifier_name),
+                                            description='update model \'%s\' from file' % classifier_name))
             jobs.append(self._db.create_job(_update_from_file,
-                                (_update_trainingset, encoding, self._db_connection_string, fullpath, classifier_name),
-                                description='update training set \'%s\' from file' % classifier_name))
+                                            (_update_trainingset, encoding, self._db_connection_string, fullpath,
+                                             classifier_name),
+                                            description='update training set \'%s\' from file' % classifier_name))
 
         return jobs
 
@@ -425,7 +429,8 @@ class ClassifierCollectionService(object):
                     self.delete(label)
                     self._db.create_classifier(label, BINARY_LABELS)
                 jobs.append(self._db.create_job(_extract_binary_trainingset, (self._db_connection_string, name, label),
-                                    description='extract binary classifier from \'%s\' to \'%s\'' % (name, label)))
+                                                description='extract binary classifier from \'%s\' to \'%s\'' % (
+                                                name, label)))
         return jobs
 
     @cherrypy.expose
@@ -486,7 +491,8 @@ class ClassifierCollectionService(object):
                 self.delete(name)
                 self._db.create_classifier(name, sources)
             job_id = self._db.create_job(_combine_classifiers, (self._db_connection_string, name, sources),
-                                description='combining classifiers from \'%s\' to \'%s\'' % (', '.join(sources), name))
+                                         description='combining classifiers from \'%s\' to \'%s\'' % (
+                                         ', '.join(sources), name))
         return [job_id]
 
     @cherrypy.expose

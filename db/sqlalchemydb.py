@@ -217,7 +217,10 @@ class SQLAlchemyDB(object):
     def verify_user(self, name, password):
         with self.session_scope() as session:
             user = session.query(User).filter(User.name == name).scalar()
-            return user.verify(password)
+            try:
+                return user.verify(password)
+            except:
+                return False
 
     def delete_user(self, name):
         with self.session_scope() as session:
@@ -270,11 +273,14 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(Classifier.last_updated).filter(Classifier.name == name).scalar()
 
-    def rename_classifier(self, name, newname):
+    def rename_classifier(self, name, newname, overwrite):
         with self.session_scope() as session:
             classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
             if classifier is None:
                 return
+            if overwrite:
+                session.query(Classifier).filter(Classifier.name == newname).delete()
+                session.flush()
             classifier.name = newname
 
     def delete_classifier(self, name):
@@ -299,7 +305,6 @@ class SQLAlchemyDB(object):
                 document = Document(content, training_dataset.id)
                 session.add(document)
             training_dataset.last_updated = document.creation
-            session.commit()
 
         with self.session_scope() as session:
             training_dataset = session.query(Dataset).filter(
@@ -558,7 +563,6 @@ class SQLAlchemyDB(object):
     @staticmethod
     def version():
         return "0.5.2"
-
 
 
 class DBLock(object):
