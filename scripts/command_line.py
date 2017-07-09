@@ -4,9 +4,8 @@ import sys
 from argparse import ArgumentParser
 from cmd import Cmd
 from os import remove
-from pprint import pprint
-
 from os.path import exists
+from pprint import pprint
 
 from webservice.service_client_session import ServiceClientSession
 
@@ -190,9 +189,9 @@ class CommandLine(Cmd):
     def do_classifier_delete(self, args):
         '''
         Deletes a classifier
-        > classifier_delete username
+        > classifier_delete name
         '''
-        classifier = args
+        classifier = args.strip()
         self._sc.classifier_delete(classifier)
 
     @print_exception
@@ -209,7 +208,7 @@ class CommandLine(Cmd):
         overwrite = False
         if args[-1] == '-o':
             overwrite = True
-        self._sc.classifier_duplicate(name, new_name, overwrite)
+        pprint(self._sc.classifier_duplicate(name, new_name, overwrite))
 
     @print_exception
     def do_classifier_update(self, args):
@@ -221,7 +220,7 @@ class CommandLine(Cmd):
         name = match.group(1)
         X = [match.group(3)]
         y = [match.group(2)]
-        self._sc.classifier_update(name, X, y)
+        pprint(self._sc.classifier_update(name, X, y))
 
     @print_exception
     def do_classifier_rename(self, args):
@@ -231,7 +230,7 @@ class CommandLine(Cmd):
         the -o option at the end overwrites any existing classifier with the same new_name
         > classifier_rename name new_name -o
         '''
-        args = re.split('[,\s]+', args)
+        args = re.split('[,\s]+', args.strip())
         name = args[0]
         new_name = args[1]
         overwrite = False
@@ -245,7 +244,7 @@ class CommandLine(Cmd):
         Prints the labes for a classifier
         > classifier_labels classifiername
         '''
-        labels = self._sc.classifier_labels(args)
+        labels = self._sc.classifier_labels(args.strip())
         pprint(labels)
 
     @print_exception
@@ -258,15 +257,16 @@ class CommandLine(Cmd):
         classifier_name = match.group(1)
         label_name = match.group(2)
         new_name = match.group(3)
-        self._sc.classifier_rename_label(classifier_name,label_name,new_name)
+        self._sc.classifier_rename_label(classifier_name, label_name, new_name)
 
     @print_exception
     def do_classifier_download_training_data(self, args):
         '''
         Downloads training data for a classifier to a file
         > classifier_download_training_data classifiername filename
+        Add -o to overwrite the eventual already existing file
         '''
-        args = re.split('[,\s]+', args)
+        args = re.split('[,\s]+', args.strip())
         name = args[0]
         filename = args[1]
         overwrite = False
@@ -274,124 +274,230 @@ class CommandLine(Cmd):
             overwrite = True
         if not overwrite:
             if exists(filename):
-                raise FileExistsError('File %s already exists'%filename)
+                raise FileExistsError('File %s already exists' % filename)
         else:
             if exists(filename):
                 remove(filename)
         with open(filename, mode='w', encoding='utf-8') as outfile:
-            self._sc.classifier_download_training_data(name,outfile)
+            self._sc.classifier_download_training_data(name, outfile)
 
     @print_exception
     def do_classifier_upload_training_data(self, args):
         '''
-        Uploaded training data to the classifiers defined in the file given as input
+        Uploads training data to the classifiers defined in the file given as input
         > classifier_upload_training_data filename
         '''
         with open(args, mode='r', encoding='utf-8') as infile:
-            self._sc.classifier_upload_training_data(infile)
+            pprint(self._sc.classifier_upload_training_data(infile))
 
-    def classifier_classify(self, name, X):
-        url = self._build_url(self._classifier_path + '/classify/')
-        r = self._session.post(url, data={'name': name, 'X': X})
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_classifier_classify(self, args):
+        '''
+        Classifies a piece of text
+        > classifier_classify classifier_name text...
+        assignedlabel
+        >
+        '''
+        match = re.match('^([^,\s]+)[,\s]+(.+)$', args.strip())
+        name = match.group(1)
+        X = [match.group(2)]
+        label = self._sc.classifier_classify(name, X)
+        pprint(label)
 
-    def classifier_score(self, name, X):
-        url = self._build_url(self._classifier_path + '/score/')
-        r = self._session.post(url, data={'name': name, 'X': X})
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_classifier_score(self, args):
+        '''
+        Classifies a piece of text
+        > classifier_score classifier_name text...
+        label1:score1 label2:score2 label3:score3
+        >
+        '''
+        match = re.match('^([^,\s]+)[,\s]+(.+)$', args.strip())
+        name = match.group(1)
+        X = [match.group(2)]
+        scores = self._sc.classifier_score(name, X)
+        pprint(scores)
 
-    def classifier_extract(self, name, labels):
-        url = self._build_url(self._classifier_path + '/extract/')
-        r = self._session.post(url, data={'name': name, 'labels': labels})
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_classifier_extract(self, args):
+        '''
+        Extracts the given set of labels as distinct binary classifiers
+        > classifier_extract classifier_name label1 label2...
+        '''
+        args = re.split('[,\s]+', args)
+        name = args[0]
+        args = args[1:]
+        labels = args
+        pprint(self._sc.classifier_extract(name, labels))
 
-    def classifier_combine(self, name, sources):
-        url = self._build_url(self._classifier_path + '/combine/')
-        r = self._session.post(url, data={'name': name, 'sources': sources})
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_classifier_combine(self, args):
+        '''
+        Combines the labels of a set of classifiers into a new classifier
+        > classifier_combine new_classifier classifier1 classifier2 classifier3...
+        Any classifier that has only 'yes' and 'no' labels is considered itself as a label
+        '''
+        args = re.split('[,\s]+', args.strip())
+        name = args[0]
+        args = args[1:]
+        sources = args
+        pprint(self._sc.classifier_combine(name, sources))
 
     # datasets
 
-    def datasets(self):
-        url = self._build_url(self._dataset_path)
-        r = self._session.get(url)
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_datasets(self, args):
+        '''
+        Lists datasets
+        '''
+        datasets = self._sc.datasets()
+        pprint(datasets)
 
-    def dataset_create(self, name):
-        url = self._build_url(self._dataset_path + '/create/')
-        r = self._session.post(url, data={'name': name})
-        r.raise_for_status()
+    @print_exception
+    def do_dataset_create(self, args):
+        '''
+        Creates a dataset
+        > dataset_create datasetname
+        '''
+        name = args.strip()
+        self._sc.dataset_create(name)
 
-    def dataset_add_document(self, dataset_name, document_name, document_content):
-        url = self._build_url(self._dataset_path + '/add_document/')
-        r = self._session.post(url, data={'dataset_name': dataset_name, 'document_name': document_name,
-                                          'document_content': document_content})
-        r.raise_for_status()
+    @print_exception
+    def do_dataset_add_document(self, args):
+        '''
+        Add a document to a dataset
+        > dataset_add_document datasetname documentname text...
+        If the dataset does not exist, it is created
+        '''
+        match = re.match('^([^,\s]+)[,\s]+([^,\s]+)[,\s]+(.+)$', args.strip())
+        dataset_name = match.group(1)
+        document_name = match.group(2)
+        document_content = match.group(3)
+        pprint(self._sc.dataset_add_document(dataset_name, document_name, document_content))
 
-    def dataset_delete_document(self, dataset_name, document_name):
-        url = self._build_url(self._dataset_path + '/delete_document/')
-        r = self._session.post(url, data={'dataset_name': dataset_name, 'document_name': document_name})
-        r.raise_for_status()
+    @print_exception
+    def do_dataset_delete_document(self, args):
+        '''
+        Deletes a document from a dataset
+        > dataset_delete_document datasetname documentname
+        '''
+        args = re.split('[,\s]+', args)
+        dataset_name = args[0]
+        document_name = args[1]
+        self._sc.dataset_delete_document(dataset_name,document_name)
 
-    def dataset_rename(self, name, newname):
-        url = self._build_url(self._dataset_path + '/rename/')
-        r = self._session.post(url, data={'name': name, 'newname': newname})
-        r.raise_for_status()
+    @print_exception
+    def do_dataset_rename(self, args):
+        '''
+        Renames a dataset with a new name
+        > dataset_rename name new_name
+        No dataset with the new name must exist
+        '''
+        args = re.split('[,\s]+', args)
+        name = args[0]
+        new_name = args[1]
+        self._sc.dataset_rename(name, new_name)
 
-    def dataset_delete(self, name):
-        url = self._build_url(self._dataset_path + '/delete/')
-        r = self._session.post(url, data={'name': name})
-        r.raise_for_status()
+    @print_exception
+    def do_dataset_delete(self, args):
+        '''
+        Deletes a dataset
+        > dataset_delete name
+        '''
+        dataset = args.strip()
+        self._sc.classifier_delete(dataset)
 
-    def dataset_upload(self, name, file):
-        url = self._build_url(self._dataset_path + '/upload/')
-        files = {'file': file}
-        data = {'name': name}
-        r = self._session.post(url, data=data, files=files)
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_dataset_upload(self, args):
+        '''
+        Uploads document to a dataset from a file
+        > dataset_upload datasetname filename
+        '''
+        match = re.match('^([^,\s]+)[,\s]+(.+)$', args.strip())
+        datasetname = match.group(1)
+        filename = match.group(2)
+        with open(filename, mode='r', encoding='utf-8') as infile:
+            pprint(self._sc.dataset_upload(datasetname,filename))
 
-    def dataset_download(self, name, file, chunk_size=2048):
-        url = self._build_url(self._dataset_path + '/download/' + name)
-        r = self._session.get(url, stream=True)
-        for chunk in r.iter_content(chunk_size=chunk_size, decode_unicode=True):
-            if chunk:
-                file.write(chunk)
+    @print_exception
+    def do_dataset_download(self, args):
+        '''
+        Downloads a dataset to a file
+        > dataset_download datsetname filename
+        Add -o to overwrite the eventual already existing file
+        '''
+        args = re.split('[,\s]+', args.strip())
+        name = args[0]
+        filename = args[1]
+        overwrite = False
+        if args[-1] == '-o':
+            overwrite = True
+        if not overwrite:
+            if exists(filename):
+                raise FileExistsError('File %s already exists' % filename)
+        else:
+            if exists(filename):
+                remove(filename)
+        with open(filename, mode='w', encoding='utf-8') as outfile:
+            self._sc.dataset_download(name, outfile)
 
-    def dataset_size(self, name):
-        url = self._build_url(self._dataset_path + '/size/' + name)
-        r = self._session.get(url)
-        r.raise_for_status()
-        return int(r.content.decode())
+    @print_exception
+    def do_dataset_size(self, args):
+        '''
+        Prints the size of a dataset
+        > dataset_size classifiername
+        '''
+        pprint(self._sc.dataset_size(args.strip()))
 
-    def dataset_classify(self, name, classifiers):
-        url = self._build_url(self._dataset_path + '/classify/')
-        r = self._session.post(url, data={'name': name, 'classifiers': classifiers})
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_dataset_classify(self, args):
+        '''
+        Automatically classifies a dataset using the listed classifiers
+        > dataset_classify datasetname classifier1 classifier2...
+        '''
+        args = re.split('[,\s]+', args.strip())
+        datasetname = args[0]
+        classifiers = args[1:]
+        pprint(self._sc.dataset_classify(datasetname,classifiers))
 
-    def dataset_get_classification_jobs(self, name):
-        url = self._build_url(self._dataset_path + '/get_classification_jobs/' + name)
-        r = self._session.get(url)
-        r.raise_for_status()
-        return json.loads(r.content.decode())
+    @print_exception
+    def do_dataset_get_classification_jobs(self, args):
+        '''
+        Prints the list of the available classifications for a dataset
+        > dataset_get_classification_jobs datasetname
+        '''
+        name = args.strip()
+        pprint(self._sc.dataset_get_classification_jobs(name))
 
-    def dataset_download_classification(self, id, file, chunk_size=2048):
-        url = self._build_url(self._dataset_path + '/download_classification/' + str(id))
-        r = self._session.get(url, stream=True)
-        for chunk in r.iter_content(chunk_size=chunk_size, decode_unicode=True):
-            if chunk:
-                file.write(chunk)
+    @print_exception
+    def do_dataset_download_classification(self, args):
+        '''
+        Downloads a classification of a dataset to a file
+        > dataset_download_classification datsetname filename
+        Add -o to overwrite the eventual already existing file
+        '''
+        args = re.split('[,\s]+', args.strip())
+        name = args[0]
+        filename = args[1]
+        overwrite = False
+        if args[-1] == '-o':
+            overwrite = True
+        if not overwrite:
+            if exists(filename):
+                raise FileExistsError('File %s already exists' % filename)
+        else:
+            if exists(filename):
+                remove(filename)
+        with open(filename, mode='w', encoding='utf-8') as outfile:
+            self._sc.dataset_download_classification(name, outfile)
 
-    def dataset_delete_classification(self, id):
-        url = self._build_url(self._dataset_path + '/delete_classification/')
-        r = self._session.post(url, data={'id': id})
-        r.raise_for_status()
+    @print_exception
+    def do_dataset_delete_classification(self, args):
+        '''
+        Delete a classification of a dataset
+        '''
+        id = args.strip()
+        self._sc.dataset_delete_classification(id)
 
 
 if __name__ == "__main__":
