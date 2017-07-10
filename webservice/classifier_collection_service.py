@@ -231,7 +231,7 @@ class ClassifierCollectionService(object):
             try:
                 with open(fullpath, 'w') as file:
                     writer = csv.writer(file, lineterminator='\n')
-                    writer.writerow([json.dumps(header)])
+                    writer.writerow(['# '+json.dumps(header)])
                     for i, classification in enumerate(self._db.get_classifier_examples(name)):
                         writer.writerow([i, classification.document.text,
                                          '%s:%s' % (name, classification.label.name)])
@@ -308,7 +308,7 @@ class ClassifierCollectionService(object):
                 if len(labels) < 2:
                     cherrypy.response.status = 400
                     return 'Must specify at least two labels for classifier \'%s\'' % classifier_name
-                self.create(**{'name':classifier_name, 'labels':labels})
+                self.create(**{'name': classifier_name, 'labels': labels})
             else:
                 if not len(set(self._db.get_classifier_labels(classifier_name)).intersection(labels)) == len(
                         labels):
@@ -430,7 +430,7 @@ class ClassifierCollectionService(object):
                     self._db.create_classifier(label, BINARY_LABELS)
                 jobs.append(self._db.create_job(_extract_binary_trainingset, (self._db_connection_string, name, label),
                                                 description='extract binary classifier from \'%s\' to \'%s\'' % (
-                                                name, label)))
+                                                    name, label)))
         return jobs
 
     @cherrypy.expose
@@ -492,7 +492,7 @@ class ClassifierCollectionService(object):
                 self._db.create_classifier(name, sources)
             job_id = self._db.create_job(_combine_classifiers, (self._db_connection_string, name, sources),
                                          description='combining classifiers from \'%s\' to \'%s\'' % (
-                                         ', '.join(sources), name))
+                                             ', '.join(sources), name))
         return [job_id]
 
     @cherrypy.expose

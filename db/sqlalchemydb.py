@@ -1,4 +1,6 @@
 import datetime
+import datetime
+import os
 import time
 from contextlib import contextmanager
 from uuid import uuid4
@@ -449,7 +451,15 @@ class SQLAlchemyDB(object):
             return session.query(Document).order_by(Document.external_id).filter(Dataset.name == name).filter(
                 Document.dataset_id == Dataset.id)
 
-    def get_dataset_document(self, name, position):
+    def get_dataset_document_by_name(self, datasetname, documentname):
+        with self.session_scope() as session:
+            document = session.query(Document).filter(Dataset.name == datasetname).filter(
+                Document.dataset_id == Dataset.id).filter(Document.external_id == documentname).first()
+            if document is not None:
+                session.expunge(document)
+            return document
+
+    def get_dataset_document_by_position(self, name, position):
         with self.session_scope() as session:
             document = session.query(Document).filter(Dataset.name == name).filter(
                 Document.dataset_id == Dataset.id).offset(position).limit(1).scalar()
@@ -527,6 +537,11 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             classification_job = session.query(ClassificationJob).filter(
                 ClassificationJob.id == id).scalar()
+            if os.path.exists(classification_job.filename):
+                try:
+                    os.remove(classification_job.filename)
+                except:
+                    pass
             session.delete(classification_job)
 
     def delete_job(self, id):
