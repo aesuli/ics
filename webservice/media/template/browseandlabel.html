@@ -209,7 +209,7 @@ ${parent.head()}
 
             $.ajax({
                 type:'POST',
-                url:'${dataset_path}/document',
+                url:'${dataset_path}/document_by_position',
                 data: { name: datasetname , position: position-1 },
                 dataType: 'json'})
             .done(function(msg) {

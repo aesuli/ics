@@ -145,12 +145,29 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def document(self, name, position):
+    def document_by_name(self, name, documentname):
+        if not self._db.dataset_exists(name):
+            cherrypy.response.status = 404
+            return '\'%s\' does not exits' % name
+        document = self._db.get_dataset_document_by_name(name, documentname)
+        if document is not None:
+            result = dict()
+            result['external_id'] = document.external_id
+            result['text'] = document.text
+            result['created'] = str(document.creation)
+            return result
+        else:
+            cherrypy.response.status = 404
+            return 'Document with name \'%i\' does not exits in \'%s\'' % (documentname, name)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def document_by_position(self, name, position):
         position = int(position)
         if not self._db.dataset_exists(name):
             cherrypy.response.status = 404
             return '\'%s\' does not exits' % name
-        document = self._db.get_dataset_document(name, position)
+        document = self._db.get_dataset_document_by_position(name, position)
         if document is not None:
             result = dict()
             result['external_id'] = document.external_id
@@ -263,7 +280,7 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                         classifiers_header['name'] = classifier
                         classifiers_header['labels'] = db.get_classifier_labels(classifier)
                         header.append(classifiers_header)
-                writer.writerow(['# ' + json.dumps({'classifier': header})])
+                writer.writerow(['# ' + json.dumps({'classifiers': header})])
 
                 X = list()
                 id = list()

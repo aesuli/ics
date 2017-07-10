@@ -152,7 +152,7 @@ class ServiceClientSession:
     def classifier_upload_training_data(self, file):
         url = self._build_url(self._classifier_path + '/upload_training_data/')
         files = {'file': file}
-        r = self._session.post(url, data=data, files=files)
+        r = self._session.post(url, files=files)
         r.raise_for_status()
         return json.loads(r.content.decode())
 
@@ -234,6 +234,18 @@ class ServiceClientSession:
         r = self._session.get(url)
         r.raise_for_status()
         return int(r.content.decode())
+
+    def datasets_document_by_name(self, name, documentname):
+        url = self._build_url(self._dataset_path + '/document_by_name/')
+        r = self._session.post(url, data={'name': name, 'documentname': documentname})
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
+    def datasets_document_by_position(self, name, position):
+        url = self._build_url(self._dataset_path + '/document_by_position/')
+        r = self._session.post(url, data={'name': name, 'position': position})
+        r.raise_for_status()
+        return json.loads(r.content.decode())
 
     def dataset_classify(self, name, classifiers):
         url = self._build_url(self._dataset_path + '/classify/')
