@@ -169,12 +169,19 @@ ${parent.head()}
         };
 
         function upload_model() {
+            name = $("#model\\_name").val();
+            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+            delay(function() {$( "#model\\_upload\\_button" ).button( "option", "disabled", false );},2000);
+                return false;
+            }
             if($('#modelFile')[0].files.length!=1) {
                 custom_alert("Must select a file.");
                 return false;
             }
             var data = new FormData()
-            data.append("file", $('#dataFile')[0].files[0]);
+            data.append("file", $('#modelFile')[0].files[0]);
+            data.append("name", name);
             $.ajax({
                 type: "POST",
                 url: "${classifier_path}/upload_model",

@@ -361,7 +361,7 @@ class CommandLine(Cmd):
         else:
             if exists(filename):
                 remove(filename)
-        with open(filename, mode='w', encoding='utf-8') as outfile:
+        with open(filename, mode='wb') as outfile:
             self._sc.classifier_download_model(name, outfile)
 
     def help_classifier_upload_training_data(self):
@@ -391,7 +391,7 @@ class CommandLine(Cmd):
         if args[-1] == '-o':
             overwrite = True
         with open(filename, mode='rb') as infile:
-            pprint(self._sc.classifier_upload_model(name, infile, overwrite))
+            self._sc.classifier_upload_model(name, infile, overwrite)
 
     def help_classifier_classify(self):
         print('''
