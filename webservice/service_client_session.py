@@ -169,7 +169,6 @@ class ServiceClientSession:
         files = {'file': file}
         r = self._session.post(url, data=data, files=files)
         r.raise_for_status()
-        return json.loads(r.content.decode())
 
     def classifier_classify(self, name, X):
         url = self._build_url(self._classifier_path + '/classify/')

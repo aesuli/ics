@@ -383,8 +383,9 @@ class ClassifierCollectionService(object):
 
             with open(fullpath, 'rb') as infile:
                 clf = pickle.load(infile)
-                labels = list(clf.classes_)
+                labels = list(clf._clf.classes_)
                 self._db.create_classifier(name, labels, clf)
+        return 'Ok'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
