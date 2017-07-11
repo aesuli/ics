@@ -149,10 +149,25 @@ class ServiceClientSession:
             if chunk:
                 file.write(chunk)
 
+    def classifier_download_model(self, name, file, chunk_size=2048):
+        url = self._build_url(self._classifier_path + '/download_model/' + name)
+        r = self._session.get(url, stream=True)
+        for chunk in r.iter_content(chunk_size=chunk_size):
+            if chunk:
+                file.write(chunk)
+
     def classifier_upload_training_data(self, file):
         url = self._build_url(self._classifier_path + '/upload_training_data/')
         files = {'file': file}
         r = self._session.post(url, files=files)
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
+    def classifier_upload_model(self, name, file, overwrite=False):
+        url = self._build_url(self._classifier_path + '/upload_model/')
+        data = {'name': name, 'overwrite': overwrite}
+        files = {'file': file}
+        r = self._session.post(url, data=data, files=files)
         r.raise_for_status()
         return json.loads(r.content.decode())
 

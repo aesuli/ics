@@ -2,6 +2,7 @@ import csv
 import json
 import logging
 import os
+import pickle
 import random
 import shutil
 from collections import defaultdict
@@ -229,9 +230,9 @@ class ClassifierCollectionService(object):
             header = dict()
             header['classifiers'] = [{'name': name, 'labels': self._db.get_classifier_labels(name)}]
             try:
-                with open(fullpath, 'w') as file:
+                with open(fullpath, 'w', encoding='utf-8') as file:
                     writer = csv.writer(file, lineterminator='\n')
-                    writer.writerow(['# '+json.dumps(header)])
+                    writer.writerow(['# ' + json.dumps(header)])
                     for i, classification in enumerate(self._db.get_classifier_examples(name)):
                         writer.writerow([i, classification.document.text,
                                          '%s:%s' % (name, classification.label.name)])
@@ -239,6 +240,24 @@ class ClassifierCollectionService(object):
                 os.unlink(filename)
 
         return serve_file(fullpath, "text/csv", "attachment")
+
+    @cherrypy.expose
+    def download_model(self, name):
+        if not self._db.classifier_exists(name):
+            cherrypy.response.status = 404
+            return '%s does not exits' % name
+        filename = 'model %s %s.pickle' % (name, str(self._db.get_classifier_last_update_time(name)))
+        filename = get_fully_portable_file_name(filename)
+        fullpath = os.path.join(self._download_dir, filename)
+        if not os.path.isfile(fullpath):
+            try:
+                with open(fullpath, 'wb') as file:
+                    clf = self._db.get_classifier_model(name)
+                    pickle.dump(clf, file)
+            except:
+                os.unlink(filename)
+
+        return serve_file(fullpath, "application/x-download", "attachment")
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -326,6 +345,46 @@ class ClassifierCollectionService(object):
                                             description='update training set \'%s\' from file' % classifier_name))
 
         return jobs
+
+    @cherrypy.expose
+    def upload_model(self, **data):
+        try:
+            name = data['name']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must provide a name'
+
+        try:
+            file = data['file']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must upload a file'
+
+        try:
+            overwrite = data['overwrite']
+            if overwrite == 'false' or overwrite == 'False':
+                overwrite = False
+        except KeyError:
+            overwrite = False
+
+        filename = 'model %s %s.pickle' % (name, uuid4())
+        filename = get_fully_portable_file_name(filename)
+        fullpath = os.path.join(self._upload_dir, filename)
+        with open(fullpath, 'wb') as outfile:
+            shutil.copyfileobj(file.file, outfile)
+
+        with _lock_trainingset(self._db, name), _lock_model(self._db, name):
+            if self._db.classifier_exists(name):
+                if overwrite:
+                    self._db.delete_classifier(name)
+                else:
+                    cherrypy.response.status = 403
+                    return 'A classifier with name %s is already in the collection' % name
+
+            with open(fullpath, 'rb') as infile:
+                clf = pickle.load(infile)
+                labels = list(clf.classes_)
+                self._db.create_classifier(name, labels, clf)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -497,7 +556,7 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.5.1 (db: %s)" % self._db.version()
+        return "0.6.1 (db: %s)" % self._db.version()
 
 
 @logged_call

@@ -340,6 +340,30 @@ class CommandLine(Cmd):
         with open(filename, mode='w', encoding='utf-8') as outfile:
             self._sc.classifier_download_training_data(name, outfile)
 
+    def help_classifier_download_model(self):
+        print('''
+        Downloads the classification model for a classifier to a file
+        > classifier_download_model classifiername filename
+        Add -o to overwrite the eventual already existing file
+        ''')
+
+    @print_exception
+    def do_classifier_download_model(self, args):
+        args = re.split('[,\s]+', args.strip())
+        name = args[0]
+        filename = args[1]
+        overwrite = False
+        if args[-1] == '-o':
+            overwrite = True
+        if not overwrite:
+            if exists(filename):
+                raise FileExistsError('File %s already exists' % filename)
+        else:
+            if exists(filename):
+                remove(filename)
+        with open(filename, mode='w', encoding='utf-8') as outfile:
+            self._sc.classifier_download_model(name, outfile)
+
     def help_classifier_upload_training_data(self):
         print('''
         Uploads training data to the classifiers defined in the file given as input
@@ -350,6 +374,24 @@ class CommandLine(Cmd):
     def do_classifier_upload_training_data(self, args):
         with open(args.strip(), mode='r', encoding='utf-8') as infile:
             pprint(self._sc.classifier_upload_training_data(infile))
+
+    def help_classifier_upload_model(self):
+        print('''
+        Uploads a classification model to define a new classifier
+        > classifier_upload_model classifiername filename
+        adding -o eventually overwrites an already existing classifier with the same name
+        ''')
+
+    @print_exception
+    def do_classifier_upload_model(self, args):
+        args = re.split('[,\s]+', args.strip())
+        name = args[0]
+        filename = args[1]
+        overwrite = False
+        if args[-1] == '-o':
+            overwrite = True
+        with open(filename, mode='rb') as infile:
+            pprint(self._sc.classifier_upload_model(name, infile, overwrite))
 
     def help_classifier_classify(self):
         print('''
