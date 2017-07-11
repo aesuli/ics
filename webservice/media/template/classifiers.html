@@ -49,6 +49,7 @@ ${parent.head()}
                         <div id=\'select_button_'+msg[i].name+'\' class=\'right\'>Select</div>\
                         <div id=\'duplicate_button_'+msg[i].name+'\' class=\'right\'>Duplicate</div>\
                         <div id=\'download_button_'+msg[i].name+'\' class=\'right\'>Download training data</div>\
+                        <div id=\'download_model_button_'+msg[i].name+'\' class=\'right\'>Download classification model</div>\
                         <div class="small margined">Labels: '+msg[i].labels+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
                         <div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div>\
                         </div>');
@@ -59,7 +60,9 @@ ${parent.head()}
                             $('#classifier\\_'+msg[i].name).replaceWith(classifierdiv)
                         }
                         $('#download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                        $('#download\\_button\\_'+msg[i].name).click(download_classifier);
+                        $('#download\\_button\\_'+msg[i].name).click(download_training_data);
+                        $('#download\\_model\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                        $('#download\\_model\\_button\\_'+msg[i].name).click(download_model);
                         if(selected_classifiers[msg[i].name]) {
                             $('#select\\_button\\_'+msg[i].name).addClass('ui-state-focus');
                             $('#select\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-check'} });
@@ -85,6 +88,8 @@ ${parent.head()}
                 }
                 $('#uploadingdiv').remove();
                 $( "#upload\\_button" ).button( "option", "disabled", false );
+                $('#modeluploadingdiv').remove();
+                $( "#model\\_upload\\_button" ).button( "option", "disabled", false );
             });
         }
 
@@ -155,6 +160,38 @@ ${parent.head()}
                 </div>');
                 if($('#uploadingdiv').length==0) {
                     $('#classifiers\\_list').append(uploadingdiv)
+                }
+            })
+            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
+            });
+            return false ;
+        };
+
+        function upload_model() {
+            if($('#modelFile')[0].files.length!=1) {
+                custom_alert("Must select a file.");
+                return false;
+            }
+            var data = new FormData()
+            data.append("file", $('#dataFile')[0].files[0]);
+            $.ajax({
+                type: "POST",
+                url: "${classifier_path}/upload_model",
+                data: data,
+                enctype: 'multipart/form-data',
+                processData: false,
+                contentType: false})
+            .done(function() {
+                $( "#model\\_upload\\_button" ).button( "option", "disabled", true );
+                if($('#gotclassifiers').length==0) {
+                    $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
+                }
+                var modeluploadingdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'modeluploadingdiv\'>\
+                <div class=\'inline padded ui-corner-all classifier_name\'>Uploading model...</div>\
+                </div>');
+                if($('#modeluploadingdiv').length==0) {
+                    $('#classifiers\\_list').append(modeluploadingdiv)
                 }
             })
             .fail(function(errMsg) {
@@ -357,9 +394,16 @@ ${parent.head()}
             }
         };
 
-        function download_classifier() {
+        function download_training_data() {
             var classifier_name = $(this).siblings('.classifier\\_name').text();
             var form = $('<form></form>').attr('action', '${classifier_path}/download_training_data').attr('method', 'post');
+            form.append($("<input></input>").attr('type', 'hidden').attr('name', 'name').attr('value', classifier_name));
+            form.appendTo('body').submit().remove();
+        };
+
+        function download_model() {
+            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var form = $('<form></form>').attr('action', '${classifier_path}/download_model').attr('method', 'post');
             form.append($("<input></input>").attr('type', 'hidden').attr('name', 'name').attr('value', classifier_name));
             form.appendTo('body').submit().remove();
         };
@@ -367,6 +411,7 @@ ${parent.head()}
         $( document ).ready(function() {
 
             $('#upload\\_form').submit(upload_examples);
+            $('#model\\_upload\\_form').submit(upload_model);
             $('#combine\\_form').submit(combine_classifiers);
             $('#create\\_classifier').submit(create_classifier);
 
@@ -418,6 +463,16 @@ ${parent.head()}
                 <p><label>Data file:</label><input type="file" id="dataFile"/></p>
 
                 <p><label></label><input id="upload_button" type="submit" value="Upload"/></p>
+            </form>
+        </div>
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="model_upload">
+            <div class="padded ui-widget-header ui-corner-all">Upload a model to define a new classifier:</div>
+            <form enctype="multipart/form-data" id="model_upload_form" class="margined" action="#" method="post">
+                <label for="model_name">Name:</label>
+                <input type="text" id="model_name" /> </p>
+                <p><label>Model file:</label><input type="file" id="modelFile"/></p>
+
+                <p><label></label><input id="model_upload_button" type="submit" value="Upload"/></p>
             </form>
         </div>
     </div>

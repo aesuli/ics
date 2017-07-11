@@ -2,8 +2,6 @@ TODO
 - user authorization
 - file import
     * skip comment lines, i.e., those starting with #
-- file export
-    * no header needed after implementation of two pass import
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
@@ -26,6 +24,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- upload/download of binary classification models
 - split actual job processor from job managing web service interface
 - python client
 - decouple app and services
