@@ -24,7 +24,7 @@ MAX_BATCH_SIZE = 1000
 YES_LABEL = 'yes'
 NO_LABEL = 'no'
 BINARY_LABELS = {YES_LABEL, NO_LABEL}
-
+CSV_LARGE_FIELD = 1024 * 1024 * 10
 
 class ClassifierCollectionService(object):
     def __init__(self, db_connection_string, data_dir):
@@ -283,6 +283,8 @@ class ClassifierCollectionService(object):
         encoding = detector.result['encoding']
         cherrypy.log('Encode guessing for uploaded file ' + json.dumps(detector.result), severity=logging.INFO)
 
+        if csv.field_size_limit() < CSV_LARGE_FIELD:
+            csv.field_size_limit(CSV_LARGE_FIELD)
         classifiers_definition = defaultdict(set)
         with open(fullpath, 'r', encoding=encoding, errors='ignore') as file:
             try:
@@ -582,6 +584,8 @@ def _update_model(db_connection_string, name, X, y):
 
 @logged_call_with_args
 def _update_from_file(update_function, encoding, db_connection_string, filename, classifier_name):
+    if csv.field_size_limit() < CSV_LARGE_FIELD:
+        csv.field_size_limit(CSV_LARGE_FIELD)
     with open(filename, encoding=encoding, errors='ignore') as file:
         reader = csv.reader(file)
         next(reader)
