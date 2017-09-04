@@ -50,6 +50,8 @@ if __name__ == "__main__":
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
                 'tools.icsauth.require': [must_be_logged_in],
+                'server.max_request_body_size' : 0,
+                'server.socket_timeout' : 60,
             },
         }
 

@@ -16,6 +16,7 @@ from util.util import get_fully_portable_file_name, logged_call
 __author__ = 'Andrea Esuli'
 
 MAX_BATCH_SIZE = 1000
+CSV_LARGE_FIELD = 1024 * 1024 * 10
 
 
 class DatasetCollectionService(object):
@@ -330,6 +331,8 @@ def _create_documents(db_connection_string, dataset_name, filename):
     encoding = detector.result['encoding']
     cherrypy.log('Encode guessing for uploaded file ' + json.dumps(detector.result), severity=logging.INFO)
     with SQLAlchemyDB(db_connection_string) as db:
+        if csv.field_size_limit() < CSV_LARGE_FIELD:
+            csv.field_size_limit(CSV_LARGE_FIELD)
         with open(filename, 'r', encoding=encoding, errors='ignore') as file:
             reader = csv.reader(file)
             for row in reader:

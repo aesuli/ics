@@ -95,7 +95,7 @@ class CommandLine(Cmd):
         if len(username) == 0:
             username = input('Username: ').strip()
         password = getpass.getpass('Password:')
-        confirmpassword = getpass.getpass('Confirm assword:')
+        confirmpassword = getpass.getpass('Confirm password:')
         if password == confirmpassword:
             self._sc.user_create(username, password)
         else:
