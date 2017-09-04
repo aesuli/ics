@@ -491,12 +491,16 @@ class SQLAlchemyDB(object):
             session.expunge(job)
             return job
 
-    def set_job_completion_time(self, job_id, completion=datetime.datetime.now()):
+    def set_job_completion_time(self, job_id, completion=None):
+        if completion is None:
+            completion = datetime.datetime.now()
         with self.session_scope() as session:
             job = session.query(Job).filter(Job.id == job_id).one()
             job.completion = completion
 
-    def set_job_start_time(self, job_id, start=datetime.datetime.now()):
+    def set_job_start_time(self, job_id, start=None):
+        if start is None:
+            start = datetime.datetime.now()
         with self.session_scope() as session:
             job = session.query(Job).filter(Job.id == job_id).one()
             job.start = start
