@@ -10,7 +10,6 @@ from uuid import uuid4
 
 import cherrypy
 import numpy
-from chardet.universaldetector import UniversalDetector
 from cherrypy.lib.static import serve_file
 
 from classifier.online_classifier import OnlineClassifier
@@ -274,19 +273,10 @@ class ClassifierCollectionService(object):
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
-        detector = UniversalDetector()
-        with open(fullpath, 'rb') as file:
-            for line in file:
-                detector.feed(line)
-                if detector.done:
-                    break
-        encoding = detector.result['encoding']
-        cherrypy.log('Encode guessing for uploaded file ' + json.dumps(detector.result), severity=logging.INFO)
-
         if csv.field_size_limit() < CSV_LARGE_FIELD:
             csv.field_size_limit(CSV_LARGE_FIELD)
         classifiers_definition = defaultdict(set)
-        with open(fullpath, 'r', encoding=encoding, errors='ignore') as file:
+        with open(fullpath, 'r', encoding='utf-8', errors='ignore') as file:
             try:
                 reader = csv.reader(file)
                 line = next(reader)[0].strip()
@@ -301,7 +291,7 @@ class ClassifierCollectionService(object):
                     'No JSON header in uploaded file, scanning labels from the whole file. Exception:' + repr(e),
                     severity=logging.INFO)
 
-        with open(fullpath, 'r', encoding=encoding, errors='ignore') as file:
+        with open(fullpath, 'r', encoding='utf-8', errors='ignore') as file:
             reader = csv.reader(file)
             for row in reader:
                 if len(row) == 0:
@@ -338,11 +328,11 @@ class ClassifierCollectionService(object):
 
         for classifier_name in classifiers_definition:
             jobs.append(self._db.create_job(_update_from_file,
-                                            (_update_model, encoding, self._db_connection_string, fullpath,
+                                            (_update_model, 'utf-8', self._db_connection_string, fullpath,
                                              classifier_name),
                                             description='update model \'%s\' from file' % classifier_name))
             jobs.append(self._db.create_job(_update_from_file,
-                                            (_update_trainingset, encoding, self._db_connection_string, fullpath,
+                                            (_update_trainingset, 'utf-8', self._db_connection_string, fullpath,
                                              classifier_name),
                                             description='update training set \'%s\' from file' % classifier_name))
 
