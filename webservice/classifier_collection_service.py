@@ -236,7 +236,7 @@ class ClassifierCollectionService(object):
                         writer.writerow([i, classification.document.text,
                                          '%s:%s' % (name, classification.label.name)])
             except:
-                os.unlink(filename)
+                os.unlink(fullpath)
 
         return serve_file(fullpath, "text/csv", "attachment")
 
@@ -254,7 +254,7 @@ class ClassifierCollectionService(object):
                     clf = self._db.get_classifier_model(name)
                     pickle.dump(clf, file)
             except:
-                os.unlink(filename)
+                os.unlink(fullpath)
 
         return serve_file(fullpath, "application/x-download", "attachment")
 
