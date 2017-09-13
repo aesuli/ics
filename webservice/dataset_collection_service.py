@@ -1,6 +1,5 @@
 import csv
 import json
-import logging
 import os
 import shutil
 from uuid import uuid4
@@ -90,7 +89,7 @@ class DatasetCollectionService(object):
             shutil.copyfileobj(file.file, outfile)
 
         job_id = self._db.create_job(_create_documents, (self._db_connection_string, dataset_name, fullpath),
-                            description='upload to dataset \'%s\'' % dataset_name)
+                                     description='upload to dataset \'%s\'' % dataset_name)
 
         return [job_id]
 
@@ -211,10 +210,10 @@ class DatasetCollectionService(object):
             return 'An up-to-date classification is already available.'
 
         job_id = self._db.create_job(_classify,
-                                 (self._db_connection_string, datasetname, classifiers, fullpath),
-                                 description='classify dataset \'%s\' with %s' % (
-                                     datasetname,
-                                     ', '.join(['\'%s\'' % classifier for classifier in classifiers])))
+                                     (self._db_connection_string, datasetname, classifiers, fullpath),
+                                     description='classify dataset \'%s\' with %s' % (
+                                         datasetname,
+                                         ', '.join(['\'%s\'' % classifier for classifier in classifiers])))
 
         self._db.create_classification_job(datasetname, classifiers, job_id, fullpath)
 
@@ -322,6 +321,8 @@ def _classify_and_write(db, id, X, classifiers, writer):
 @logged_call
 def _create_documents(db_connection_string, dataset_name, filename):
     with SQLAlchemyDB(db_connection_string) as db:
+        if not db.dataset_exists(dataset_name):
+            db.create_dataset(dataset_name)
         if csv.field_size_limit() < CSV_LARGE_FIELD:
             csv.field_size_limit(CSV_LARGE_FIELD)
         with open(filename, 'r', encoding='utf-8', errors='ignore') as file:
