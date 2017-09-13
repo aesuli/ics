@@ -93,7 +93,7 @@ class Document(Base):
     def __init__(self, text, dataset_id, external_id=None):
         self.text = text
         self.dataset_id = dataset_id
-        self.external_id = external_id
+        self.external_id = external_id[:document_name_length]
 
 
 class Classification(Base):
