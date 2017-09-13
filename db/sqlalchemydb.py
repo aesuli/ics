@@ -318,8 +318,15 @@ class SQLAlchemyDB(object):
                 Label.classifier_id == Classifier.id).filter(
                 Label.name == label).scalar()
 
-            classification = Classification(document.id, label_id)
-            session.merge(classification)
+            classification = session.query(Classification).filter(Classification.document_id == document.id).join(
+                Classification.label).filter(Classifier.name == classifier_name).filter(
+                Label.classifier_id == Classifier.id).scalar()
+
+            if classification is None:
+                classification = Classification(document.id, label_id)
+                session.add(classification)
+            else:
+                classification.label_id = label_id
 
     def classify(self, classifier_name, X):
         clf = self.get_classifier_model(classifier_name)
@@ -401,8 +408,13 @@ class SQLAlchemyDB(object):
     def create_document(self, dataset_name, external_id, content):
         with self.session_scope() as session:
             dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
-            document = Document(content, dataset.id, external_id)
-            session.merge(document)
+            document = session.query(Document).filter(Document.dataset_id == dataset.id).filter(
+                Document.external_id == external_id).scalar()
+            if document is None:
+                document = Document(content, dataset.id, external_id)
+                session.add(document)
+            else:
+                document.text = content
             dataset.last_updated = datetime.datetime.now()
 
     def delete_document(self, dataset_name, external_id):
