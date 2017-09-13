@@ -184,7 +184,7 @@ class CommandLine(Cmd):
     @print_exception
     def do_job_completed(self, args):
         id = args.strip()
-        self._sc.job_completed(id)
+        pprint(self._sc.job_completed(id))
 
     def help_wait_for_jobs(self):
         print('''
