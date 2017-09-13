@@ -131,7 +131,7 @@ class DatasetCollectionService(object):
                     for document in self._db.get_dataset_documents(name):
                         writer.writerow([document.external_id, document.text])
             except:
-                os.unlink(filename)
+                os.unlink(fullpath)
 
         return serve_file(fullpath, "text/csv", "attachment")
 
