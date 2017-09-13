@@ -302,11 +302,8 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             training_dataset = session.query(Dataset).filter(
                 Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET).one()
-            document = session.query(Document).filter(Document.text == content).filter(
-                training_dataset.id == Document.dataset_id).scalar()
-            if document is None:
-                document = Document(content, training_dataset.id)
-                session.add(document)
+            document = Document(content, training_dataset.id)
+            session.merge(document)
             training_dataset.last_updated = document.creation
 
         with self.session_scope() as session:
@@ -318,15 +315,8 @@ class SQLAlchemyDB(object):
                 Label.classifier_id == Classifier.id).filter(
                 Label.name == label).scalar()
 
-            classification = session.query(Classification).filter(Classification.document_id == document.id).join(
-                Classification.label).filter(Classifier.name == classifier_name).filter(
-                Label.classifier_id == Classifier.id).scalar()
-
-            if classification is None:
-                classification = Classification(document.id, label_id)
-                session.add(classification)
-            else:
-                classification.label_id = label_id
+            classification = Classification(document.id, label_id)
+            session.merge(classification)
 
     def classify(self, classifier_name, X):
         clf = self.get_classifier_model(classifier_name)
@@ -408,13 +398,8 @@ class SQLAlchemyDB(object):
     def create_document(self, dataset_name, external_id, content):
         with self.session_scope() as session:
             dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
-            document = session.query(Document).filter(Document.dataset_id == dataset.id).filter(
-                Document.external_id == external_id).scalar()
-            if document is None:
-                document = Document(content, dataset.id, external_id)
-                session.add(document)
-            else:
-                document.text = content
+            document = Document(content, dataset.id, external_id)
+            session.merge(document)
             dataset.last_updated = datetime.datetime.now()
 
     def delete_document(self, dataset_name, external_id):

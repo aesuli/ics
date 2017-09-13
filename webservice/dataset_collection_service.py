@@ -327,6 +327,7 @@ def _create_documents(db_connection_string, dataset_name, filename):
             csv.field_size_limit(CSV_LARGE_FIELD)
         with open(filename, 'r', encoding='utf-8', errors='ignore') as file:
             reader = csv.reader(file)
+            batch_size = 1000
             for row in reader:
                 if len(row) > 1:
                     document_name = row[0]
