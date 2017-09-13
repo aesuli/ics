@@ -302,8 +302,11 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             training_dataset = session.query(Dataset).filter(
                 Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET).one()
-            document = Document(content, training_dataset.id)
-            session.merge(document)
+            document = session.query(Document).filter(Document.text == content).filter(
+                training_dataset.id == Document.dataset_id).scalar()
+            if document is None:
+                document = Document(content, training_dataset.id)
+                session.add(document)
             training_dataset.last_updated = document.creation
 
         with self.session_scope() as session:
