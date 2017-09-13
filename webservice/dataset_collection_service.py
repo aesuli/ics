@@ -56,14 +56,14 @@ class DatasetCollectionService(object):
     def add_document(self, dataset_name, document_name, document_content):
         if not self._db.dataset_exists(dataset_name):
             self._db.create_dataset(dataset_name)
-        self._db.create_document(dataset_name, document_name, document_content)
+        self._db.create_dataset_document(dataset_name, document_name, document_content)
 
     @cherrypy.expose
     def delete_document(self, dataset_name, document_name):
         if not self._db.dataset_exists(dataset_name):
             cherrypy.response.status = 404
             return '%s does not exits' % dataset_name
-        self._db.delete_document(dataset_name, document_name)
+        self._db.delete_dataset_document(dataset_name, document_name)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -88,7 +88,7 @@ class DatasetCollectionService(object):
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
-        job_id = self._db.create_job(_create_documents, (self._db_connection_string, dataset_name, fullpath),
+        job_id = self._db.create_job(_create_dataset_documents, (self._db_connection_string, dataset_name, fullpath),
                                      description='upload to dataset \'%s\'' % dataset_name)
 
         return [job_id]
@@ -319,7 +319,7 @@ def _classify_and_write(db, id, X, classifiers, writer):
 
 
 @logged_call
-def _create_documents(db_connection_string, dataset_name, filename):
+def _create_dataset_documents(db_connection_string, dataset_name, filename):
     with SQLAlchemyDB(db_connection_string) as db:
         if not db.dataset_exists(dataset_name):
             db.create_dataset(dataset_name)
@@ -332,7 +332,7 @@ def _create_documents(db_connection_string, dataset_name, filename):
                 if len(row) > 1:
                     document_name = row[0]
                     content = row[1]
-                    db.create_document(dataset_name, document_name, content)
+                    db.create_dataset_document(dataset_name, document_name, content)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
 import datetime
-import datetime
 import os
 import time
 from contextlib import contextmanager
@@ -62,7 +61,7 @@ class Label(Base):
     classifier_id = Column(Integer(), ForeignKey('classifier.id', onupdate="CASCADE", ondelete="CASCADE"),
                            nullable=False)
     classifier = relationship('Classifier', backref='labels')
-    __table_args__ = (UniqueConstraint('classifier_id', 'name'), {})
+    __table_args__ = (UniqueConstraint('classifier_id', 'name'),)
 
     def __init__(self, name, classifier_id):
         self.name = name
@@ -79,9 +78,17 @@ class Dataset(Base):
     def __init__(self, name):
         self.name = name
 
+class TrainingDocument(Base):
+    __tablename__ = 'training_document'
+    id = Column(Integer(), primary_key=True)
+    text = Column(Text(), unique=True)
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
-class Document(Base):
-    __tablename__ = 'document'
+    def __init__(self, text):
+        self.text = text
+
+class DatasetDocument(Base):
+    __tablename__ = 'dataset_document'
     id = Column(Integer(), primary_key=True)
     external_id = Column(String(document_name_length))
     dataset_id = Column(Integer(), ForeignKey('dataset.id', onupdate='CASCADE', ondelete='CASCADE'),
@@ -89,6 +96,7 @@ class Document(Base):
     dataset = relationship('Dataset', backref='documents')
     text = Column(Text())
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
+    __table_args__ = (UniqueConstraint('dataset_id', 'text'),)
 
     def __init__(self, text, dataset_id, external_id=None):
         self.text = text
@@ -99,9 +107,9 @@ class Document(Base):
 class Classification(Base):
     __tablename__ = 'classification'
     id = Column(Integer(), primary_key=True)
-    document_id = Column(Integer(), ForeignKey('document.id', onupdate='CASCADE', ondelete='CASCADE'),
+    document_id = Column(Integer(), ForeignKey('training_document.id', onupdate='CASCADE', ondelete='CASCADE'),
                          nullable=False)
-    document = relationship('Document', backref='classifications')
+    document = relationship('TrainingDocument', backref='classifications')
     label_id = Column(Integer(), ForeignKey('label.id', onupdate='CASCADE', ondelete='CASCADE'), nullable=False)
     label = relationship('Label', backref='classifications')
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
@@ -162,7 +170,6 @@ class Lock(Base):
 
 
 class SQLAlchemyDB(object):
-    _INTERNAL_TRAINING_DATASET = '_internal_training_dataset'
     _ADMIN_NAME = 'admin'
     _ADMIN_PASSWORD = 'adminadmin'
 
@@ -175,8 +182,6 @@ class SQLAlchemyDB(object):
 
     def _preload_data(self):
         with self.session_scope() as session:
-            if not session.query(exists().where(Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET)).scalar():
-                session.add(Dataset(SQLAlchemyDB._INTERNAL_TRAINING_DATASET))
             if not session.query(exists().where(User.name == SQLAlchemyDB._ADMIN_NAME)).scalar():
                 session.add(User(SQLAlchemyDB._ADMIN_NAME, SQLAlchemyDB._ADMIN_PASSWORD))
 
@@ -299,30 +304,23 @@ class SQLAlchemyDB(object):
 
     def create_training_example(self, classifier_name, content, label):
         with self.session_scope() as session:
-            training_dataset = session.query(Dataset).filter(
-                Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET).one()
-            document = session.query(Document).filter(Document.text == content).filter(
-                training_dataset.id == Document.dataset_id).scalar()
-            if document is None:
-                document = Document(content, training_dataset.id)
-                session.add(document)
-            training_dataset.last_updated = document.creation
+            training_document = session.query(TrainingDocument).filter(TrainingDocument.text == content).scalar()
+            if training_document is None:
+                training_document = TrainingDocument(content)
+                session.add(training_document)
 
         with self.session_scope() as session:
-            training_dataset = session.query(Dataset).filter(
-                Dataset.name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET).one()
-            document = session.query(Document).filter(Document.text == content).filter(
-                training_dataset.id == Document.dataset_id).scalar()
+            training_document_id = session.query(TrainingDocument.id).filter(TrainingDocument.text == content).scalar()
             label_id = session.query(Label.id).filter(Classifier.name == classifier_name).filter(
                 Label.classifier_id == Classifier.id).filter(
                 Label.name == label).scalar()
 
-            classification = session.query(Classification).filter(Classification.document_id == document.id).join(
+            classification = session.query(Classification).filter(Classification.document_id == training_document_id).join(
                 Classification.label).filter(Classifier.name == classifier_name).filter(
                 Label.classifier_id == Classifier.id).scalar()
 
             if classification is None:
-                classification = Classification(document.id, label_id)
+                classification = Classification(training_document_id, label_id)
                 session.add(classification)
             else:
                 classification.label_id = label_id
@@ -344,8 +342,8 @@ class SQLAlchemyDB(object):
 
     def get_label(self, classifier_name, content):
         with self.session_scope() as session:
-            return session.query(Label.name).filter(Document.text == content).filter(
-                Classification.document_id == Document.id).filter(Classifier.name == classifier_name).filter(
+            return session.query(Label.name).filter(TrainingDocument.text == content).filter(
+                Classification.document_id == TrainingDocument.id).filter(Classifier.name == classifier_name).filter(
                 Label.classifier_id == Classifier.id).filter(Label.id == Classification.label_id).order_by(
                 desc(Classification.creation)).scalar()
 
@@ -363,9 +361,7 @@ class SQLAlchemyDB(object):
 
     def dataset_names(self):
         with self.session_scope() as session:
-            return list(
-                session.query(Dataset.name).order_by(Dataset.name).filter(
-                    Dataset.name != SQLAlchemyDB._INTERNAL_TRAINING_DATASET))
+            return list(session.query(Dataset.name).order_by(Dataset.name))
 
     def dataset_exists(self, name):
         with self.session_scope() as session:
@@ -377,8 +373,6 @@ class SQLAlchemyDB(object):
             session.add(dataset)
 
     def rename_dataset(self, name, newname):
-        if name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET:
-            return
         with self.session_scope() as session:
             dataset = session.query(Dataset).filter(Dataset.name == name).scalar()
             if dataset is None:
@@ -386,8 +380,6 @@ class SQLAlchemyDB(object):
             dataset.name = newname
 
     def delete_dataset(self, name):
-        if name == SQLAlchemyDB._INTERNAL_TRAINING_DATASET:
-            return
         with self.session_scope() as session:
             session.query(Dataset).filter(Dataset.name == name).delete()
 
@@ -402,25 +394,25 @@ class SQLAlchemyDB(object):
     def get_dataset_size(self, name):
         with self.session_scope() as session:
             return session.query(Dataset.documents).filter(Dataset.name == name).filter(
-                Document.dataset_id == Dataset.id).count()
+                DatasetDocument.dataset_id == Dataset.id).count()
 
-    def create_document(self, dataset_name, external_id, content):
+    def create_dataset_document(self, dataset_name, external_id, content):
         with self.session_scope() as session:
             dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
-            document = session.query(Document).filter(Document.dataset_id == dataset.id).filter(
-                Document.external_id == external_id).scalar()
+            document = session.query(DatasetDocument).filter(DatasetDocument.dataset_id == dataset.id).filter(
+                DatasetDocument.external_id == external_id).scalar()
             if document is None:
-                document = Document(content, dataset.id, external_id)
+                document = DatasetDocument(content, dataset.id, external_id)
                 session.add(document)
             else:
                 document.text = content
             dataset.last_updated = datetime.datetime.now()
 
-    def delete_document(self, dataset_name, external_id):
+    def delete_dataset_document(self, dataset_name, external_id):
         with self.session_scope() as session:
             dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
-            session.query(Document).filter(Document.dataset_id == dataset.id).filter(
-                Document.external_id == external_id).delete()
+            session.query(DatasetDocument).filter(DatasetDocument.dataset_id == dataset.id).filter(
+                DatasetDocument.external_id == external_id).delete()
             dataset.last_updated = datetime.datetime.now()
 
     def get_classifier_examples_count(self, name):
@@ -448,21 +440,21 @@ class SQLAlchemyDB(object):
 
     def get_dataset_documents(self, name):
         with self.session_scope() as session:
-            return session.query(Document).order_by(Document.external_id).filter(Dataset.name == name).filter(
-                Document.dataset_id == Dataset.id)
+            return session.query(DatasetDocument).order_by(DatasetDocument.external_id).filter(Dataset.name == name).filter(
+                DatasetDocument.dataset_id == Dataset.id)
 
     def get_dataset_document_by_name(self, datasetname, documentname):
         with self.session_scope() as session:
-            document = session.query(Document).filter(Dataset.name == datasetname).filter(
-                Document.dataset_id == Dataset.id).filter(Document.external_id == documentname).first()
+            document = session.query(DatasetDocument).filter(Dataset.name == datasetname).filter(
+                DatasetDocument.dataset_id == Dataset.id).filter(DatasetDocument.external_id == documentname).first()
             if document is not None:
                 session.expunge(document)
             return document
 
     def get_dataset_document_by_position(self, name, position):
         with self.session_scope() as session:
-            document = session.query(Document).filter(Dataset.name == name).filter(
-                Document.dataset_id == Dataset.id).offset(position).limit(1).scalar()
+            document = session.query(DatasetDocument).filter(Dataset.name == name).filter(
+                DatasetDocument.dataset_id == Dataset.id).offset(position).limit(1).scalar()
             if document is not None:
                 session.expunge(document)
             return document
@@ -581,7 +573,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "0.6.1"
+        return "1.0.1"
 
 
 class DBLock(object):
@@ -601,14 +593,6 @@ class DBLock(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        self.release()
-        return None
-
-    def __enter__(self):
-        self.acquire()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
         self.release()
         return None
 
