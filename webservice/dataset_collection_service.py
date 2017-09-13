@@ -7,7 +7,6 @@ from uuid import uuid4
 
 import cherrypy
 import numpy
-from chardet.universaldetector import UniversalDetector
 from cherrypy.lib.static import serve_file
 
 from db.sqlalchemydb import SQLAlchemyDB, Job
@@ -322,18 +321,10 @@ def _classify_and_write(db, id, X, classifiers, writer):
 
 @logged_call
 def _create_documents(db_connection_string, dataset_name, filename):
-    detector = UniversalDetector()
-    with open(filename, 'rb') as file:
-        for line in file:
-            detector.feed(line)
-            if detector.done:
-                break
-    encoding = detector.result['encoding']
-    cherrypy.log('Encode guessing for uploaded file ' + json.dumps(detector.result), severity=logging.INFO)
     with SQLAlchemyDB(db_connection_string) as db:
         if csv.field_size_limit() < CSV_LARGE_FIELD:
             csv.field_size_limit(CSV_LARGE_FIELD)
-        with open(filename, 'r', encoding=encoding, errors='ignore') as file:
+        with open(filename, 'r', encoding='utf-8', errors='ignore') as file:
             reader = csv.reader(file)
             for row in reader:
                 if len(row) > 1:

@@ -567,7 +567,7 @@ class CommandLine(Cmd):
         datasetname = match.group(1)
         filename = match.group(2)
         with open(filename, mode='r', encoding='utf-8') as infile:
-            pprint(self._sc.dataset_upload(datasetname, filename))
+            pprint(self._sc.dataset_upload(datasetname, infile))
 
     def help_dataset_download(self):
         print('''
