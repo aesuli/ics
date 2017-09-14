@@ -96,7 +96,7 @@ class DatasetDocument(Base):
     dataset = relationship('Dataset', backref='documents')
     text = Column(Text())
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
-    __table_args__ = (UniqueConstraint('dataset_id', 'text'),)
+    __table_args__ = (UniqueConstraint('dataset_id', 'external_id'),)
 
     def __init__(self, text, dataset_id, external_id=None):
         self.text = text
