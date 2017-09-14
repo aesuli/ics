@@ -461,7 +461,7 @@ class SQLAlchemyDB(object):
     def get_dataset_document_by_position(self, name, position):
         with self.session_scope() as session:
             document = session.query(DatasetDocument).filter(Dataset.name == name).filter(
-                DatasetDocument.dataset_id == Dataset.id).offset(position).limit(1).scalar()
+                DatasetDocument.dataset_id == Dataset.id).order_by(DatasetDocument.id).offset(position).limit(1).scalar()
             if document is not None:
                 session.expunge(document)
             return document
