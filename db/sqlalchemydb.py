@@ -472,7 +472,9 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(Job).order_by(Job.creation.desc()).filter(Job.creation > starttime)
 
-    def create_job(self, function, args=(), kwargs={}, description=None):
+    def create_job(self, function, args=(), kwargs=None, description=None):
+        if kwargs is None:
+            kwargs = {}
         with self.session_scope() as session:
             if description is None:
                 description = function.__name__
