@@ -92,7 +92,7 @@ class TrainingDocument(Base):
 
 class DatasetDocument(Base):
     __tablename__ = 'dataset_document'
-    id = Column(Integer(), primary_key=True)
+    id = Column(Integer(), primary_key=True, index=True)
     external_id = Column(String(document_name_length))
     dataset_id = Column(Integer(), ForeignKey('dataset.id', onupdate='CASCADE', ondelete='CASCADE'),
                         nullable=False)
