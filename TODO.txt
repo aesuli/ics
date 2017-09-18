@@ -1,4 +1,6 @@
 TODO
+- use ids rather than names in batch jobs
+- duplicate training sets on db, without reinserting text
 - user authorization
 - file import
     * skip comment lines, i.e., those starting with #
