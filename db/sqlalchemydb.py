@@ -166,6 +166,7 @@ class Lock(Base):
     __tablename__ = 'lock'
     name = Column(String(classifier_name_length + 20), primary_key=True)
     locker = Column(String(40))
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
 
     def __init__(self, name, locker):
         self.name = name
@@ -472,6 +473,10 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(Job).order_by(Job.creation.desc()).filter(Job.creation > starttime)
 
+    def get_locks(self):
+        with self.session_scope() as session:
+            return session.query(Lock).order_by(Lock.creation.desc())
+
     def create_job(self, function, args=(), kwargs=None, description=None):
         if kwargs is None:
             kwargs = {}
@@ -552,6 +557,10 @@ class SQLAlchemyDB(object):
     def delete_job(self, id):
         with self.session_scope() as session:
             session.query(Job).filter(Job.id == id).delete()
+
+    def delete_lock(self, name):
+        with self.session_scope() as session:
+            session.query(Lock).filter(Lock.name == name).delete()
 
     def classification_exists(self, filename):
         with self.session_scope() as session:

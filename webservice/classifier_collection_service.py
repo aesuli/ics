@@ -607,15 +607,6 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
 
 
 @logged_call_with_args
-def _create_model(db_connection_string, name, labels):
-    with SQLAlchemyDB(db_connection_string) as db:
-        with _lock_trainingset(db, name), _lock_model(db, name):
-            if not db.classifier_exists(name):
-                clf = OnlineClassifier(name, labels, average=20)
-                db.create_classifier(name, labels, clf)
-
-
-@logged_call_with_args
 def _duplicate_model(db_connection_string, name, new_name):
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_model(db, new_name):
