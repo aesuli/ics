@@ -115,14 +115,14 @@ ${parent.head()}
                                                 url: "${auth_path}/change_password",
                                                 data: data})
                                             .done(function() {
-                                                change_password_dialog.dialog('close');
+                                                change_password_dialog.dialog('destroy').remove();
                                                 update();})
                                             .fail(function(errMsg) {
                                                 custom_alert(errMsg.responseText);
                                             });
                                         },
                                         'Cancel': function() {
-                                            $(this).dialog('close');
+                                            $(this).dialog('destroy').remove();
                                         }
                                     },
                                   });

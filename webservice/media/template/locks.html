@@ -1,0 +1,91 @@
+<%inherit file="base_with_menu.html" />
+<%block name="head">
+${parent.head()}
+    <script type="text/javascript">
+       update_interval=500
+       delay_interval=500
+        last_update = 0
+        function timed_update() {
+            now = Date.now();
+            if(now-last_update>update_interval)
+                update();
+            setTimeout(timed_update,update_interval);
+        }
+
+        function update() {
+            last_update = Date.now();
+            $.ajax({
+                type:'POST',
+                url:'${jobs_path}/locks',
+                dataType: 'json'})
+            .done(function(msg) {
+                if(msg.length==0) {
+                    $('#lock\\_list').html('<div class="padded ui-widget-header ui-corner-all">No lock</div>');
+                }
+                else {
+                    if($('#gotlock').length==0) {
+                        $('#lock\\_list').html('<div id="gotlock" class="padded ui-widget-header ui-corner-all">Locks:</div>\
+                        <div id="lock" class="table margined ui-widget-content ui-corner-all">\
+                        <div><div>name</div>\
+                        <div>locker</div>\
+                        <div>created</div>\
+                        <div>actions</div>\
+                        </div></div>');
+                    }
+                    var curr_list = {};
+                    $('#lock').children().each(function (index, value) {if(value.id.startsWith('lock_')) { curr_list[value.id]=true;}})
+                    for(var i = 0;i<msg.length;++i) {
+                        item = jQuery('<div id=\'lock_'+msg[i].name.replace(/(\W)/gi,'_')+'\'>\
+                        <div class="name">'+msg[i].name+'</div>\
+                        <div>'+msg[i].locker+'</div>\
+                        <div>'+msg[i].creation+'</div>\
+                        <div><div id="delete_'+msg[i].name.replace(/(\W)/gi,'_')+'">Delete</div></div>\
+                        </div>');
+                        if ($('#lock\\_'+msg[i].name.replace(/(\W)/gi,'_')).length!=0) {
+                            $('#lock\\_'+msg[i].name.replace(/(\W)/gi,'_')).replaceWith(item)
+                            delete curr_list['lock_'+msg[i].name.replace(/(\W)/gi,'_')];
+                        }
+                        else
+                            $('#lock').append(item);
+                        $('#delete\\_'+msg[i].name.replace(/(\W)/gi,'_')).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#delete\\_'+msg[i].name.replace(/(\W)/gi,'_')).click(delete_lock);
+                    }
+                    for (var key in curr_list) {
+                        $('#'+key).remove();
+                    }
+                }
+            });
+        }
+
+        function delete_lock() {
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return;
+            var lock_id = $(this).parent().siblings('.name').text();
+            $('#lock\\_'+lock_id.replace(/(\W)/gi,'_')).hide();
+            $.ajax({
+                type:'POST',
+                url:'${jobs_path}/delete_lock/'+lock_id})
+            .done(update)
+            .fail(function () {
+                    $('#lock\\_'+lock_id.replace(/(\W)/gi,'_')).show();
+            });
+        };
+
+
+        $( document ).ready(function() {
+            //$('#force\\_update').button().click(update);
+            timed_update();
+        });
+    </script>
+</%block>
+<div id="main" class="padded ui-widget ui-widget-content">
+    <div id="sidebar">
+<div class="margined  ui-corner-all ui-widget ui-widget-content" id="actions">
+        </div>
+<!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
+        </div>-->
+        </div>
+    <div id="center">
+        <div id="lock_list" class="margined ui-widget-content suggestion-container"></div>
+    </div>
+</div>

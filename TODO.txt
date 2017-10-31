@@ -16,10 +16,7 @@ TODO
 - richer classifier info
     * estimated accuracy
 - templates (mako)
-    * footer
-    * user info
     * version
-    * packages and licences
 - store source of classification (which user?)
 
 TOMONITOR
@@ -82,6 +79,9 @@ DONE
     * use ids not string for classifiers and classes
 - templates (mako)
     * header
+    * footer
+    * user info
+    * packages and licences
 - "all correct" button
 - use classify, instead of score
 - fix arrays [] passed to cherrypy

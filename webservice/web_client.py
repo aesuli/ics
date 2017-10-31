@@ -112,6 +112,11 @@ class WebClient(object):
         return template.render(**{**self._template_data, **self.session_data()})
 
     @cherrypy.expose
+    def locks(self):
+        template = self._lookup.get_template('locks.html')
+        return template.render(**{**self._template_data, **self.session_data()})
+
+    @cherrypy.expose
     def about(self):
         template = self._lookup.get_template('about.html')
         return template.render(**{**self._template_data, **self.session_data()})

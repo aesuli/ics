@@ -145,10 +145,10 @@ ${parent.head()}
                                             .fail(function(errMsg) {
                                                 custom_alert(errMsg.responseText);
                                             });
-                                            $(this).dialog('close');
+                                            $(this).dialog('destroy').remove();
                                         },
                                         'Cancel': function() {
-                                            $(this).dialog('close');
+                                            $(this).dialog('destroy').remove();
                                         }
                                     },
                                   });

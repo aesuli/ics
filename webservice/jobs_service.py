@@ -48,6 +48,23 @@ class JobsService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
+    def locks(self):
+        lockslist = list()
+        for lock in self._db.get_locks():
+            lockinfo = dict()
+            lockinfo['name'] = lock.name
+            lockinfo['locker'] = lock.locker
+            lockinfo['creation'] = str(lock.creation)
+            lockslist.append(lockinfo)
+        return lockslist
+
+    @cherrypy.expose
+    def delete_lock(self, name):
+        self._db.delete_lock(name)
+        return 'Ok'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
     def job_completed(self, id):
         job_status = self._db.get_job_status(id)
         return job_status == Job.status_done or job_status == Job.status_error or job_status == Job.status_missing
@@ -65,7 +82,7 @@ class JobsService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.2.1 (db: %s)" % self._db.version()
+        return "0.3.1 (db: %s)" % self._db.version()
 
 
 if __name__ == "__main__":
