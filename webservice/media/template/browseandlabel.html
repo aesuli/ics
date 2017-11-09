@@ -103,7 +103,7 @@ ${parent.head()}
                                 }
                                 var skipline = jQuery('<div class="skip ui-corner-all margined morepadded">skip</div>');
                                 skipline.click((function () {
-                                    var classifier_name = msg[i].name;
+                                    var classifier_name = ''+msg[i].name;
                                     return function() {
                                         $('#history').prepend('<span class="agreement">⬅</span>');
                                         var histsize = parseInt($("#histsize").val());
@@ -113,6 +113,29 @@ ${parent.head()}
                                     };
                                 })());
                                 $('#assignments\\_'+msg[i].name).append(skipline);
+
+                                var garbageline = jQuery('<div class="garbage ui-corner-all margined morepadded">garbage</div>');
+                                garbageline.click((function () {
+                                    var classifier_name = ''+msg[i].name;
+                                    return function() {
+                                        $('#history').prepend('<span class="agreement">🗑</span>');
+                                        var histsize = parseInt($("#histsize").val());
+                                        $('#history').children().slice(histsize).remove();
+                                        $.ajax({
+                                            type:'POST',
+                                            url:'${classifier_path}/garbage',
+                                            data: { name: classifier_name, X: [last_text]}})
+                                        .done(function() {
+                                                $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
+                                                check_autobrowse();
+                                            })
+                                        .fail(function(msg) {
+                                                custom_alert(msg);
+                                                $('#suggestions\\_'+classifier_name).show();
+                                            });
+                                    };
+                                })());
+                                $('#assignments\\_'+msg[i].name).append(garbageline);
                             }
                         }
                         $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {

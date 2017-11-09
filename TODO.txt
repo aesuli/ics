@@ -1,4 +1,5 @@
 TODO
+- remove garbage label from counts and listing of examples
 - use ids rather than names in batch jobs
 - duplicate training sets on db, without reinserting text
 - user authorization
@@ -23,6 +24,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- garbage label
 - active auto browsing
 - upload/download of binary classification models
 - split actual job processor from job managing web service interface

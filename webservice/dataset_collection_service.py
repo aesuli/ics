@@ -193,14 +193,9 @@ class DatasetCollectionService(object):
         for position, score in positions_scores:
             text = X[position]
             print(position, score, text)
-            if not self._db.classifier_has_example(classifier_name, text):
-                print('most_uncertain_document_id NEW', position, score, text)
+            if not self._db.classifier_has_example(classifier_name, text, True):
                 return position
-            else:
-                print('most_uncertain_document_id SKIP', position, score, text)
-        position = random.randint(0, len(scores) - 1)
-        print('most_uncertain_document_id RANDOM', position)
-        return position
+        return random.randint(0, len(scores) - 1)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
