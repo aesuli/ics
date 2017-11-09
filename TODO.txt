@@ -23,6 +23,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- active auto browsing
 - upload/download of binary classification models
 - split actual job processor from job managing web service interface
 - python client

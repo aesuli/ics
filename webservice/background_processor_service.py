@@ -12,7 +12,7 @@ from util.util import logged_call
 
 __author__ = 'Andrea Esuli'
 
-LOOP_WAIT = 1
+LOOP_WAIT = 0.1
 
 
 class BackgroundProcessor(Thread):

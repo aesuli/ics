@@ -79,6 +79,7 @@ class Dataset(Base):
     def __init__(self, name):
         self.name = name
 
+
 class TrainingDocument(Base):
     __tablename__ = 'training_document'
     id = Column(Integer(), primary_key=True)
@@ -89,6 +90,7 @@ class TrainingDocument(Base):
     def __init__(self, text):
         self.text = text
         self.md5 = func.md5(text)
+
 
 class DatasetDocument(Base):
     __tablename__ = 'dataset_document'
@@ -321,7 +323,8 @@ class SQLAlchemyDB(object):
                 Label.classifier_id == Classifier.id).filter(
                 Label.name == label).scalar()
 
-            classification = session.query(Classification).filter(Classification.document_id == training_document.id).join(
+            classification = session.query(Classification).filter(
+                Classification.document_id == training_document.id).join(
                 Classification.label).filter(Classifier.name == classifier_name).filter(
                 Label.classifier_id == Classifier.id).scalar()
 
@@ -330,6 +333,11 @@ class SQLAlchemyDB(object):
                 session.add(classification)
             else:
                 classification.label_id = label_id
+
+    def classifier_has_example(self, classifier_name, text):
+        with self.session_scope() as session:
+            return session.query(TrainingDocument).filter(TrainingDocument.md5 == func.md5(text)).filter(
+                Classification.document_id == TrainingDocument.id).filter(Classifier.name == classifier_name).scalar()
 
     def classify(self, classifier_name, X):
         clf = self.get_classifier_model(classifier_name)
@@ -345,6 +353,17 @@ class SQLAlchemyDB(object):
             else:
                 y.append(default_label)
         return y
+
+    def score(self, classifier_name, X):
+        clf = self.get_classifier_model(classifier_name)
+        if clf is None:
+            return [{'dummy': 0} for _ in X]
+        scores = clf.decision_function(X)
+        labels = clf.classes()
+        if labels.shape[0] == 2:
+            return [dict(zip(labels, [-value, value])) for value in scores]
+        else:
+            return [dict(zip(labels, values)) for values in scores]
 
     def get_label(self, classifier_name, content):
         with self.session_scope() as session:
@@ -412,7 +431,7 @@ class SQLAlchemyDB(object):
             except IntegrityError:
                 session.rollback()
                 document = session.query(DatasetDocument).filter(DatasetDocument.dataset_id == dataset.id).filter(
-                DatasetDocument.external_id == external_id).scalar()
+                    DatasetDocument.external_id == external_id).scalar()
                 document.text = content
             dataset.last_updated = datetime.datetime.now()
 
@@ -446,9 +465,16 @@ class SQLAlchemyDB(object):
                 Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
                 Classification.label_id == Label.id).filter(Label.name == label).offset(offset).limit(limit)
 
-    def get_dataset_documents(self, name):
+    def get_dataset_documents_by_name(self, name):
         with self.session_scope() as session:
-            return session.query(DatasetDocument).order_by(DatasetDocument.external_id).filter(Dataset.name == name).filter(
+            return session.query(DatasetDocument).order_by(DatasetDocument.external_id).filter(
+                Dataset.name == name).filter(
+                DatasetDocument.dataset_id == Dataset.id)
+
+    def get_dataset_documents_by_position(self, name):
+        with self.session_scope() as session:
+            return session.query(DatasetDocument).order_by(DatasetDocument.id).filter(
+                Dataset.name == name).filter(
                 DatasetDocument.dataset_id == Dataset.id)
 
     def get_dataset_document_by_name(self, datasetname, documentname):
@@ -462,7 +488,8 @@ class SQLAlchemyDB(object):
     def get_dataset_document_by_position(self, name, position):
         with self.session_scope() as session:
             document = session.query(DatasetDocument).filter(Dataset.name == name).filter(
-                DatasetDocument.dataset_id == Dataset.id).order_by(DatasetDocument.id).offset(position).limit(1).scalar()
+                DatasetDocument.dataset_id == Dataset.id).order_by(DatasetDocument.id).offset(position).limit(
+                1).scalar()
             if document is not None:
                 session.expunge(document)
             return document

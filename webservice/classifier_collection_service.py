@@ -156,6 +156,14 @@ class ClassifierCollectionService(object):
             except KeyError:
                 cherrypy.response.status = 400
                 return 'Must specify a vector of assigned labels (y)'
+
+        try:
+            synchro = data['synchro']
+            if synchro == 'false' or synchro == 'False':
+                synchro = False
+        except KeyError:
+            synchro = False
+
         X = numpy.atleast_1d(X)
         y = numpy.atleast_1d(y)
 
@@ -167,12 +175,17 @@ class ClassifierCollectionService(object):
             cherrypy.response.status = 400
             return 'Must specify the same numbers of strings and labels'
 
-        job_id_model = self._db.create_job(_update_model, (self._db_connection_string, name, X, y),
-                                           description='update model')
-        job_id_training = self._db.create_job(_update_trainingset, (self._db_connection_string, name, X, y),
-                                              description='update training set')
+        if synchro:
+            _update_trainingset, (self._db_connection_string, name, X, y)
+            _update_model(self._db_connection_string, name, X, y)
+            return []
+        else:
+            job_id_model = self._db.create_job(_update_model, (self._db_connection_string, name, X, y),
+                                               description='update model')
+            job_id_training = self._db.create_job(_update_trainingset, (self._db_connection_string, name, X, y),
+                                                  description='update training set')
 
-        return [job_id_model, job_id_training]
+            return [job_id_model, job_id_training]
 
     @cherrypy.expose
     def rename(self, name, new_name, overwrite=False):
@@ -415,13 +428,7 @@ class ClassifierCollectionService(object):
                 cherrypy.response.status = 400
                 return 'Must specify a vector of strings (X)'
         X = numpy.atleast_1d(X)
-        clf = self._db.get_classifier_model(name)
-        scores = clf.decision_function(X)
-        labels = clf.classes()
-        if labels.shape[0] == 2:
-            return [dict(zip(labels, [-value, value])) for value in scores]
-        else:
-            return [dict(zip(labels, values)) for values in scores]
+        return self._db.score(name,X)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
