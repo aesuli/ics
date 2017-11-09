@@ -13,7 +13,7 @@ ${parent.head()}
         }
 
         datasetsize = 1;
-        autobrowsevalues = ['next','prev','off'];
+        autobrowsevalues = ['next','active','prev','off'];
         autobrowse = 0;
         datasetname = 'NULL';
         selected_classifiers = {};
@@ -27,7 +27,7 @@ ${parent.head()}
                 data: { name : datasetname }})
             .done( function (msg) {
                     datasetsize = parseInt(msg);
-                    $('#position').attr('max',datasetsize);
+                    $('#position').attr('max',datasetsize-1);
                     $('#size').text(datasetsize);
             });
 
@@ -76,11 +76,19 @@ ${parent.head()}
                                         var label = ''+msg[i].labels[j];
                                         var classifier_name = ''+msg[i].name;
                                         scoreline.click(function(){
+                                            if($('#suggestion_'+classifier_name+'_'+label).hasClass('assigned')) {
+                                                $('#history').prepend('<span class="agreement">✓</span>');
+                                            }
+                                            else {
+                                                $('#history').prepend('<span class="agreement">✗</span>');
+                                            }
+                                            var histsize = parseInt($("#histsize").val());
+                                            $('#history').children().slice(histsize).remove();
                                             $('#suggestions\\_'+classifier_name).hide();
                                             $.ajax({
                                                 type:'POST',
                                                 url:'${classifier_path}/update',
-                                                data: { name: classifier_name, X: [last_text], y: [label] }})
+                                                data: { name: classifier_name, X: [last_text], y: [label]/*, synchro: autobrowse==1*/ }})
                                             .done(function() {
                                                     $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
                                                     check_autobrowse();
@@ -97,8 +105,11 @@ ${parent.head()}
                                 skipline.click((function () {
                                     var classifier_name = msg[i].name;
                                     return function() {
+                                        $('#history').prepend('<span class="agreement">⬅</span>');
+                                        var histsize = parseInt($("#histsize").val());
+                                        $('#history').children().slice(histsize).remove();
                                         $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
-                                        check_autobrowse();
+                                        check_autobrowse(true);
                                     };
                                 })());
                                 $('#assignments\\_'+msg[i].name).append(skipline);
@@ -132,21 +143,26 @@ ${parent.head()}
         }
 
         function use() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
-            var item = $('#use\\_button\\_'+classifier_name);
-            if(item.hasClass('ui-state-focus')) {
-                item.removeClass('ui-state-focus');
-                item.button({icons: {primary :'ui-icon-plus'}});
-                delete selected_classifiers[classifier_name];
-                $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
-                check_autobrowse();
+            if(autobrowse==1) {
+                custom_alert("The selected classifier cannot be changed when using active auto browsing.");
             }
             else {
-                item.addClass('ui-state-focus');
-                item.button({icons: {primary :'ui-icon-check'}});
-                selected_classifiers[classifier_name] = true;
-                $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
-                classify(true);
+                var classifier_name = $(this).siblings('.classifier\\_name').text();
+                var item = $('#use\\_button\\_'+classifier_name);
+                if(item.hasClass('ui-state-focus')) {
+                    item.removeClass('ui-state-focus');
+                    item.button({icons: {primary :'ui-icon-plus'}});
+                    delete selected_classifiers[classifier_name];
+                    $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
+                    check_autobrowse();
+                }
+                else {
+                    item.addClass('ui-state-focus');
+                    item.button({icons: {primary :'ui-icon-check'}});
+                    selected_classifiers[classifier_name] = true;
+                    $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
+                    classify(true);
+                }
             }
         }
 
@@ -200,17 +216,17 @@ ${parent.head()}
         function position_changed() {
             var position = parseInt($("#position").val());
             if(isNaN(position))
-                position = 1;
-            if(position>datasetsize)
-                position = datasetsize;
+                position = 0;
+            if(position>=datasetsize)
+                position = datasetsize-1;
                 $("#position").val(position);
-            if(position<=0)
-                position = 1;
+            if(position<0)
+                position = 0;
 
             $.ajax({
                 type:'POST',
                 url:'${dataset_path}/document_by_position',
-                data: { name: datasetname , position: position-1 },
+                data: { name: datasetname , position: position },
                 dataType: 'json'})
             .done(function(msg) {
                 $('#external-id').text(msg['external_id']);
@@ -220,30 +236,59 @@ ${parent.head()}
         }
 
         function goto_first() {
-                $('#position').val(1).change();
+                $('#position').val(0).change();
         }
 
         function goto_last() {
-                $('#position').val(datasetsize).change();
+                $('#position').val(datasetsize-1).change();
         }
 
         function change_autobrowse() {
             autobrowse += 1;
             if(autobrowse>= autobrowsevalues.length)
                 autobrowse = 0;
+            if(autobrowse==1) {
+                if($('#suggestions .suggestion').length!=1) {
+                    custom_alert("Active auto browse can be used only when exactly one classifier is selected");
+                    autobrowse = 0;
+                }
+            }
             $('#direction').text(autobrowsevalues[autobrowse]);
         }
 
         function check_autobrowse() {
+            check_autobrowse(false);
+        }
+
+        function check_autobrowse(fromSkip) {
             if($('#suggestions .suggestion').length==0 && $('#classifiers\\_list div div.ui-state-focus').length>0) {
-                if(autobrowse==0)
+                if(autobrowse==0) {
                     var newposition = parseInt($("#position").val())+1;
                     if(newposition<=datasetsize)
                         $('#position').val(newposition).change();
-                if(autobrowse==1)
+                }
+                else if(autobrowse==2) {
                     var newposition = parseInt($("#position").val())-1;
                     if(newposition>0)
                         $('#position').val(newposition).change();
+                }
+                else if(autobrowse==1) {
+                    if(fromSkip) {
+                        var newposition = Math.floor(Math.random() * datasetsize);
+                        $('#position').val(newposition).change();
+                    }
+                    else {
+                        $.ajax({
+                            type:'POST',
+                            url:'${dataset_path}/most_uncertain_document_id',
+                            data: { dataset_name: datasetname , classifier_name: 'sentiment' },
+                            dataType: 'json'})
+                        .done(function(msg) {
+                            var newposition = parseInt(msg);
+                            $('#position').val(newposition).change();
+                        });
+                    }
+                }
             }
         }
 
@@ -315,7 +360,7 @@ ${parent.head()}
                 <div class="right" id="browse_autobrowse">Auto browse: <span id='direction'>NULL</span></div>
                 <div class="right" id="browse_last">Last</div>
                 <div class="right" id="browse_first">First</div>
-                <div class="ui-button">Current: <input id='position' type="number" min=1 max=1 value=1>/<span id="size">NULL</span></div>
+                <div class="ui-button">Current: <input id='position' type="number" min=0 max=0 value=0>/<span id="size">NULL</span></div>
                 <div class="margined">ID: <span id="external-id">NULL</span></div>
                 <div class="margined">Uploaded: <span id="uploaded">NULL</span></div>
             </div>
@@ -323,6 +368,9 @@ ${parent.head()}
         <div>
         <div class="padded ui-widget-header ui-corner-all">Classify text:</div>
             <textarea id="textbox" class="textbox margined" placeholder="Text to code"></textarea>
+            <div id="historybox" class="margined padded ui-widget-content suggestion-container">
+                Agreement history (last <input id="histsize" type="number" min="10" max="500" value="20">): <div id="history"></div>
+            </div>
             <div id="suggestions" class="margined padded ui-widget-content suggestion-container"></div>
             <div id="pool" style="display:none;"></div>
         </div>

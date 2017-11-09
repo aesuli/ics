@@ -18,7 +18,8 @@ class WebClient(object):
                                'dataset_path': dataset_path,
                                'jobs_path': jobs_path,
                                'name': name}
-        self._lookup = TemplateLookup(os.path.join(media_dir, 'template'))
+        self._lookup = TemplateLookup(os.path.join(media_dir, 'template'), input_encoding='utf-8',
+                                      output_encoding='utf-8')
 
     def get_config(self):
         return {

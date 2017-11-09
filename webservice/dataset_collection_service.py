@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+import random
 import shutil
 from uuid import uuid4
 
@@ -128,7 +129,7 @@ class DatasetCollectionService(object):
             try:
                 with open(fullpath, 'w') as file:
                     writer = csv.writer(file, lineterminator='\n')
-                    for document in self._db.get_dataset_documents(name):
+                    for document in self._db.get_dataset_documents_by_name(name):
                         writer.writerow([document.external_id, document.text])
             except:
                 os.unlink(fullpath)
@@ -176,6 +177,30 @@ class DatasetCollectionService(object):
         else:
             cherrypy.response.status = 404
             return 'Position %i does not exits in \'%s\'' % (position, name)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def most_uncertain_document_id(self, dataset_name, classifier_name):
+        X = list()
+        for doc in self._db.get_dataset_documents_by_position(dataset_name):
+            X.append(doc.text)
+        scores = self._db.score(classifier_name, X)
+        positions_scores = list()
+        #TODO multiclass
+        for i, dict_ in enumerate(scores):
+            positions_scores.append((i, min([abs(v) for v in dict_.values()])))
+        positions_scores.sort(key=lambda x: x[1])
+        for position, score in positions_scores:
+            text = X[position]
+            print(position, score, text)
+            if not self._db.classifier_has_example(classifier_name, text):
+                print('most_uncertain_document_id NEW', position, score, text)
+                return position
+            else:
+                print('most_uncertain_document_id SKIP', position, score, text)
+        position = random.randint(0, len(scores) - 1)
+        print('most_uncertain_document_id RANDOM', position)
+        return position
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -283,7 +308,7 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
 
                 X = list()
                 id = list()
-                for document in db.get_dataset_documents(datasetname):
+                for document in db.get_dataset_documents_by_name(datasetname):
                     id.append(document.external_id)
                     X.append(document.text)
                     if len(X) >= MAX_BATCH_SIZE:
