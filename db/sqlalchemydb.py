@@ -57,6 +57,7 @@ class Classifier(Base):
 
 class Label(Base):
     __tablename__ = 'label'
+    GARBAGE_LABEL = '__garbage_label'
     id = Column(Integer(), primary_key=True)
     name = Column(String(label_name_length), nullable=False)
     classifier_id = Column(Integer(), ForeignKey('classifier.id', onupdate="CASCADE", ondelete="CASCADE"),
@@ -268,6 +269,8 @@ class SQLAlchemyDB(object):
             for label in labels:
                 label_obj = Label(label, classifier.id)
                 session.add(label_obj)
+            label_obj = Label(Label.GARBAGE_LABEL, classifier.id)
+            session.add(label_obj)
 
     def get_classifier_model(self, name):
         with self.session_scope() as session:
@@ -275,8 +278,10 @@ class SQLAlchemyDB(object):
 
     def get_classifier_labels(self, name):
         with self.session_scope() as session:
-            return list(x for (x,) in session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
+            labels = list(x for (x,) in session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
                 Classifier.name == name))
+            labels.remove(Label.GARBAGE_LABEL)
+            return labels
 
     def get_classifier_creation_time(self, name):
         with self.session_scope() as session:
@@ -334,8 +339,11 @@ class SQLAlchemyDB(object):
             else:
                 classification.label_id = label_id
 
-    def classifier_has_example(self, classifier_name, text):
-        with self.session_scope() as session:
+    def mark_as_garbage(self, classifier_name, content):
+        self.create_training_example(classifier_name, content, Label.GARBAGE_LABEL)
+
+    def classifier_has_example(self, classifier_name, text, include_garbage):
+        with self.session_scope() as session: # TODO skip garbage
             return session.query(TrainingDocument).filter(TrainingDocument.md5 == func.md5(text)).filter(
                 Classification.document_id == TrainingDocument.id).filter(Classifier.name == classifier_name).scalar()
 
@@ -346,7 +354,7 @@ class SQLAlchemyDB(object):
             default_label = self.get_classifier_labels(classifier_name)[0]
         for x in X:
             label = self.get_label(classifier_name, x)
-            if label is not None:
+            if label is not None and label != Label.GARBAGE_LABEL:
                 y.append(label)
             elif clf is not None:
                 y.append(clf.predict([x])[0])
@@ -442,8 +450,8 @@ class SQLAlchemyDB(object):
                 DatasetDocument.external_id == external_id).delete()
             dataset.last_updated = datetime.datetime.now()
 
-    def get_classifier_examples_count(self, name):
-        with self.session_scope() as session:
+    def get_classifier_examples_count(self, name, include_garbage=False):
+        with self.session_scope() as session: # TODO skip garbage
             return session.query(Classification.id).filter(Classifier.name == name).filter(
                 Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).count()
 
@@ -453,8 +461,8 @@ class SQLAlchemyDB(object):
                 Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).filter(
                 Label.name == label).count()
 
-    def get_classifier_examples(self, name, offset=0, limit=None):
-        with self.session_scope() as session:
+    def get_classifier_examples(self, name, offset=0, limit=None, include_garbage=False):
+        with self.session_scope() as session: # TODO skip garbage
             return session.query(Classification).order_by(Classification.creation).filter(
                 Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
                 Classification.label_id == Label.id).offset(offset).limit(limit)

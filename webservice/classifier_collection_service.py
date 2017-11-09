@@ -25,6 +25,7 @@ NO_LABEL = 'no'
 BINARY_LABELS = {YES_LABEL, NO_LABEL}
 CSV_LARGE_FIELD = 1024 * 1024 * 10
 
+
 class ClassifierCollectionService(object):
     def __init__(self, db_connection_string, data_dir):
         self._db_connection_string = db_connection_string
@@ -176,7 +177,7 @@ class ClassifierCollectionService(object):
             return 'Must specify the same numbers of strings and labels'
 
         if synchro:
-            _update_trainingset, (self._db_connection_string, name, X, y)
+            _update_trainingset(self._db_connection_string, name, X, y)
             _update_model(self._db_connection_string, name, X, y)
             return []
         else:
@@ -186,6 +187,30 @@ class ClassifierCollectionService(object):
                                                   description='update training set')
 
             return [job_id_model, job_id_training]
+
+    @cherrypy.expose
+    def garbage(self, **data):
+        try:
+            name = data['name']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a name'
+        try:
+            X = data['X']
+        except KeyError:
+            try:
+                X = data['X[]']
+            except KeyError:
+                cherrypy.response.status = 400
+                return 'Must specify a vector of strings (X)'
+
+        X = numpy.atleast_1d(X)
+
+        name = str.strip(name)
+        X = numpy.asanyarray([x.strip() for x in X])
+        for x in X:
+            self._db.mark_as_garbage(name, x)
+        return 'Ok'
 
     @cherrypy.expose
     def rename(self, name, new_name, overwrite=False):
@@ -428,7 +453,7 @@ class ClassifierCollectionService(object):
                 cherrypy.response.status = 400
                 return 'Must specify a vector of strings (X)'
         X = numpy.atleast_1d(X)
-        return self._db.score(name,X)
+        return self._db.score(name, X)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

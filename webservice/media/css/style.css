@@ -138,7 +138,12 @@ div .table   {
     background-image: none;
 }
 
- .skip {
+.skip {
+    background-color: lightcyan;
+    background-image: none;
+}
+
+.garbage {
     background-color: lightgray;
     background-image: none;
 }
