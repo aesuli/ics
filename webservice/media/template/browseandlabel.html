@@ -13,9 +13,30 @@ ${parent.head()}
         }
 
         datasetsize = 1;
-        autobrowsevalues = ['next','active','prev','off'];
+
+        single = 'single';
+        multi = 'multi';
+
+        browse_next = 'move to next';
+        browse_prev = 'move to previous';
+        browse_diff = 'active on difficult decisions';
+        browse_easy = 'active on easy decisions';
+        browse_hidden = 'cycle on hidden ones';
+        browse_random = 'random';
+        browse_off = 'off';
+
+        autobrowsevalues = [
+            [browse_next,multi],
+            [browse_diff,single],
+            [browse_easy,single],
+            [browse_hidden,single],
+            [browse_random,multi],
+            [browse_prev,multi],
+            [browse_off,multi]
+        ];
+
         autobrowse = 0;
-        datasetname = 'NULL';
+        dataset_name = 'NULL';
         selected_classifiers = {};
 
         function update() {
@@ -24,7 +45,7 @@ ${parent.head()}
             $.ajax({
                 type: 'POST',
                 url: '${dataset_path}/size',
-                data: { name : datasetname }})
+                data: { name : dataset_name }})
             .done( function (msg) {
                     datasetsize = parseInt(msg);
                     $('#position').attr('max',datasetsize-1);
@@ -71,16 +92,16 @@ ${parent.head()}
                                 var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all">'+msg[i].name+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
                                 suggestion_div.appendTo('#pool');
                                 for(var j = 0;j<msg[i].labels.length;++j) {
-                                    var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
+                                    var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="pointer scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
                                     (function() {
                                         var label = ''+msg[i].labels[j];
                                         var classifier_name = ''+msg[i].name;
                                         scoreline.click(function(){
                                             if($('#suggestion_'+classifier_name+'_'+label).hasClass('assigned')) {
-                                                $('#history').prepend('<span class="agreement">✓</span>');
+                                                $('#history').prepend('<span class="agreement" style="color:lightgreen;">✓</span>');
                                             }
                                             else {
-                                                $('#history').prepend('<span class="agreement">✗</span>');
+                                                $('#history').prepend('<span class="agreement" style="color:red;">✗</span>');
                                             }
                                             var histsize = parseInt($("#histsize").val());
                                             $('#history').children().slice(histsize).remove();
@@ -88,7 +109,7 @@ ${parent.head()}
                                             $.ajax({
                                                 type:'POST',
                                                 url:'${classifier_path}/update',
-                                                data: { name: classifier_name, X: [last_text], y: [label]/*, synchro: autobrowse==1*/ }})
+                                                data: { name: classifier_name, X: [last_text], y: [label]/*, synchro: autobrowsevalues[autobrowse][1]==single*/ }})
                                             .done(function() {
                                                     $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
                                                     check_autobrowse();
@@ -101,11 +122,11 @@ ${parent.head()}
                                     }());
                                     $('#assignments\\_'+msg[i].name).append(scoreline);
                                 }
-                                var skipline = jQuery('<div class="skip ui-corner-all margined morepadded">skip</div>');
+                                var skipline = jQuery('<div class="pointer skip ui-corner-all margined morepadded">skip</div>');
                                 skipline.click((function () {
                                     var classifier_name = ''+msg[i].name;
                                     return function() {
-                                        $('#history').prepend('<span class="agreement">⬅</span>');
+                                        $('#history').prepend('<span class="agreement" style="color:blue;">⬅</span>');
                                         var histsize = parseInt($("#histsize").val());
                                         $('#history').children().slice(histsize).remove();
                                         $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
@@ -114,8 +135,8 @@ ${parent.head()}
                                 })());
                                 $('#assignments\\_'+msg[i].name).append(skipline);
 
-                                var garbageline = jQuery('<div class="garbage ui-corner-all margined morepadded">garbage</div>');
-                                garbageline.click((function () {
+                                var hideline = jQuery('<div class="pointer hide ui-corner-all margined morepadded">hide</div>');
+                                hideline.click((function () {
                                     var classifier_name = ''+msg[i].name;
                                     return function() {
                                         $('#history').prepend('<span class="agreement">🗑</span>');
@@ -123,7 +144,7 @@ ${parent.head()}
                                         $('#history').children().slice(histsize).remove();
                                         $.ajax({
                                             type:'POST',
-                                            url:'${classifier_path}/garbage',
+                                            url:'${classifier_path}/hide',
                                             data: { name: classifier_name, X: [last_text]}})
                                         .done(function() {
                                                 $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
@@ -135,7 +156,7 @@ ${parent.head()}
                                             });
                                     };
                                 })());
-                                $('#assignments\\_'+msg[i].name).append(garbageline);
+                                $('#assignments\\_'+msg[i].name).append(hideline);
                             }
                         }
                         $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
@@ -166,8 +187,8 @@ ${parent.head()}
         }
 
         function use() {
-            if(autobrowse==1) {
-                custom_alert("The selected classifier cannot be changed when using active auto browsing.");
+            if(autobrowsevalues[autobrowse][1]==single) {
+                custom_alert("The selected classifier cannot be changed when using an active auto browsing function.");
             }
             else {
                 var classifier_name = $(this).siblings('.classifier\\_name').text();
@@ -249,7 +270,7 @@ ${parent.head()}
             $.ajax({
                 type:'POST',
                 url:'${dataset_path}/document_by_position',
-                data: { name: datasetname , position: position },
+                data: { name: dataset_name , position: position },
                 dataType: 'json'})
             .done(function(msg) {
                 $('#external-id').text(msg['external_id']);
@@ -270,32 +291,38 @@ ${parent.head()}
             autobrowse += 1;
             if(autobrowse>= autobrowsevalues.length)
                 autobrowse = 0;
-            if(autobrowse==1) {
+            if(autobrowsevalues[autobrowse][1]==single) {
                 if($('#suggestions .suggestion').length!=1) {
                     custom_alert("Active auto browse can be used only when exactly one classifier is selected");
                     autobrowse = 0;
                 }
             }
-            $('#direction').text(autobrowsevalues[autobrowse]);
+            $('#direction').text(autobrowsevalues[autobrowse][0]);
         }
 
         function check_autobrowse() {
             check_autobrowse(false);
         }
 
+
         function check_autobrowse(fromSkip) {
             if($('#suggestions .suggestion').length==0 && $('#classifiers\\_list div div.ui-state-focus').length>0) {
-                if(autobrowse==0) {
+                var classifier_name = $('#classifiers\\_list div div.ui-state-focus').siblings('.classifier\\_name').text();
+                if(autobrowsevalues[autobrowse][0]==browse_next) {
                     var newposition = parseInt($("#position").val())+1;
                     if(newposition<=datasetsize)
                         $('#position').val(newposition).change();
                 }
-                else if(autobrowse==2) {
+                else if(autobrowsevalues[autobrowse][0]==browse_prev) {
                     var newposition = parseInt($("#position").val())-1;
                     if(newposition>0)
                         $('#position').val(newposition).change();
                 }
-                else if(autobrowse==1) {
+                else if(autobrowsevalues[autobrowse][0]==browse_random) {
+                    var newposition = Math.floor(Math.random() * datasetsize);
+                    $('#position').val(newposition).change();
+                }
+                else if(autobrowsevalues[autobrowse][0]==browse_diff) {
                     if(fromSkip) {
                         var newposition = Math.floor(Math.random() * datasetsize);
                         $('#position').val(newposition).change();
@@ -304,23 +331,57 @@ ${parent.head()}
                         $.ajax({
                             type:'POST',
                             url:'${dataset_path}/most_uncertain_document_id',
-                            data: { dataset_name: datasetname , classifier_name: 'sentiment' },
+                            data: { dataset_name: dataset_name , classifier_name: classifier_name },
                             dataType: 'json'})
                         .done(function(msg) {
                             var newposition = parseInt(msg);
                             $('#position').val(newposition).change();
-                        });
+                        })            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
+            });;
                     }
+                }
+                else if(autobrowsevalues[autobrowse][0]==browse_easy) {
+                    if(fromSkip) {
+                        var newposition = Math.floor(Math.random() * datasetsize);
+                        $('#position').val(newposition).change();
+                    }
+                    else {
+                        $.ajax({
+                            type:'POST',
+                            url:'${dataset_path}/most_certain_document_id',
+                            data: { dataset_name: dataset_name , classifier_name: classifier_name },
+                            dataType: 'json'})
+                        .done(function(msg) {
+                            var newposition = parseInt(msg);
+                            $('#position').val(newposition).change();
+                        })            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
+            });;
+                    }
+                }
+                else if(autobrowsevalues[autobrowse][0]==browse_hidden) {
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/random_hidden_document_id',
+                        data: { dataset_name: dataset_name , classifier_name: classifier_name},
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
+                        $('#position').val(newposition).change();
+                    })            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
+            });;
                 }
             }
         }
 
         $( document ).ready(function() {
             var pathname = window.location.pathname;
-            datasetname = pathname.substring(pathname.lastIndexOf('/')+1)
-            $('#datasetname').text(datasetname);
+            dataset_name = pathname.substring(pathname.lastIndexOf('/')+1)
+            $('#datasetname').text(dataset_name);
 
-            $('#direction').text(autobrowsevalues[autobrowse]);
+            $('#direction').text(autobrowsevalues[autobrowse][0]);
 
             $("#textbox").on("keyup",function() {
                 text = $("#textbox").val();

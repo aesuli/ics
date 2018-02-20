@@ -43,3 +43,17 @@ def logged_call_with_args(function):
             cherrypy.log("Returned %s" % call_str, severity=logging.INFO)
         return ret
     return decorated
+
+def logged_call(function):
+    @functools.wraps(function)
+    def decorated(*args, **kwargs):
+        cherrypy.log("Calling %s" % function.__name__, severity=logging.INFO)
+        try:
+            ret = function(*args, **kwargs)
+        except Exception as e:
+            cherrypy.log("Error from %s: %s" % (function.__name__, e), severity=logging.ERROR, traceback=True)
+            raise e
+        else:
+            cherrypy.log("Returned %s" % function.__name__, severity=logging.INFO)
+        return ret
+    return decorated

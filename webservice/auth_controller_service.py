@@ -55,8 +55,27 @@ def require(*conditions):
 #     return check
 
 
-def name_is(reqd_username):
-    return lambda: reqd_username == cherrypy.request.login
+def must_be_logged_in():
+    def check():
+        return cherrypy.session.get(SESSION_KEY) is not None
+
+    return check
+
+
+def must_be_logged_in_or_redirect(redirect_path):
+    def check():
+        if cherrypy.session.get(SESSION_KEY) is None:
+            raise cherrypy.HTTPRedirect(redirect_path)
+        return True
+
+    return check
+
+
+def name_is(required_username):
+    def check():
+        return lambda: required_username == cherrypy.request.login
+
+    return check
 
 
 def any_of(*conditions):
