@@ -189,7 +189,7 @@ class ClassifierCollectionService(object):
             return [job_id_model, job_id_training]
 
     @cherrypy.expose
-    def garbage(self, **data):
+    def hide(self, **data):
         try:
             name = data['name']
         except KeyError:
@@ -209,7 +209,7 @@ class ClassifierCollectionService(object):
         name = str.strip(name)
         X = numpy.asanyarray([x.strip() for x in X])
         for x in X:
-            self._db.mark_as_garbage(name, x)
+            self._db.mark_classifier_text_as_hidden(name, x)
         return 'Ok'
 
     @cherrypy.expose
@@ -581,7 +581,7 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.6.1 (db: %s)" % self._db.version()
+        return "0.7.1 (db: %s)" % self._db.version()
 
 
 @logged_call

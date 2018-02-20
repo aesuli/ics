@@ -6,16 +6,18 @@ import shutil
 from uuid import uuid4
 
 import cherrypy
-import numpy
+import numpy as np
 from cherrypy.lib.static import serve_file
 
-from db.sqlalchemydb import SQLAlchemyDB, Job
+from db.sqlalchemydb import SQLAlchemyDB, Job, Label
 from util.util import get_fully_portable_file_name, logged_call
 
 __author__ = 'Andrea Esuli'
 
 MAX_BATCH_SIZE = 1000
 CSV_LARGE_FIELD = 1024 * 1024 * 10
+
+QUICK_CLASSIFICATION_BATCH_SIZE = 1000
 
 
 class DatasetCollectionService(object):
@@ -178,24 +180,65 @@ class DatasetCollectionService(object):
             cherrypy.response.status = 404
             return 'Position %i does not exits in \'%s\'' % (position, name)
 
+    def _softmax(self, x):
+        return np.exp(x) / np.sum(np.exp(x))
+
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def most_uncertain_document_id(self, dataset_name, classifier_name):
+        dataset_size = self._db.get_dataset_size(dataset_name)
+        offset = random.randint(0,dataset_size-QUICK_CLASSIFICATION_BATCH_SIZE)
         X = list()
-        for doc in self._db.get_dataset_documents_by_position(dataset_name):
+        for doc in self._db.get_dataset_documents_by_position(dataset_name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
-        #TODO multiclass
         for i, dict_ in enumerate(scores):
-            positions_scores.append((i, min([abs(v) for v in dict_.values()])))
+            probs = self._softmax(list(dict_.values()))
+            probs.sort()
+            diff = probs[-1] - probs[-2]
+            positions_scores.append((i, diff))
         positions_scores.sort(key=lambda x: x[1])
         for position, score in positions_scores:
             text = X[position]
-            print(position, score, text)
             if not self._db.classifier_has_example(classifier_name, text, True):
-                return position
-        return random.randint(0, len(scores) - 1)
+                return offset+position
+        return random.randint(0, dataset_size - 1)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def most_certain_document_id(self, dataset_name, classifier_name):
+        dataset_size = self._db.get_dataset_size(dataset_name)
+        offset = random.randint(0,dataset_size-QUICK_CLASSIFICATION_BATCH_SIZE)
+        X = list()
+        for doc in self._db.get_dataset_documents_by_position(dataset_name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
+            X.append(doc.text)
+        scores = self._db.score(classifier_name, X)
+        positions_scores = list()
+        for i, dict_ in enumerate(scores):
+            probs = self._softmax(list(dict_.values()))
+            probs.sort()
+            diff = probs[-1] - probs[-2]
+            positions_scores.append((i, diff))
+        positions_scores.sort(key=lambda x: -x[1])
+        for position, score in positions_scores:
+            text = X[position]
+            if not self._db.classifier_has_example(classifier_name, text, True):
+                return offset+position
+        return random.randint(0, dataset_size - 1)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def random_hidden_document_id(self, dataset_name, classifier_name):
+        document_ids = [document_id for document_id in
+                     self._db.get_dataset_documents_with_label(dataset_name, classifier_name, Label.HIDDEN_LABEL)]
+        if document_ids:
+            document_id = random.choice(document_ids)
+            position = self._db.get_dataset_document_position_by_id(dataset_name,document_id)
+            return position
+        else:
+            cherrypy.response.status = 400
+            return f'No hidden documents in dataset \'{dataset_name}\' for classifier \'{classifier_name}\''
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -213,7 +256,7 @@ class DatasetCollectionService(object):
             except KeyError:
                 cherrypy.response.status = 400
                 return 'Must specify a vector of names of classifiers'
-        classifiers = numpy.atleast_1d(classifiers).tolist()
+        classifiers = np.atleast_1d(classifiers).tolist()
 
         last_update_time = self._db.get_most_recent_classifier_update_time(classifiers)
         dataset_update_time = self._db.get_dataset_last_update_time(datasetname)
@@ -282,7 +325,7 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.3.1 (db: %s)" % self._db.version()
+        return "1.1.1 (db: %s)" % self._db.version()
 
 
 @logged_call

@@ -128,6 +128,10 @@ div .table   {
     padding: 2px;
 }
 
+.pointer {
+    cursor: pointer;
+}
+
 .assigned {
     background-color: lightgreen;
     background-image: none;
@@ -143,7 +147,7 @@ div .table   {
     background-image: none;
 }
 
-.garbage {
+.hide {
     background-color: lightgray;
     background-image: none;
 }

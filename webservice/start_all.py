@@ -4,12 +4,14 @@ import sys
 import cherrypy
 from configargparse import ArgParser
 
-from webservice.auth_controller_service import AuthControllerService, SESSION_KEY
+from webservice.auth_controller_service import AuthControllerService, must_be_logged_in_or_redirect, \
+    must_be_logged_in, any_of
 from webservice.background_processor_service import BackgroundProcessor
 from webservice.classifier_collection_service import ClassifierCollectionService
+from webservice.dataset_collection_service import DatasetCollectionService
+from webservice.ip_controller_service import ip_rate_limit
 from webservice.jobs_service import JobsService
 from webservice.web_client import WebClient
-from webservice.dataset_collection_service import DatasetCollectionService
 
 __author__ = 'Andrea Esuli'
 
@@ -34,7 +36,8 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[1:])
 
     with BackgroundProcessor(args.db_connection_string) as background_processor, \
-            WebClient(args.db_connection_string, args.media_dir, args.auth_path, args.classifier_path, args.dataset_path,
+            WebClient(args.db_connection_string, args.media_dir, args.auth_path, args.classifier_path,
+                      args.dataset_path,
                       args.jobs_path, args.name) as client, \
             ClassifierCollectionService(args.db_connection_string, args.data_dir) as classifier_service, \
             DatasetCollectionService(args.db_connection_string, args.data_dir) as dataset_service, \
@@ -45,26 +48,19 @@ if __name__ == "__main__":
         cherrypy.server.socket_host = args.host
         cherrypy.server.socket_port = args.port
 
-        def must_be_logged_in():
-            return cherrypy.session.get(SESSION_KEY) is not None
-
-        def must_be_logged_in_or_redirect():
-            if cherrypy.session.get(SESSION_KEY) is None:
-                raise cherrypy.HTTPRedirect(args.client_path+'login')
-            return True
-
         conf_client = {
             '/': {
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
-                'tools.icsauth.require': [must_be_logged_in_or_redirect],
+                'tools.icsauth.require': [
+                    any_of(ip_rate_limit(), must_be_logged_in_or_redirect(args.client_path + 'login'))],
             },
         }
         conf_service = {
             '/': {
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
-                'tools.icsauth.require': [must_be_logged_in],
+                'tools.icsauth.require': [any_of(ip_rate_limit(), must_be_logged_in())],
             },
         }
 

@@ -18,10 +18,33 @@ __author__ = 'Andrea Esuli'
 Base = declarative_base()
 
 classifier_name_length = 100
+ipaddress_length = 45
 label_name_length = 50
 dataset_name_length = 100
 document_name_length = 100
 salt_length = 20
+
+
+class IPTracker(Base):
+    __tablename__ = 'iptracker'
+    id = Column(Integer(), primary_key=True)
+    ip = Column(String(ipaddress_length), unique=True)
+    max_requests = Column(Integer())
+    request_counter = Column(Integer(), default=0)
+    counter_time_span = Column(Integer(), default=int(time.time() / 3600))
+
+    def __init__(self, ip, max_requests):
+        self.ip = ip.strip()
+        self.max_requests = max_requests
+
+    def check_and_count_request(self, cost=1):
+        current_time_span = int(time.time() / 3600)
+        if self.counter_time_span < current_time_span:
+            self.request_counter = cost
+        else:
+            self.requests_counter += cost
+        self.counter_time_span = current_time_span
+        return self.request_counter <= self.max_requests
 
 
 class User(Base):
@@ -57,7 +80,7 @@ class Classifier(Base):
 
 class Label(Base):
     __tablename__ = 'label'
-    GARBAGE_LABEL = '__garbage_label'
+    HIDDEN_LABEL = '__hidden_label'
     id = Column(Integer(), primary_key=True)
     name = Column(String(label_name_length), nullable=False)
     classifier_id = Column(Integer(), ForeignKey('classifier.id', onupdate="CASCADE", ondelete="CASCADE"),
@@ -101,11 +124,13 @@ class DatasetDocument(Base):
                         nullable=False)
     dataset = relationship('Dataset', backref='documents')
     text = Column(Text())
+    md5 = Column(Text(), index=True)
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
     __table_args__ = (UniqueConstraint('dataset_id', 'external_id'),)
 
     def __init__(self, text, dataset_id, external_id=None):
         self.text = text
+        self.md5 = func.md5(text)
         self.dataset_id = dataset_id
         self.external_id = external_id
 
@@ -269,7 +294,7 @@ class SQLAlchemyDB(object):
             for label in labels:
                 label_obj = Label(label, classifier.id)
                 session.add(label_obj)
-            label_obj = Label(Label.GARBAGE_LABEL, classifier.id)
+            label_obj = Label(Label.HIDDEN_LABEL, classifier.id)
             session.add(label_obj)
 
     def get_classifier_model(self, name):
@@ -280,7 +305,7 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             labels = list(x for (x,) in session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
                 Classifier.name == name))
-            labels.remove(Label.GARBAGE_LABEL)
+            labels.remove(Label.HIDDEN_LABEL)
             return labels
 
     def get_classifier_creation_time(self, name):
@@ -339,13 +364,21 @@ class SQLAlchemyDB(object):
             else:
                 classification.label_id = label_id
 
-    def mark_as_garbage(self, classifier_name, content):
-        self.create_training_example(classifier_name, content, Label.GARBAGE_LABEL)
+    def mark_classifier_text_as_hidden(self, classifier_name, content):
+        self.create_training_example(classifier_name, content, Label.HIDDEN_LABEL)
 
-    def classifier_has_example(self, classifier_name, text, include_garbage):
-        with self.session_scope() as session: # TODO skip garbage
-            return session.query(TrainingDocument).filter(TrainingDocument.md5 == func.md5(text)).filter(
-                Classification.document_id == TrainingDocument.id).filter(Classifier.name == classifier_name).scalar()
+    def classifier_has_example(self, classifier_name, text, include_hidden):
+        if include_hidden:
+            with self.session_scope() as session:
+                return session.query(TrainingDocument).filter(TrainingDocument.md5 == func.md5(text)).filter(
+                    Classification.document_id == TrainingDocument.id).filter(
+                    Classifier.name == classifier_name).scalar()
+        else:
+            with self.session_scope() as session:
+                return session.query(TrainingDocument).filter(TrainingDocument.md5 == func.md5(text)).filter(
+                    Classification.document_id == TrainingDocument.id).filter(
+                    Classifier.name == classifier_name).filter(Label.classifier_id == Classifier.id).filter(
+                    Label.name != Label.HIDDEN_LABEL).scalar()
 
     def classify(self, classifier_name, X):
         clf = self.get_classifier_model(classifier_name)
@@ -354,7 +387,7 @@ class SQLAlchemyDB(object):
             default_label = self.get_classifier_labels(classifier_name)[0]
         for x in X:
             label = self.get_label(classifier_name, x)
-            if label is not None and label != Label.GARBAGE_LABEL:
+            if label is not None and label != Label.HIDDEN_LABEL:
                 y.append(label)
             elif clf is not None:
                 y.append(clf.predict([x])[0])
@@ -365,7 +398,7 @@ class SQLAlchemyDB(object):
     def score(self, classifier_name, X):
         clf = self.get_classifier_model(classifier_name)
         if clf is None:
-            return [{'dummy': 0} for _ in X]
+            return [{'dummy_yes': 1, 'dummy_no': 0} for _ in X]
         scores = clf.decision_function(X)
         labels = clf.classes()
         if labels.shape[0] == 2:
@@ -450,10 +483,16 @@ class SQLAlchemyDB(object):
                 DatasetDocument.external_id == external_id).delete()
             dataset.last_updated = datetime.datetime.now()
 
-    def get_classifier_examples_count(self, name, include_garbage=False):
-        with self.session_scope() as session: # TODO skip garbage
-            return session.query(Classification.id).filter(Classifier.name == name).filter(
-                Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).count()
+    def get_classifier_examples_count(self, name, include_hidden=False):
+        if include_hidden:
+            with self.session_scope() as session:
+                return session.query(Classification.id).filter(Classifier.name == name).filter(
+                    Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).count()
+        else:
+            with self.session_scope() as session:
+                return session.query(Classification.id).filter(Classifier.name == name).filter(
+                    Label.classifier_id == Classifier.id).filter(Label.name != Label.HIDDEN_LABEL).filter(
+                    Classification.label_id == Label.id).count()
 
     def get_classifier_examples_with_label_count(self, name, label):
         with self.session_scope() as session:
@@ -461,16 +500,32 @@ class SQLAlchemyDB(object):
                 Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).filter(
                 Label.name == label).count()
 
-    def get_classifier_examples(self, name, offset=0, limit=None, include_garbage=False):
-        with self.session_scope() as session: # TODO skip garbage
-            return session.query(Classification).order_by(Classification.creation).filter(
-                Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
-                Classification.label_id == Label.id).offset(offset).limit(limit)
+    def get_classifier_examples(self, name, offset=0, limit=None, include_hidden=False):
+        if include_hidden:
+            with self.session_scope() as session:
+                return session.query(Classification).order_by(Classification.creation).filter(
+                    Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
+                    Classification.label_id == Label.id).offset(offset).limit(limit)
+        else:
+            with self.session_scope() as session:
+                return session.query(Classification).order_by(Classification.creation).filter(
+                    Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
+                    Label.name != Label.HIDDEN_LABEL).filter(Classification.label_id == Label.id).offset(offset).limit(
+                    limit)
 
     def get_classifier_examples_with_label(self, name, label, offset=0, limit=None):
         with self.session_scope() as session:
             return session.query(Classification).order_by(Classification.creation).filter(
                 Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
+                Classification.label_id == Label.id).filter(Label.name == label).offset(offset).limit(limit)
+
+    def get_dataset_documents_with_label(self, dataset_name, classifier_name, label, offset=0, limit=None):
+        with self.session_scope() as session:
+            return session.query(DatasetDocument.id).order_by(DatasetDocument.id).filter(
+                DatasetDocument.dataset_id == Dataset.id).filter(Dataset.name == dataset_name).filter(
+                DatasetDocument.md5 == TrainingDocument.md5).filter(
+                TrainingDocument.id == Classification.document_id).filter(
+                Classifier.name == classifier_name).filter(Label.classifier_id == Classifier.id).filter(
                 Classification.label_id == Label.id).filter(Label.name == label).offset(offset).limit(limit)
 
     def get_dataset_documents_by_name(self, name):
@@ -479,11 +534,11 @@ class SQLAlchemyDB(object):
                 Dataset.name == name).filter(
                 DatasetDocument.dataset_id == Dataset.id)
 
-    def get_dataset_documents_by_position(self, name):
+    def get_dataset_documents_by_position(self, name, offset=0, limit=None):
         with self.session_scope() as session:
             return session.query(DatasetDocument).order_by(DatasetDocument.id).filter(
                 Dataset.name == name).filter(
-                DatasetDocument.dataset_id == Dataset.id)
+                DatasetDocument.dataset_id == Dataset.id).offset(offset).limit(limit)
 
     def get_dataset_document_by_name(self, datasetname, documentname):
         with self.session_scope() as session:
@@ -501,6 +556,12 @@ class SQLAlchemyDB(object):
             if document is not None:
                 session.expunge(document)
             return document
+
+    def get_dataset_document_position_by_id(self, name, document_id):
+        with self.session_scope() as session:
+            return session.query(DatasetDocument).order_by(DatasetDocument.id).filter(
+                Dataset.name == name).filter(
+                DatasetDocument.dataset_id == Dataset.id).filter(DatasetDocument.id < document_id).count()
 
     def get_jobs(self, starttime=None):
         if starttime is None:
@@ -626,7 +687,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "1.1.2"
+        return "1.3.2"
 
 
 class DBLock(object):
