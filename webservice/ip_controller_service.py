@@ -1,11 +1,13 @@
 import cherrypy
 
 from db.sqlalchemydb import SQLAlchemyDB
-from webservice.auth_controller_service import SESSION_KEY, require, name_is
+from webservice.auth_controller_service import SESSION_KEY, require
+from webservice.user_controller_service import name_is
 
 
 def ip_rate_limit():
     def check():
+        # TODO implement check
         ip = cherrypy.request.remote.ip
         print(ip, type(ip))
         return False
@@ -13,11 +15,10 @@ def ip_rate_limit():
     return check
 
 
-class IpControllerService(object):
-    def __init__(self, db_connection_string, default_max_request_rate = 100, default_rate_time_interval='day'):
+class IPControllerService(object):
+    def __init__(self, db_connection_string, default_hourly_limit=100):
         self._db = SQLAlchemyDB(db_connection_string)
-        self._default_max_request_rate = default_max_request_rate
-        self._default_rate_time_interval = default_rate_time_interval
+        self.default_hourly_limit = default_hourly_limit
 
     def close(self):
         self._db.close()
@@ -32,22 +33,24 @@ class IpControllerService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def index(self):
+    def index(self, page=0, page_count=50):
         result = []
         requester = cherrypy.session[SESSION_KEY]
         if requester is None:
             return result
-        # TODO return rates and limits for current ip
-        # or for all ips if admin
         if requester == SQLAlchemyDB.admin_name():
-            names = self._db.user_names()
+            ips = self._db.ipaddresses()
         else:
-            names = [requester]
-        for name in names:
-            user_info = dict()
-            user_info['name'] = name
-            user_info['created'] = str(self._db.get_user_creation_time(name))
-            result.append(user_info)
+            ips = [cherrypy.request.remote.ip]
+        ips = ips[page * page_count:(page + 1) * page_count]
+        for ip in ips:
+            ip_info = dict()
+            ip_info['ip'] = ip
+            ip_info['created'] = str(self._db.get_iptracker_creation_time(ip))
+            ip_info['hourly_limit'] = str(self._db.get_iptracker_hourly_limit(ip))
+            ip_info['total_request_counter'] = str(self._db.get_iptracker_total_request_counter(ip))
+            ip_info['current_request_counter'] = str(self._db.get_iptracker_current_request_counter(ip))
+            result.append(ip_info)
         return result
 
     @cherrypy.expose
@@ -56,19 +59,16 @@ class IpControllerService(object):
 
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))
-    def change_ip_rate(self, ip, rate, rate_unit):
-        # TODO set ip rate
-        self._db.change_password(username, password)
+    def set_hourly_limit(self, ip, hourly_limit):
+        self._db.set_iptracker_hourly_limit(ip, hourly_limit)
         return 'Ok'
 
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))
-    def set_ip_counter(self, ip, count):
-        # TODO reset ip counter
-        self._db.change_password(username, password)
+    def set_current_request_counter(self, ip, count=0):
+        self._db.set_iptracker_current_request_counter(ip, count)
         return 'Ok'
-
 
     @cherrypy.expose
     def version(self):
-        return "0.0.1 (db: %s)" % self._db.version()
+        return "0.1.1 (db: %s)" % self._db.version()

@@ -29,22 +29,25 @@ class IPTracker(Base):
     __tablename__ = 'iptracker'
     id = Column(Integer(), primary_key=True)
     ip = Column(String(ipaddress_length), unique=True)
-    max_requests = Column(Integer())
-    request_counter = Column(Integer(), default=0)
+    hourly_limit = Column(Integer())
+    current_request_counter = Column(Integer(), default=0)
+    total_request_counter = Column(Integer(), default=0)
     counter_time_span = Column(Integer(), default=int(time.time() / 3600))
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
 
-    def __init__(self, ip, max_requests):
+    def __init__(self, ip, hourly_limit):
         self.ip = ip.strip()
-        self.max_requests = max_requests
+        self.hourly_limit = hourly_limit
 
     def check_and_count_request(self, cost=1):
         current_time_span = int(time.time() / 3600)
         if self.counter_time_span < current_time_span:
-            self.request_counter = cost
+            self.current_request_counter = cost
         else:
-            self.requests_counter += cost
+            self.current_request_counter += cost
+        self.total_request_counter += cost
         self.counter_time_span = current_time_span
-        return self.request_counter <= self.max_requests
+        return self.current_request_counter <= self.hourly_limit
 
 
 class User(Base):
@@ -666,6 +669,36 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(exists().where(Job.id == id)).scalar()
 
+    def ipaddresses(self):
+        with self.session_scope() as session:
+            return list(session.query(IPTracker.ip).order_by(IPTracker.ip))
+
+    def get_iptracker_creation_time(self, ip):
+        with self.session_scope() as session:
+            return session.query(IPTracker.creation).filter(IPTracker.ip == ip).scalar()
+
+    def get_iptracker_hourly_limit(self, ip):
+        with self.session_scope() as session:
+            return session.query(IPTracker.hourly_limit).filter(IPTracker.ip == ip).scalar()
+
+    def set_iptracker_hourly_limit(self, ip, hourly_limit):
+        with self.session_scope() as session:
+            iptracker = session.query(IPTracker).filter(IPTracker.ip == ip).scalar()
+            iptracker.hourly_limit = hourly_limit
+
+    def get_iptracker_total_request_counter(self, ip):
+        with self.session_scope() as session:
+            return session.query(IPTracker.total_request_counter).filter(IPTracker.ip == ip).scalar()
+
+    def get_iptracker_current_request_counter(self, ip):
+        with self.session_scope() as session:
+            return session.query(IPTracker.current_request_counter).filter(IPTracker.ip == ip).scalar()
+
+    def set_iptracker_current_request_counter(self, ip, count):
+        with self.session_scope() as session:
+            iptracker = session.query(IPTracker).filter(IPTracker.ip == ip).scalar()
+            iptracker.current_request_counter = count
+
     def acquire_lock(self, name, locker, poll_interval=1):
         with self.session_scope() as session:
             locked = False
@@ -687,7 +720,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "1.3.2"
+        return "1.4.1"
 
 
 class DBLock(object):
