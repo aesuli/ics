@@ -1,4 +1,4 @@
-<%inherit file="base_with_menu.html" />
+<%inherit file="basewithmenu.html" />
 <%block name="head">
 ${parent.head()}
     <script type="text/javascript">
@@ -17,7 +17,7 @@ ${parent.head()}
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'${classifier_path}/',
+                url:'${classifier_path}/info',
                 dataType: 'json'})
             .done( function(msg) {
                 $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {

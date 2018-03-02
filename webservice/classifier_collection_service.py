@@ -45,7 +45,7 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def index(self):
+    def info(self):
         result = []
         for name in self._db.classifier_names():
             classifier_info = dict()
@@ -581,7 +581,7 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.7.1 (db: %s)" % self._db.version()
+        return "0.7.2 (db: %s)" % self._db.version()
 
 
 @logged_call

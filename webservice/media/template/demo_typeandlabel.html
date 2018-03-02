@@ -1,4 +1,4 @@
-<%inherit file="basewithmenu.html" />
+<%inherit file="demo_basewithmenu.html" />
 <%block name="head">
  ${parent.head()}
    <script type="text/javascript">
@@ -16,6 +16,17 @@
 
         function update() {
             last_update = Date.now();
+            $.ajax({
+                type:'POST',
+                url:'${ip_auth_path}/info'})
+            .done(function(msg) {
+                    $('#request\\_count').text(msg[0]['current_request_counter']);
+                    $('#hourly\\_limit').text(msg[0]['hourly_limit']);
+                })
+            .fail(function(msg) {
+                    custom_alert(msg);
+                    $('#suggestions\\_'+classifier_name).show();
+                });
             $.ajax({
                 type:'POST',
                 url:'${classifier_path}/info',
@@ -77,38 +88,18 @@
                                     }());
                                     $('#assignments\\_'+msg[i].name).append(scoreline);
                                 }
-                                var skipline = jQuery('<div class="skip ui-corner-all margined morepadded">skip</div>');
-                                skipline.click((function () {
-                                    var classifier_name = msg[i].name;
-                                    return function() {
-                                        $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
-                                    };
-                                })());
-                                $('#assignments\\_'+msg[i].name).append(skipline);
                             }
                         }
                         $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
                             return $(a)[0].id.localeCompare($(b)[0].id);
                         }));
-                        if($('#skip\\_all').length==0) {
-                            skip_all = jQuery('<div id="skip_all" class="right">Skip all</div>');
-                            skip_all.button({ icons: {primary:'ui-icon-minus'} });
-                            skip_all.click(function() {
-                                $('#suggestions div div .skip').each(function(i,item) {
-                                    item.click();
-                                });
+                        if($('#classify\\_button').length==0) {
+                            classify_button = jQuery('<div id="classify_button" class="right">Classify</div>');
+                            classify_button.button({ icons: {primary:'ui-icon-tag'} });
+                            classify_button.click(function() {
+                                classify(true);
                             });
-                            $('#suggestions').append(skip_all);
-                        }
-                        if($('#all\\_correct').length==0) {
-                            all_correct = jQuery('<div id="all_correct" class="right">All correct</div>');
-                            all_correct.button({ icons: {primary:'ui-icon-check'} });
-                            all_correct.click(function() {
-                                $('#suggestions div div .assigned').each(function(i,item) {
-                                    item.click();
-                                });
-                            });
-                            $('#suggestions').append(all_correct);
+                            $('#suggestions').append(classify_button);
                         }
                     }
             });
@@ -128,33 +119,10 @@
                 item.button({icons: {primary :'ui-icon-check'}});
                 selected_classifiers[classifier_name] = true;
                 $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
-                classify(true);
+                // TODO classify using only the added classifier
+                //classify(true);
             }
         }
-
-        function create_classifier() {
-            name = $("#name").val();
-            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            labelsString = $("#labels").val();
-            if(!labelsString.match(/^[a-zA-Z0-9_,]+$/)) {
-                custom_alert("The names of labels can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            labels = labelsString.split(',');
-            var data = {name: name, labels: labels} ;
-            $.ajax({
-                type: "POST",
-                url: "${classifier_path}/create",
-                data: data})
-            .done(update)
-            .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
-            });
-            return false ;
-        };
 
         last_text = ""
         function classify(force) {
@@ -163,10 +131,11 @@
                 last_text = text;
                 $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                     var classifier_name = $(item).text();
+                    var authkey = $('#authkey').val();
                     $.ajax({
                         type:'POST',
                         url:'${classifier_path}/classify',
-                        data: { name: classifier_name, X: [text] },
+                        data: { name: classifier_name, X: text, authkey: authkey},
                         dataType: 'json'})
                     .done(function(msg) {
                         var assigned = msg[0];
@@ -180,12 +149,8 @@
         }
         $( document ).ready(function() {
             $("#textbox").on("input",function() {
-                delay(function() {
-                $('#classifiers\\_list div div.ui-state-focus').each(function(){$('#suggestions\\_'+$(this).siblings('.classifier\\_name').text()).detach().appendTo('#suggestions').show();});
-                classify(false);
-            },delay_interval);});
-
-            $("#create\\_classifier").submit(create_classifier);
+                //TODO remove labels assigned when edited
+            });
 
             //$('#force\\_update').button().click(update);
             $( "input[type=submit]" ).button();
@@ -196,24 +161,17 @@
 
 <div id="main" class="padded ui-widget ui-widget-content">
     <div id="sidebar">
+        <div class="margined ui-corner-all ui-widget ui-widget-content" id="infoo">
+            <div class="padded ui-widget-header ui-corner-all ">Service info:</div>
+            <div class="margined padded ui-widget-content ui-corner-all ">Your IP ${ip}</div>
+            <div class="margined padded ui-widget-content ui-corner-all ">Requests this hour: <span id="request_count">0</span></div>
+            <div class="margined padded ui-widget-content ui-corner-all ">Max: <span id="hourly_limit">0</span>/hour</div>
+            <div class="margined padded ui-widget-content ui-corner-all "><label for="authkey">Authorization key (optional)</label><input type="password" id="authkey" ></input></div>
+        </div>
         <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
         </div>
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
-            <div class="padded ui-widget-header ui-corner-all">Create a classifier:</div>
-            <form id="create_classifier" class="margined" action="#" method="post">
-                <p>
-                <label for="name">Name:</label>
-                <input type="text" id="name" /> </p>
-                <p>
-                <label for="labels">Labels (comma separated):</label>
-                <input type="text" id="labels" /> </p>
-                <p><label></label>
-                <input type="submit" value="Create" />
-                </p>
-            </form>
-        </div>
     </div>
     <div id="center">
         <div class="padded ui-widget-header ui-corner-all">Classify text:</div>

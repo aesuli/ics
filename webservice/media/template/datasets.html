@@ -1,4 +1,4 @@
-<%inherit file="base_with_menu.html" />
+<%inherit file="basewithmenu.html" />
 <%block name="head">
 ${parent.head()}
 <script type="text/javascript">
@@ -15,7 +15,7 @@ ${parent.head()}
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'${dataset_path}/',
+                url:'${dataset_path}/info',
                 dataType: 'json',
                 success: function(msg) {
                     $('#datasets\\_list div .dataset\\_name').each(function(i,item) {

@@ -4,7 +4,7 @@ import sys
 import cherrypy
 from configargparse import ArgParser
 
-from webservice.auth_controller_service import AuthControllerService, SESSION_KEY, must_be_logged_in
+from webservice.auth_controller_service import AuthControllerService, must_be_logged_in
 from webservice.background_processor_service import BackgroundProcessor
 from webservice.classifier_collection_service import ClassifierCollectionService
 from webservice.dataset_collection_service import DatasetCollectionService
@@ -45,8 +45,8 @@ if __name__ == "__main__":
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
                 'tools.icsauth.require': [must_be_logged_in()],
-                'server.max_request_body_size' : 0,
-                'server.socket_timeout' : 60,
+                'server.max_request_body_size': 0,
+                'server.socket_timeout': 60,
             },
         }
 
