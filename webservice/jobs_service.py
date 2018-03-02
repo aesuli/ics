@@ -21,7 +21,7 @@ class JobsService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def index(self):
+    def info(self):
         jobslist = list()
         for job in self._db.get_jobs():
             jobinfo = dict()
@@ -82,7 +82,7 @@ class JobsService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.3.1 (db: %s)" % self._db.version()
+        return "0.3.2 (db: %s)" % self._db.version()
 
 
 if __name__ == "__main__":

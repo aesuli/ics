@@ -1,4 +1,8 @@
-<%inherit file="base_with_menu.html" />
+<%!
+   def inherit( context ):
+       return context.get('base_template','basewithmenu.html')
+%>
+<%inherit file="${inherit(context)}"/>
 <div id="main" class="padded ui-widget ui-widget-content">
     <div id="center" class="margined padded">
         ${name}

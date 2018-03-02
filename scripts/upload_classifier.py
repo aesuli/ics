@@ -1,10 +1,11 @@
-import os
 import argparse
 import csv
 import getpass
 import tempfile
 
 from webservice.service_client_session import ServiceClientSession
+
+__author__ = 'Andrea Esuli'
 
 MY_LARGE_FIELD = 1024 * 1024
 BATCH_SIZE = 1024 * 1024 * 10
@@ -25,7 +26,8 @@ if __name__ == '__main__':
     parser.add_argument('input', help='input csv file', type=str)
     args = parser.parse_args()
 
-    sc = ServiceClientSession(args.protocol, args.host, args.port, args.classifier_path, args.dataset_path, args.jobs_path, args.auth_path)
+    sc = ServiceClientSession(args.protocol, args.host, args.port, args.classifier_path, args.dataset_path,
+                              args.jobs_path, args.auth_path)
 
     if csv.field_size_limit() < MY_LARGE_FIELD:
         csv.field_size_limit(MY_LARGE_FIELD)
@@ -37,20 +39,20 @@ if __name__ == '__main__':
     with open(args.input, mode='r', encoding='utf-8') as inputfile:
         reader = csv.reader(inputfile)
 
-        row = next(reader,None)
+        row = next(reader, None)
         count = 0
         while row:
             with tempfile.TemporaryFile(mode='w+', encoding='utf-8')  as outputfile:
-                print('Temp file '+ str(count))
+                print('Temp file ' + str(count))
                 while row:
                     writer = csv.writer(outputfile)
                     writer.writerow(row)
                     count += 1
-                    row = next(reader,None)
+                    row = next(reader, None)
 
                     if outputfile.tell() > args.batch_size:
                         outputfile.seek(0)
                         sc.classifier_upload_training_data(outputfile)
                         break
-        
-    print('Processed '+ str(count) + ' rows.')
+
+    print('Processed ' + str(count) + ' rows.')

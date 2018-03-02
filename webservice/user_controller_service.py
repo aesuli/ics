@@ -1,32 +1,24 @@
-# Original source: https://github.com/cherrypy/tools/blob/master/AuthenticationAndAccessRestrictions
 
 import cherrypy
 
 from db.sqlalchemydb import SQLAlchemyDB
 from util.util import logged_call_with_args
-from webservice.auth_controller_service import always_auth, require
+from webservice.auth_controller_service import require, SESSION_KEY
 
-SESSION_KEY = '_cp_username'
+__author__ = 'Andrea Esuli'
 
-
-# def member_of(groupname):
-#     def check():
-#         # replace with actual check if <username> is in <groupname>
-#         return cherrypy.request.login == 'joe' and groupname == 'admin'
-#
-#     return check
 
 
 def must_be_logged_in():
     def check():
-        return cherrypy.session.get(SESSION_KEY) is not None
+        return cherrypy.request.login is not None
 
     return check
 
 
 def must_be_logged_in_or_redirect(redirect_path):
     def check():
-        if cherrypy.session.get(SESSION_KEY) is None:
+        if cherrypy.request.login is None:
             raise cherrypy.HTTPRedirect(redirect_path)
         return True
 
@@ -66,9 +58,9 @@ class UserControllerService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def index(self):
+    def info(self):
         result = []
-        requester = cherrypy.session[SESSION_KEY]
+        requester = cherrypy.request.login
         if requester is None:
             return result
         if requester == SQLAlchemyDB.admin_name():
@@ -83,7 +75,6 @@ class UserControllerService(object):
         return result
 
     @cherrypy.expose
-    @always_auth()
     def login(self, username=None, password=None):
         if username is None or password is None:
             cherrypy.response.status = 401
@@ -96,10 +87,6 @@ class UserControllerService(object):
         else:
             cherrypy.response.status = 401
             return 'Wrong credentials'
-
-    @cherrypy.expose
-    def whoami(self):
-        return cherrypy.session[SESSION_KEY]
 
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))
@@ -124,7 +111,7 @@ class UserControllerService(object):
             cherrypy.response.status = 400
             return "Password must be at least %i characters long" % self._min_password_length
 
-        requester = cherrypy.session[SESSION_KEY]
+        requester = cherrypy.request.login
         if requester != SQLAlchemyDB.admin_name() and requester != username:
             cherrypy.response.status = 403
             return 'Forbidden'
@@ -152,4 +139,4 @@ class UserControllerService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.1.3 (db: %s)" % self._db.version()
+        return "0.2.5 (db: %s)" % self._db.version()

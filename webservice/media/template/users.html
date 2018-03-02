@@ -1,4 +1,4 @@
-<%inherit file="base_with_menu.html" />
+<%inherit file="basewithmenu.html" />
 <%block name="head">
 ${parent.head()}
     <script type="text/javascript">
@@ -15,7 +15,7 @@ ${parent.head()}
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'${auth_path}/',
+                url:'${user_auth_path}/info',
                 dataType: 'json'})
             .done( function(msg) {
                 $('#users\\_list div .user\\_name').each(function(i,item) {
@@ -72,7 +72,7 @@ ${parent.head()}
             var data = {username: name, password: password} ;
             $.ajax({
                 type: "POST",
-                url: "${auth_path}/create_user",
+                url: "${user_auth_path}/create_user",
                 data: data})
             .done(update)
             .fail(function(errMsg) {
@@ -88,7 +88,7 @@ ${parent.head()}
             $('#user\\_'+user_name).hide();
             $.ajax({
                 type:'POST',
-                url:'${auth_path}/delete_user/'+user_name })
+                url:'${user_auth_path}/delete_user/'+user_name })
             .done(update)
             .fail(function () {
                 $('#user\\_'+user_name).show();
@@ -112,7 +112,7 @@ ${parent.head()}
                                             var data = {username: user_name, password: new_password} ;
                                             $.ajax({
                                                 type: "POST",
-                                                url: "${auth_path}/change_password",
+                                                url: "${user_auth_path}/change_password",
                                                 data: data})
                                             .done(function() {
                                                 change_password_dialog.dialog('destroy').remove();

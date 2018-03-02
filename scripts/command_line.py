@@ -9,6 +9,8 @@ from pprint import pprint
 
 from webservice.service_client_session import ServiceClientSession
 
+__author__ = 'Andrea Esuli'
+
 
 def print_exception(fn):
     def wrapped(*args, **kwargs):

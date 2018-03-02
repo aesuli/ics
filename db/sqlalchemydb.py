@@ -1,5 +1,6 @@
 import datetime
 import os
+import secrets
 import time
 from contextlib import contextmanager
 from uuid import uuid4
@@ -18,11 +19,47 @@ __author__ = 'Andrea Esuli'
 Base = declarative_base()
 
 classifier_name_length = 100
+user_name_length = 50
+key_name_length = 50
 ipaddress_length = 45
+key_length = 30
 label_name_length = 50
 dataset_name_length = 100
 document_name_length = 100
 salt_length = 20
+
+
+class KeyTracker(Base):
+    __tablename__ = 'keytracker'
+    id = Column(Integer(), primary_key=True)
+    key = Column(String(key_length*2), unique=True)
+    name = Column(String(key_name_length), unique=True)
+    hourly_limit = Column(Integer())
+    current_request_counter = Column(Integer(), default=0)
+    counter_time_span = Column(Integer(), default=int(time.time() / 3600))
+    total_request_counter = Column(Integer(), default=0)
+    request_limit = Column(Integer(), default=0)
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+
+    def __init__(self, name, hourly_limit, request_limit):
+        self.key = secrets.token_hex(key_length)
+        self.name = name
+        self.hourly_limit = int(hourly_limit)
+        self.request_limit = int(request_limit)
+
+    def check_and_count_request(self, cost=1):
+        if self.request_limit >= 0 and self.total_request_counter >= self.request_limit:
+            return False
+        current_time_span = int(time.time() / 3600)
+        if self.counter_time_span < current_time_span:
+            self.current_request_counter = 0
+        self.counter_time_span = current_time_span
+        if self.current_request_counter < self.hourly_limit:
+            self.current_request_counter += cost
+            self.total_request_counter += cost
+            return True
+        else:
+            return False
 
 
 class IPTracker(Base):
@@ -42,18 +79,20 @@ class IPTracker(Base):
     def check_and_count_request(self, cost=1):
         current_time_span = int(time.time() / 3600)
         if self.counter_time_span < current_time_span:
-            self.current_request_counter = cost
-        else:
-            self.current_request_counter += cost
-        self.total_request_counter += cost
+            self.current_request_counter = 0
         self.counter_time_span = current_time_span
-        return self.current_request_counter <= self.hourly_limit
+        if self.current_request_counter < self.hourly_limit:
+            self.current_request_counter += cost
+            self.total_request_counter += cost
+            return True
+        else:
+            return False
 
 
 class User(Base):
     __tablename__ = 'user'
     id = Column(Integer(), primary_key=True)
-    name = Column(String(classifier_name_length), unique=True)
+    name = Column(String(user_name_length), unique=True)
     salted_password = Column(String())
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
 
@@ -699,6 +738,18 @@ class SQLAlchemyDB(object):
             iptracker = session.query(IPTracker).filter(IPTracker.ip == ip).scalar()
             iptracker.current_request_counter = count
 
+    def iptracker_check_and_count_request(self, ip, cost):
+        with self.session_scope() as session:
+            iptracker = session.query(IPTracker).filter(IPTracker.ip == ip).scalar()
+            if iptracker is None:
+                raise LookupError()
+            return iptracker.check_and_count_request(cost)
+
+    def create_iptracker(self, ip, hourly_limit):
+        with self.session_scope() as session:
+            iptracker = IPTracker(ip, hourly_limit)
+            session.add(iptracker)
+
     def acquire_lock(self, name, locker, poll_interval=1):
         with self.session_scope() as session:
             locked = False
@@ -718,9 +769,65 @@ class SQLAlchemyDB(object):
             if lock is not None:
                 session.delete(lock)
 
+    def keys(self):
+        with self.session_scope() as session:
+            return list(session.query(KeyTracker.key).order_by(KeyTracker.key))
+
+    def get_keytracker_name(self, key):
+        with self.session_scope() as session:
+            return session.query(KeyTracker.name).filter(KeyTracker.key == key).scalar()
+
+    def get_keytracker_creation_time(self, key):
+        with self.session_scope() as session:
+            return session.query(KeyTracker.creation).filter(KeyTracker.key == key).scalar()
+
+    def get_keytracker_hourly_limit(self, key):
+        with self.session_scope() as session:
+            return session.query(KeyTracker.hourly_limit).filter(KeyTracker.key == key).scalar()
+
+    def get_keytracker_request_limit(self, key):
+        with self.session_scope() as session:
+            return session.query(KeyTracker.request_limit).filter(KeyTracker.key == key).scalar()
+
+    def get_keytracker_current_request_counter(self, key):
+        with self.session_scope() as session:
+            return session.query(KeyTracker.current_request_counter).filter(KeyTracker.key == key).scalar()
+
+    def get_keytracker_total_request_counter(self, key):
+        with self.session_scope() as session:
+            return session.query(KeyTracker.total_request_counter).filter(KeyTracker.key == key).scalar()
+
+    def keytracker_check_and_count_request(self, key, cost):
+        with self.session_scope() as session:
+            key_obj = session.query(KeyTracker).filter(KeyTracker.key == key).scalar()
+            if key_obj is None:
+                return False
+            return key_obj.check_and_count_request(cost)
+
+    def set_keytracker_hourly_limit(self, key, hourly_limit):
+        with self.session_scope() as session:
+            key_obj = session.query(IPTracker).filter(KeyTracker.key == key).scalar()
+            key_obj.hourly_limit = hourly_limit
+
+    def set_keytracker_request_limit(self, key, request_limit):
+        with self.session_scope() as session:
+            key_obj = session.query(IPTracker).filter(KeyTracker.key == key).scalar()
+            key_obj.request_limit = request_limit
+
+    def set_keytracker_current_request_counter(self, key, count):
+        with self.session_scope() as session:
+            key_obj = session.query(KeyTracker).filter(KeyTracker.key == key).scalar()
+            key_obj.current_request_counter = count
+
+    def create_keytracker(self, name, hourly_limit, request_limit):
+        with self.session_scope() as session:
+            key_obj = KeyTracker(name, hourly_limit, request_limit)
+            session.add(key_obj)
+            return key_obj.key
+
     @staticmethod
     def version():
-        return "1.4.1"
+        return "1.5.2"
 
 
 class DBLock(object):

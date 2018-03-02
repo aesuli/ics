@@ -39,7 +39,7 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def index(self):
+    def info(self):
         result = []
         for name in self._db.dataset_names():
             dataset_info = dict()
@@ -325,7 +325,7 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "1.1.1 (db: %s)" % self._db.version()
+        return "1.1.2 (db: %s)" % self._db.version()
 
 
 @logged_call

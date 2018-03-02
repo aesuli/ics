@@ -1,4 +1,7 @@
 TODO
+- key-based access
+    * rate-limited
+    * amount-limited
 - use ids rather than names in batch jobs
 - duplicate training sets on db, without reinserting text
 - user authorization
@@ -23,6 +26,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- ip-based rate-limited access
 - active browsing for multiclass classifiers
 - remove garbage label from counts and listing of examples
 - garbage label
