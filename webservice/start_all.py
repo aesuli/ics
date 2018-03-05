@@ -135,7 +135,7 @@ if __name__ == "__main__":
             },
         }
 
-        cherrypy.config.update({'environment': 'production', 'log.error_file': 'site.log', })
+        #cherrypy.config.update({'environment': 'production', 'log.error_file': 'site.log', })
 
         cherrypy.tree.mount(demo, args.demo_path, config={**demo.get_config(), **conf_demo})
         cherrypy.tree.mount(client, args.client_path, config={**client.get_config(), **conf_client})
