@@ -60,7 +60,7 @@ ${parent.head()}
 
             $.ajax({
                 type:'POST',
-                url:'${classifier_path}/',
+                url:'${classifier_path}/info',
                 dataType: 'json'})
             .done(function(msg) {
                     $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
@@ -84,14 +84,25 @@ ${parent.head()}
                             $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
                             if($('#classifier\\_'+msg[i].name).length==0) {
-                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div><div class=\'use_button_'+msg[i].name+' right\'>Use</div></div>');
-                                $('.use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-star'} });
-                                $('.use\\_button\\_'+msg[i].name).click(
+                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\' inline padded  ui-corner-all left classifier_name\' style=\'vertical-align: middle;\'>'+msg[i].name+'</div><div id=\'use_button_'+msg[i].name+'\' class=\'right\'>Use</div></div>');
+                                $('#use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-plus'} });
+                                $('#use\\_button\\_'+msg[i].name).click(
                                     (function() {
                                         var classifier_name = msg[i].name;
                                         return function() {
-                                            var item = $(this).siblings('.classifier\\_name');
-                                            item.toggleClass('ui-state-highlight');
+                                            var classifier_item = $(this).siblings('.classifier\\_name');
+                                            var classifier_name = classifier_item.text();
+                                            var item = $('#use\\_button\\_'+classifier_name);
+                                            if(classifier_item.hasClass('ui-state-highlight')) {
+                                                classifier_item.removeClass('ui-state-highlight');
+                                                item.removeClass('ui-state-focus');
+                                                item.button({icons: {primary :'ui-icon-plus'}});
+                                            }
+                                            else {
+                                                classifier_item.addClass('ui-state-highlight');
+                                                item.addClass('ui-state-focus');
+                                                item.button({icons: {primary :'ui-icon-check'}});
+                                            }
                                         }
                                 })());
                             }

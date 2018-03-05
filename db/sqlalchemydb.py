@@ -32,7 +32,7 @@ salt_length = 20
 class KeyTracker(Base):
     __tablename__ = 'keytracker'
     id = Column(Integer(), primary_key=True)
-    key = Column(String(key_length*2), unique=True)
+    key = Column(String(key_length * 2), unique=True)
     name = Column(String(key_name_length), unique=True)
     hourly_limit = Column(Integer())
     current_request_counter = Column(Integer(), default=0)
@@ -87,6 +87,13 @@ class IPTracker(Base):
             return True
         else:
             return False
+
+    def check_current_request_counter(self):
+        current_time_span = int(time.time() / 3600)
+        if self.counter_time_span < current_time_span:
+            self.current_request_counter = 0
+        self.counter_time_span = current_time_span
+        return self.current_request_counter
 
 
 class User(Base):
@@ -731,7 +738,8 @@ class SQLAlchemyDB(object):
 
     def get_iptracker_current_request_counter(self, ip):
         with self.session_scope() as session:
-            return session.query(IPTracker.current_request_counter).filter(IPTracker.ip == ip).scalar()
+            iptracker = session.query(IPTracker).filter(IPTracker.ip == ip).scalar()
+            return iptracker.check_current_request_counter()
 
     def set_iptracker_current_request_counter(self, ip, count):
         with self.session_scope() as session:
@@ -827,7 +835,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "1.5.2"
+        return "1.5.3"
 
 
 class DBLock(object):

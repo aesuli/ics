@@ -8,7 +8,7 @@ SESSION_KEY = '_cp_username'
 def check_auth(*args, **kwargs):
     conditions = cherrypy.request.config.get('tools.icsauth.require', None)
     if conditions is not None:
-        cherrypy.request.login = cherrypy.session.get(SESSION_KEY,None)
+        cherrypy.request.login = cherrypy.session.get(SESSION_KEY, None)
         for condition in conditions:
             if not condition():
                 raise cherrypy.HTTPError(401)
@@ -30,7 +30,21 @@ def require(*conditions):
     return decorate
 
 
-def forbid():
+def fail_with_error_message(code, message):
+    def check():
+        raise cherrypy.HTTPError(code, message)
+
+    return check
+
+
+def redirect(redirect_path):
+    def check():
+        raise cherrypy.HTTPRedirect(redirect_path)
+
+    return check
+
+
+def fail():
     def check():
         return False
 

@@ -1,7 +1,5 @@
 TODO
-- key-based access
-    * rate-limited
-    * amount-limited
+- dedicated admin interface
 - use ids rather than names in batch jobs
 - duplicate training sets on db, without reinserting text
 - user authorization
@@ -26,6 +24,9 @@ TOMONITOR
 - strip input strings
 
 DONE
+- key-based access
+    * rate-limited
+    * amount-limited
 - ip-based rate-limited access
 - active browsing for multiclass classifiers
 - remove garbage label from counts and listing of examples

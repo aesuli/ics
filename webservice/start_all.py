@@ -4,14 +4,14 @@ import sys
 import cherrypy
 from configargparse import ArgParser
 
-from webservice.auth_controller_service import any_of, enable_controller_service
+from webservice.auth_controller_service import enable_controller_service, fail_with_error_message, redirect, any_of
 from webservice.background_processor_service import BackgroundProcessor
 from webservice.classifier_collection_service import ClassifierCollectionService
 from webservice.dataset_collection_service import DatasetCollectionService
 from webservice.ip_controller_service import IPControllerService
 from webservice.jobs_service import JobsService
 from webservice.key_controller_service import KeyControllerService
-from webservice.user_controller_service import UserControllerService, must_be_logged_in_or_redirect, must_be_logged_in
+from webservice.user_controller_service import UserControllerService, must_be_logged_in
 from webservice.web_client import WebClient
 from webservice.web_demo import WebDemo
 
@@ -62,24 +62,19 @@ if __name__ == "__main__":
         enable_controller_service()
 
         conf_demo = {
-            # '/': {
-            #     'tools.sessions.on': True,
-            #     'tools.icsauth.on': True,
-            #     'tools.icsauth.require': [
-            #         any_of(ip_auth_controller.ip_rate_limit(),
-            #                must_be_logged_in_or_redirect(args.client_path + 'login'))],
-            # },
         }
+
         conf_client = {
             '/': {
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
-                'tools.icsauth.require': [must_be_logged_in_or_redirect(args.client_path + '/login')],
+                'tools.icsauth.require': [any_of(must_be_logged_in(), redirect(args.client_path + '/login'))],
             },
             '/login': {
                 'tools.icsauth.require': [],
             },
         }
+
         conf_generic_service_with_login = {
             '/': {
                 'tools.sessions.on': True,
@@ -87,20 +82,23 @@ if __name__ == "__main__":
                 'tools.icsauth.require': [must_be_logged_in()],
             },
         }
+
         conf_classifier_service = {
             '/': {
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
-                'tools.icsauth.require': [must_be_logged_in()],
+                'tools.icsauth.require': [any_of(must_be_logged_in(), fail_with_error_message(401, 'Not logged in.'))],
             },
             '/info': {
                 'tools.icsauth.require': [],
             },
             '/classify': {
-                'tools.icsauth.require': [
-                    any_of(must_be_logged_in(), key_auth_controller.has_key(), ip_auth_controller.ip_rate_limit())],
+                'tools.icsauth.require': [any_of(must_be_logged_in(), key_auth_controller.has_key(),
+                                                 ip_auth_controller.ip_rate_limit(),
+                                                 fail_with_error_message(401, 'Reached request limit.'))],
             },
         }
+
         conf_ip_auth_service = {
             '/': {
                 'tools.sessions.on': True,
@@ -111,6 +109,7 @@ if __name__ == "__main__":
                 'tools.icsauth.require': [],
             },
         }
+
         conf_key_auth_service = {
             '/': {
                 'tools.sessions.on': True,
@@ -135,6 +134,8 @@ if __name__ == "__main__":
                 'tools.icsauth.require': [],
             },
         }
+
+        cherrypy.config.update({'environment': 'production', 'log.error_file': 'site.log', })
 
         cherrypy.tree.mount(demo, args.demo_path, config={**demo.get_config(), **conf_demo})
         cherrypy.tree.mount(client, args.client_path, config={**client.get_config(), **conf_client})

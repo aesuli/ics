@@ -54,7 +54,7 @@ div .table   {
 .textbox {
     display: table-cell;
     vertical-align: top;
-    width: 98%;
+    width: 100%;
     height: 200px;
 }
 
@@ -136,16 +136,25 @@ div .table   {
 .assigned {
     background-color: lightgreen;
     background-image: none;
+    border: 1px solid #44BB44;
+}
+
+.pending {
+    background-color: lightyellow;
+    background-image: none;
+    border: 1px solid yellow;
 }
 
 .not_relevant {
     background-color: #FFC1B5;
     background-image: none;
+    border: 1px solid #DD7777;
 }
 
 .skip {
     background-color: lightcyan;
     background-image: none;
+    border: 1px solid #AAAAAA;
 }
 
 .hide {
@@ -155,4 +164,8 @@ div .table   {
 
 .small {
  font-size:60%;
+}
+
+.left {
+ float:left;
 }
