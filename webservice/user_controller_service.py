@@ -16,15 +16,6 @@ def must_be_logged_in():
     return check
 
 
-def must_be_logged_in_or_redirect(redirect_path):
-    def check():
-        if cherrypy.request.login is None:
-            raise cherrypy.HTTPRedirect(redirect_path)
-        return True
-
-    return check
-
-
 def name_is(required_username):
     def check():
         return lambda: required_username == cherrypy.request.login

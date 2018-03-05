@@ -59,7 +59,7 @@ ${parent.head()}
                                 (function() {
                                     var dataset_name = msg[i].name;
                                     return function() {
-                                        window.location.href = '/browseandlabel/'+dataset_name;
+                                        window.location.href = '${mount_dir}/browseandlabel/'+dataset_name;
                                     }
                             })());
                             $('#classify\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
@@ -67,7 +67,7 @@ ${parent.head()}
                                 (function() {
                                     var dataset_name = msg[i].name;
                                     return function() {
-                                        window.location.href = '/classify/'+dataset_name;
+                                        window.location.href = '${mount_dir}/classify/'+dataset_name;
                                     }
                             })());
                             $('#upload\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
