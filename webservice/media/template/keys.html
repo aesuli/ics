@@ -1,8 +1,4 @@
-<%!
-   def inherit( context ):
-       return context.get('base_template','basewithmenu.html')
-%>
-<%inherit file="${inherit(context)}"/>
+<%inherit file="admin_basewithmenu.html" />
 <%block name="head">
 ${parent.head()}
     <script type="text/javascript">
@@ -19,13 +15,13 @@ ${parent.head()}
             last_update = Date.now();
             $.ajax({
                 type:'POST',
-                url:'${user_auth_path}/info',
+                url:'${key_auth_path}/info',
                 dataType: 'json'})
             .done( function(msg) {
                 $('#users\\_list div .user\\_name').each(function(i,item) {
                     var found = false;
                     for(var i = 0;i<msg.length;++i) {
-                        if($(item).text()==msg[i].name) {
+                        if($(item).text()==msg[i].ip) {
                             found = true;
                             break;
                         }
@@ -35,13 +31,14 @@ ${parent.head()}
                     }
                 });
                 if(msg.length==0) {
-                    $('#users\\_list').html('<div class="padded ui-widget-header ui-corner-all">No user defined</div>');
+                    $('#data\\_list').html('<div class="padded ui-widget-header ui-corner-all">No IP address defined</div>');
                 }
                 else {
-                    if($('#_gotusers').length==0) {
-                        $('#users\\_list').html('<div id="_gotusers" class="padded ui-widget-header ui-corner-all">Users:</div>\
+                    if($('#_gotdata').length==0) {
+                        $('#data\\_list').html('<div id="_gotdata" class="padded ui-widget-header ui-corner-all">Keys:</div>\
                         <div id="data" class="table margined ui-widget-content ui-corner-all">\
                         <div><div>name</div>\
+                        <div>key</div>\
                         <div>created</div>\
                         <div>total requests</div>\
                         <div>request limit</div>\
@@ -53,23 +50,21 @@ ${parent.head()}
                     var curr_list = {};
                     $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
                     for(var i = 0;i<msg.length;++i) {
-                        var name_string = msg[i].name.replace(/\W/g,'X')
+                        var name_string = msg[i].key
                         var sort_string = msg[i].name.replace(/\W/g,'X')
                         item = jQuery('<div id=\'entry_'+sort_string+'\'>\
-                        <div class="id">'+msg[i].name+'</div>\
+                        <div>'+msg[i].name+'</div>\
+                        <div class="id small"><span class="masked">'+msg[i].key+'</span></div>\
                         <div class="small">'+msg[i].created+'</div>\
                         <div>'+msg[i].total_request_counter+'</div>\
                         <div>'+msg[i].request_limit+'</div>\
                         <div>'+msg[i].hourly_limit+'</div>\
                         <div>'+msg[i].current_request_counter+'</div>\
                         <div>\
-                            <div id="change_password_button_'+name_string+'">Change password</div>\
-% if username == 'admin':
                             <div id="change_request_limit_'+name_string+'">Change request limit</div>\
                             <div id="change_hourly_limit_'+name_string+'">Change hourly limit</div>\
                             <div id="counter_reset_'+name_string+'">Reset current counter</div>\
                             <div id="delete_'+name_string+'">Delete</div>\
-% endif
                         </div>\
                         </div>');
                         if ($('#entry\\_'+sort_string).length!=0) {
@@ -78,18 +73,14 @@ ${parent.head()}
                         }
                         else
                             $('#data').append(item);
-% if username == 'admin':
                         $('#change\\_request\\_limit\\_'+name_string).button({ icons: {primary:'ui-icon-alert'} });
                         $('#change\\_request\\_limit\\_'+name_string).click(change_request_limit);
                         $('#change\\_hourly\\_limit\\_'+name_string).button({ icons: {primary:'ui-icon-clock'} });
                         $('#change\\_hourly\\_limit\\_'+name_string).click(change_hourly_limit);
-                        $('#counter_reset\\_'+name_string).button({ icons: {primary:'ui-icon-arrowreturn-1-w'} });
-                        $('#counter_reset\\_'+name_string).click(reset_user);
                         $('#delete\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
-                        $('#delete\\_'+name_string).click(delete_user);
-% endif
-                        $('#change\\_password\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#change\\_password\\_button\\_'+name_string).click(change_password);
+                        $('#delete\\_'+name_string).click(delete_key);
+                        $('#counter_reset\\_'+name_string).button({ icons: {primary:'ui-icon-arrowreturn-1-w'} });
+                        $('#counter_reset\\_'+name_string).click(reset_key);
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
@@ -101,17 +92,14 @@ ${parent.head()}
             });
         }
 
-        function create_user() {
+        function create_key() {
             name = $("#create\\_name").val();
-            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_alert("The name of the user can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            password = $("#create\\_password").val();
-            var data = {username: name, password: password} ;
+            request_limit = $("#create\\_request\\_limit").val();
+            hourly_limit = $("#create\\_limit").val();
+            var data = {name: name, request_limit: request_limit, hourly_limit: hourly_limit} ;
             $.ajax({
                 type: "POST",
-                url: "${user_auth_path}/create_user",
+                url: "${key_auth_path}/create",
                 data: data})
             .done(update)
             .fail(function(errMsg) {
@@ -120,11 +108,25 @@ ${parent.head()}
             return false;
         };
 
-        function reset_user() {
+        function delete_key() {
+            var user_name = $(this).parent().siblings('.id').text();
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return;
+            $('#entry\\_'+user_name).hide();
+            $.ajax({
+                type:'POST',
+                url:'${key_auth_path}/delete/'+user_name })
+            .done(update)
+            .fail(function () {
+                $('#entry\\_'+user_name).show();
+            });
+        };
+
+        function reset_key() {
             var user_name = $(this).parent().siblings('.id').text();
             $.ajax({
                 type:'POST',
-                url:'${user_auth_path}/set_current_request_counter/'+user_name })
+                url:'${key_auth_path}/set_current_request_counter/'+user_name })
             .done(update)
             .fail(update);
         };
@@ -139,10 +141,10 @@ ${parent.head()}
                                     buttons: {
                                         'Change': function() {
                                             var new_limit = $('#new\\_limit\\_'+name_string).val();
-                                            var data = {username: user_name, hourly_limit: new_limit} ;
+                                            var data = {key: user_name, hourly_limit: new_limit} ;
                                             $.ajax({
                                                 type: "POST",
-                                                url: "${user_auth_path}/set_hourly_limit",
+                                                url: "${key_auth_path}/set_hourly_limit",
                                                 data: data})
                                             .done(function() {
                                                 change_dialog.dialog('destroy').remove();
@@ -169,64 +171,16 @@ ${parent.head()}
                                     buttons: {
                                         'Change': function() {
                                             var new_request_limit = $('#new\\_request\\_limit\\_'+name_string).val();
-                                            var data = {username: user_name, request_limit: new_request_limit} ;
+                                            var data = {key: user_name, request_limit: new_request_limit} ;
                                             $.ajax({
                                                 type: "POST",
-                                                url: "${user_auth_path}/set_request_limit",
+                                                url: "${key_auth_path}/set_request_limit",
                                                 data: data})
                                             .done(function() {
                                                 change_dialog.dialog('destroy').remove();
                                                 update();})
                                             .fail(function(errMsg) {
                                                 change_dialog.dialog('destroy').remove();
-                                                custom_alert(errMsg.responseText);
-                                            });
-                                        },
-                                        'Cancel': function() {
-                                            $(this).dialog('destroy').remove();
-                                        }
-                                    },
-                                  });
-        };
-
-        function delete_user() {
-            if(!confirm('Please confirm the DELETE request, proceed?'))
-                return;
-            var user_name = $(this).parent().siblings('.id').text();
-            $('#entry\\_'+user_name).hide();
-            $.ajax({
-                type:'POST',
-                url:'${user_auth_path}/delete_user/'+user_name })
-            .done(update)
-            .fail(function (msg) {
-                custom_alert(msg);
-                $('#entry\\_'+user_name).show();
-            });
-        };
-
-        function change_password() {
-            var user_name = $(this).parent().siblings('.id').text();
-            var change_password_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'change_password_'+user_name+'\'><div><label for="change_password_new_password_'+user_name+'">New password:</label><input id="change_password_new_password_'+user_name+'" type="password"><label for="change_password_confirm_password_'+user_name+'">Confirm new password:</label><input id="change_password_confirm_password_'+user_name+'" type="password"></div></div>');
-            change_password_dialog.dialog({modal:true,
-                                    title:'Change password',
-                                    width: $(window).width()*0.5,
-                                    buttons: {
-                                        'Change': function() {
-                                            var new_password = $('#change\\_password\\_new\\_password\\_'+user_name).val()
-                                            var confirm_password = $('#change\\_password\\_confirm\\_password\\_'+user_name).val()
-                                            if(new_password!=confirm_password) {
-                                                custom_alert("The passwords typed in the two fields are different.");
-                                                return false;
-                                            }
-                                            var data = {username: user_name, password: new_password} ;
-                                            $.ajax({
-                                                type: "POST",
-                                                url: "${user_auth_path}/change_password",
-                                                data: data})
-                                            .done(function() {
-                                                change_password_dialog.dialog('destroy').remove();
-                                                update();})
-                                            .fail(function(errMsg) {
                                                 custom_alert(errMsg.responseText);
                                             });
                                         },
@@ -239,7 +193,7 @@ ${parent.head()}
 
         $( document ).ready(function() {
 
-            $('#create\\_user').submit(create_user);
+            $('#create\\_user').submit(create_key);
 
             //$('#force\\_update').button().click(update);
 
@@ -256,15 +210,18 @@ ${parent.head()}
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="user_create">
-            <div class="padded ui-widget-header ui-corner-all">Create a user:</div>
+            <div class="padded ui-widget-header ui-corner-all">Create a Key:</div>
             <form id="create_user" class="margined" action="#" method="post">
                 <p>
-                <label for="create_name">Name:</label>
+                <label for="create_name">Key name:</label>
                 <input type="text" id="create_name" /> </p>
                 <p>
                 <p>
-                <label for="create_password">Password:</label>
-                <input type="password" id="create_password" /> </p>
+                <label for="create_limit">Request limit:</label>
+                <input type="number" value="10000" id="create_request_limit" /> </p>
+                <p>
+                <label for="create_limit">Hourly limit:</label>
+                <input type="number" value="100" id="create_limit" /> </p>
                 <p><label></label>
                 <input type="submit" value="Create" />
                 </p>
@@ -272,7 +229,7 @@ ${parent.head()}
         </div>
     </div>
     <div id="center">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="users_list">
+        <div class="margined ui-corner-all ui-widget ui-widget-content" id="data_list">
         </div>
     </div>
 </div>

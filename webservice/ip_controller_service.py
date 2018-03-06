@@ -1,4 +1,5 @@
 import cherrypy
+import ipaddress
 
 from db.sqlalchemydb import SQLAlchemyDB
 from webservice.auth_controller_service import require
@@ -64,19 +65,30 @@ class IPControllerService(object):
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))
     def create(self, ip, hourly_limit):
-        self._db.create_iptracker(ip, hourly_limit)
+        try:
+            ipaddress.ip_address(ip)
+        except:
+            cherrypy.response.status = 400
+            return 'Not an IP'
+        self._db.create_iptracker(ip, int(hourly_limit))
+        return 'Ok'
+
+    @cherrypy.expose
+    @require(name_is(SQLAlchemyDB.admin_name()))
+    def delete(self, ip):
+        self._db.delete_iptracker(ip)
         return 'Ok'
 
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))
     def set_hourly_limit(self, ip, hourly_limit):
-        self._db.set_iptracker_hourly_limit(ip, hourly_limit)
+        self._db.set_iptracker_hourly_limit(ip, int(hourly_limit))
         return 'Ok'
 
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))
     def set_current_request_counter(self, ip, count=0):
-        self._db.set_iptracker_current_request_counter(ip, count)
+        self._db.set_iptracker_current_request_counter(ip, int(count))
         return 'Ok'
 
     @cherrypy.expose

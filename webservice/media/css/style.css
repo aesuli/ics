@@ -22,7 +22,7 @@ body {
 }
 
 form  { display: table;      }
-p     { display: table-row;  }
+form > p     { display: table-row;  }
 label { display: table-cell; }
 input { display: table-cell; }
 
@@ -44,11 +44,20 @@ div .table   {
  padding: 5px;
 }
 
-.table  div:not(:first-child) div:nth-child(even) {
- background: white;
+.table > div:not(:first-child):nth-child(odd) > div:nth-child(odd) {
+    background: #FFFFFF;
 }
 
-.table  div:not(:first-child) div:nth-child(odd) {
+.table > div:not(:first-child):nth-child(odd) > div:nth-child(even) {
+    background: #FCFCFC;
+}
+
+.table > div:not(:first-child):nth-child(even) > div:nth-child(odd) {
+    background: #FDFDFD;
+}
+
+.table > div:not(:first-child):nth-child(even) > div:nth-child(even) {
+    background: #FAFAFA;
 }
 
 .textbox {
@@ -168,4 +177,9 @@ div .table   {
 
 .left {
  float:left;
+}
+
+.masked {
+    color: black;
+    background-color: black;
 }

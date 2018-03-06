@@ -1,0 +1,193 @@
+<%inherit file="admin_basewithmenu.html" />
+<%block name="head">
+${parent.head()}
+    <script type="text/javascript">
+        update_interval=5000
+        last_update = 0
+        function timed_update() {
+            now = Date.now();
+            if(now-last_update>update_interval)
+                update();
+            setTimeout(timed_update,update_interval);
+        }
+
+        function update() {
+            last_update = Date.now();
+            $.ajax({
+                type:'POST',
+                url:'${ip_auth_path}/info',
+                dataType: 'json'})
+            .done( function(msg) {
+                $('#users\\_list div .user\\_name').each(function(i,item) {
+                    var found = false;
+                    for(var i = 0;i<msg.length;++i) {
+                        if($(item).text()==msg[i].ip) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(!found) {
+                        $(item).parent().remove();
+                    }
+                });
+                if(msg.length==0) {
+                    $('#data\\_list').html('<div class="padded ui-widget-header ui-corner-all">No IP address defined</div>');
+                }
+                else {
+                    if($('#_gotdata').length==0) {
+                        $('#data\\_list').html('<div id="_gotdata" class="padded ui-widget-header ui-corner-all">IP addresses:</div>\
+                        <div id="data" class="table margined ui-widget-content ui-corner-all">\
+                        <div><div>IP</div>\
+                        <div>created</div>\
+                        <div>total requests</div>\
+                        <div>hourly limit</div>\
+                        <div>requests this hour</div>\
+                        <div>actions</div>\
+                        </div></div>');
+                    }
+                    var curr_list = {};
+                    $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                    for(var i = 0;i<msg.length;++i) {
+                        var name_string = msg[i].ip.replace(/\W/g,'X')
+                        item = jQuery('<div id=\'entry_'+name_string+'\'>\
+                        <div class="id">'+msg[i].ip+'</div>\
+                        <div class="small">'+msg[i].created+'</div>\
+                        <div>'+msg[i].total_request_counter+'</div>\
+                        <div>'+msg[i].hourly_limit+'</div>\
+                        <div>'+msg[i].current_request_counter+'</div>\
+                        <div>\
+                            <div id="change_hourly_limit_'+name_string+'">Change hourly limit</div>\
+                            <div id="counter_reset_'+name_string+'">Reset current counter</div>\
+                            <div id="delete_'+name_string+'">Delete</div>\
+                        </div>\
+                        </div>');
+                        if ($('#entry\\_'+name_string).length!=0) {
+                            $('#entry\\_'+name_string).replaceWith(item)
+                            delete curr_list['entry_'+name_string];
+                        }
+                        else
+                            $('#data').append(item);
+                        $('#change\\_hourly\\_limit\\_'+name_string).button({ icons: {primary:'ui-icon-clock'} });
+                        $('#change\\_hourly\\_limit\\_'+name_string).click(change_hourly_limit);
+                        $('#delete\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#delete\\_'+name_string).click(delete_ip);
+                        $('#counter_reset\\_'+name_string).button({ icons: {primary:'ui-icon-arrowreturn-1-w'} });
+                        $('#counter_reset\\_'+name_string).click(reset_ip);
+                    }
+                    for (var key in curr_list) {
+                        $('#'+key).remove();
+                    }
+                    $('#data\\_list').append($('#data\\_list > div').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                }
+            });
+        }
+
+        function create_ip() {
+            name = $("#create\\_name").val();
+            limit = $("#create\\_limit").val();
+            var data = {ip: name, hourly_limit: limit} ;
+            $.ajax({
+                type: "POST",
+                url: "${ip_auth_path}/create",
+                data: data})
+            .done(update)
+            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
+            });
+            return false;
+        };
+
+        function delete_ip() {
+            var user_name = $(this).parent().siblings('.id').text();
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return;
+            $('#entry\\_'+user_name).hide();
+            $.ajax({
+                type:'POST',
+                url:'${ip_auth_path}/delete/'+user_name })
+            .done(update)
+            .fail(function () {
+                $('#entry\\_'+user_name).show();
+            });
+        };
+
+        function reset_ip() {
+            var user_name = $(this).parent().siblings('.id').text();
+            $.ajax({
+                type:'POST',
+                url:'${ip_auth_path}/set_current_request_counter/'+user_name })
+            .done(update)
+            .fail(update);
+        };
+
+        function change_hourly_limit() {
+            var user_name = $(this).parent().siblings('.id').text();
+            var name_string = user_name.replace(/\W/g,'X');
+            var change_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'diag_change_hourly_limit_'+name_string+'\'><div><label for="new_limit_'+name_string+'">New hourly limit:</label><input id="new_limit_'+name_string+'" type="number" value="100"></div></div>');
+            change_dialog.dialog({modal:true,
+                                    title:'Change hourly limit',
+                                    width: $(window).width()*0.5,
+                                    buttons: {
+                                        'Change': function() {
+                                            var new_limit = $('#new\\_limit\\_'+name_string).val();
+                                            var data = {ip: user_name, hourly_limit: new_limit} ;
+                                            $.ajax({
+                                                type: "POST",
+                                                url: "${ip_auth_path}/set_hourly_limit",
+                                                data: data})
+                                            .done(function() {
+                                                change_dialog.dialog('destroy').remove();
+                                                update();})
+                                            .fail(function(errMsg) {
+                                                change_dialog.dialog('destroy').remove();
+                                                custom_alert(errMsg.responseText);
+                                            });
+                                        },
+                                        'Cancel': function() {
+                                            $(this).dialog('destroy').remove();
+                                        }
+                                    },
+                                  });
+        };
+
+        $( document ).ready(function() {
+
+            $('#create\\_user').submit(create_ip);
+
+            //$('#force\\_update').button().click(update);
+
+            $( "input[type=submit]" ).button();
+            $( "input[type=file]" ).button();
+
+            timed_update();
+        });
+</script>
+</%block>
+
+<div id="main" class="padded ui-widget ui-widget-content">
+    <div id="sidebar">
+        <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
+        </div>-->
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="user_create">
+            <div class="padded ui-widget-header ui-corner-all">Create an IP tracker:</div>
+            <form id="create_user" class="margined" action="#" method="post">
+                <p>
+                <label for="create_name">IP:</label>
+                <input type="text" id="create_name" /> </p>
+                <p>
+                <p>
+                <label for="create_limit">Hourly limit:</label>
+                <input type="number" value="100" id="create_limit" /> </p>
+                <p><label></label>
+                <input type="submit" value="Create" />
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="center">
+        <div class="margined ui-corner-all ui-widget ui-widget-content" id="data_list">
+        </div>
+    </div>
+</div>

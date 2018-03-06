@@ -1,4 +1,4 @@
-<%inherit file="basewithmenu.html" />
+<%inherit file="admin_basewithmenu.html" />
 <%block name="head">
 ${parent.head()}
     <script type="text/javascript">
@@ -28,7 +28,7 @@ ${parent.head()}
                         <div id="lock" class="table margined ui-widget-content ui-corner-all">\
                         <div><div>name</div>\
                         <div>locker</div>\
-                        <div>created</div>\
+                        <div class="small">created</div>\
                         <div>actions</div>\
                         </div></div>');
                     }
@@ -65,7 +65,7 @@ ${parent.head()}
             $.ajax({
                 type:'POST',
                 url:'${jobs_path}/delete_lock/'+lock_id})
-            .done(update)
+            .done(update())
             .fail(function () {
                     $('#lock\\_'+lock_id.replace(/(\W)/gi,'_')).show();
             });

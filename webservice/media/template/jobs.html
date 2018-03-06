@@ -1,4 +1,4 @@
-<%inherit file="basewithmenu.html" />
+<%inherit file="admin_basewithmenu.html" />
 <%block name="head">
 ${parent.head()}
     <script type="text/javascript">
@@ -41,12 +41,12 @@ ${parent.head()}
                         item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
                         <div class="id">'+msg[i].id+'</div>\
                         <div>'+msg[i].description+'</div>\
-                        <div>'+msg[i].creation+'</div>\
-                        <div>'+msg[i].start+'</div>\
-                        <div>'+msg[i].completion+'</div>\
+                        <div class="small">'+msg[i].creation+'</div>\
+                        <div class="small">'+msg[i].start+'</div>\
+                        <div class="small">'+msg[i].completion+'</div>\
                         <div>'+msg[i].status+'</div>\
-                        <div><div id="rerun_'+msg[i].id+'">Rerun</div></div>\
-                        <div><div id="delete_'+msg[i].id+'">Delete</div></div>\
+                        <div><div id="rerun_'+msg[i].id+'">Rerun</div>\
+                        <div id="delete_'+msg[i].id+'">Delete</div></div>\
                         </div>');
                         if ($('#job\\_'+msg[i].id).length!=0) {
                             $('#job\\_'+msg[i].id).replaceWith(item)
@@ -109,7 +109,7 @@ ${parent.head()}
     <div id="sidebar">
 <div class="margined  ui-corner-all ui-widget ui-widget-content" id="actions">
         <div class="padded ui-widget-header ui-corner-all">Actions</div>
-        <div id="delete_btn">Delete records for all jobs done</div>
+        <div id="delete_btn">Delete records for all completed jobs</div>
         </div>
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->

@@ -1,4 +1,3 @@
-
 import cherrypy
 
 from db.sqlalchemydb import SQLAlchemyDB
@@ -8,8 +7,7 @@ from webservice.auth_controller_service import require, SESSION_KEY
 __author__ = 'Andrea Esuli'
 
 
-
-def must_be_logged_in():
+def logged_in():
     def check():
         return cherrypy.request.login is not None
 
@@ -18,7 +16,7 @@ def must_be_logged_in():
 
 def name_is(required_username):
     def check():
-        return lambda: required_username == cherrypy.request.login
+        return required_username == cherrypy.request.login
 
     return check
 
@@ -62,6 +60,10 @@ class UserControllerService(object):
             user_info = dict()
             user_info['name'] = name
             user_info['created'] = str(self._db.get_user_creation_time(name))
+            user_info['hourly_limit'] = str(self._db.get_user_hourly_limit(name))
+            user_info['request_limit'] = str(self._db.get_user_request_limit(name))
+            user_info['total_request_counter'] = str(self._db.get_user_total_request_counter(name))
+            user_info['current_request_counter'] = str(self._db.get_user_current_request_counter(name))
             result.append(user_info)
         return result
 
@@ -128,6 +130,43 @@ class UserControllerService(object):
             cherrypy.request.login = None
             self.on_logout(username)
 
+    def logged_in_with_cost(self, cost=1):
+
+        def check():
+            name = cherrypy.request.login
+            if name:
+                return self._db.user_check_and_count_request(name, cost)
+            else:
+                return False
+
+        return check
+
+    @cherrypy.expose
+    @require(name_is(SQLAlchemyDB.admin_name()))
+    def set_hourly_limit(self, username, hourly_limit):
+        if username != SQLAlchemyDB.admin_name():
+            self._db.set_user_hourly_limit(username, int(hourly_limit))
+            return 'Ok'
+        else:
+            cherrypy.response.status = 403
+            return 'Cannot change "%s"' % username
+
+    @cherrypy.expose
+    @require(name_is(SQLAlchemyDB.admin_name()))
+    def set_request_limit(self, username, request_limit):
+        if username != SQLAlchemyDB.admin_name():
+            self._db.set_user_request_limit(username, int(request_limit))
+            return 'Ok'
+        else:
+            cherrypy.response.status = 403
+            return 'Cannot change "%s"' % username
+
+    @cherrypy.expose
+    @require(name_is(SQLAlchemyDB.admin_name()))
+    def set_current_request_counter(self, username, count=0):
+        self._db.set_user_current_request_counter(username, int(count))
+        return 'Ok'
+
     @cherrypy.expose
     def version(self):
-        return "0.2.5 (db: %s)" % self._db.version()
+        return "1.1.1 (db: %s)" % self._db.version()
