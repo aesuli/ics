@@ -1,5 +1,19 @@
 TODO
-- dedicated admin interface
+- datasets page using a table
+- classifiers page using a table
+- classifications page using a table
+- automatic DB creation
+- paginated view for
+    * dataset
+    * users
+    * classifiers
+    * keys
+    * ips
+    * jobs
+    * locks
+    * classifications
+- dataset documents as table view
+- classified dataset documents as table view
 - use ids rather than names in batch jobs
 - duplicate training sets on db, without reinserting text
 - user authorization
@@ -24,6 +38,10 @@ TOMONITOR
 - strip input strings
 
 DONE
+- users with limits
+- users page using a table
+- key admin page
+- dedicated admin interface
 - key-based access
     * rate-limited
     * amount-limited

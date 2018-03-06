@@ -8,16 +8,21 @@ from db.sqlalchemydb import SQLAlchemyDB
 __author__ = 'Andrea Esuli'
 
 
-class WebClient(object):
-    def __init__(self, db_connection_string, media_dir, user_auth_path, admin_path, classifier_path, dataset_path, jobs_path, name):
+class WebAdmin(object):
+    def __init__(self, db_connection_string, media_dir, client_path, user_auth_path, ip_auth_path, key_auth_path,
+                 classifier_path,
+                 dataset_path, jobs_path, name):
         self._db = SQLAlchemyDB(db_connection_string)
         self._media_dir = media_dir
-        self._template_data = {'user_auth_path': user_auth_path,
-                               'admin_path': admin_path,
+        self._template_data = {'client_path': client_path,
+                               'user_auth_path': user_auth_path,
+                               'ip_auth_path': ip_auth_path,
+                               'key_auth_path': key_auth_path,
                                'classifier_path': classifier_path,
                                'dataset_path': dataset_path,
                                'jobs_path': jobs_path,
-                               'name': name}
+                               'name': name,
+                               'base_template': 'admin_basewithmenu.html'}
         self._lookup = TemplateLookup(os.path.join(media_dir, 'template'), input_encoding='utf-8',
                                       output_encoding='utf-8')
 
@@ -61,48 +66,21 @@ class WebClient(object):
 
     @cherrypy.expose
     def index(self):
-        return self.datasets()
-
-    @cherrypy.expose
-    def typeandlabel(self):
-        template = self._lookup.get_template('typeandlabel.html')
-        return template.render(**{**self._template_data, **self.session_data()})
-
-    @cherrypy.expose
-    def browseandlabel(self, name=None):
-        if name is None:
-            raise cherrypy.HTTPRedirect('/datasets')
-
-        if not self._db.dataset_exists(name):
-            raise cherrypy.HTTPRedirect('/datasets')
-
-        template = self._lookup.get_template('browseandlabel.html')
-        return template.render(**{**self._template_data, **self.session_data()})
-
-    @cherrypy.expose
-    def classify(self, name=None):
-        if name is None:
-            raise cherrypy.HTTPRedirect('/datasets')
-
-        if not self._db.dataset_exists(name):
-            raise cherrypy.HTTPRedirect('/datasets')
-
-        template = self._lookup.get_template('classify.html')
-        return template.render(**{**self._template_data, **self.session_data()})
-
-    @cherrypy.expose
-    def classifiers(self):
-        template = self._lookup.get_template('classifiers.html')
-        return template.render(**{**self._template_data, **self.session_data()})
-
-    @cherrypy.expose
-    def datasets(self):
-        template = self._lookup.get_template('datasets.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return self.users()
 
     @cherrypy.expose
     def users(self):
         template = self._lookup.get_template('users.html')
+        return template.render(**{**self._template_data, **self.session_data()})
+
+    @cherrypy.expose
+    def ips(self):
+        template = self._lookup.get_template('ips.html')
+        return template.render(**{**self._template_data, **self.session_data()})
+
+    @cherrypy.expose
+    def keys(self):
+        template = self._lookup.get_template('keys.html')
         return template.render(**{**self._template_data, **self.session_data()})
 
     @cherrypy.expose
@@ -122,9 +100,9 @@ class WebClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.4.3"
+        return "0.1.1"
 
 
 if __name__ == "__main__":
-    with WebClient('sqlite:///%s' % 'test.db', '.', '/service/wdc', '/service/wcc', '/service/bp', 'test') as wcc:
+    with WebAdmin('sqlite:///%s' % 'test.db', '.', '/service/wdc', '/service/wcc', '/service/bp', 'test') as wcc:
         cherrypy.quickstart(wcc, '/', config=wcc.get_config())

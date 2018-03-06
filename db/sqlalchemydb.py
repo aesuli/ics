@@ -18,6 +18,11 @@ __author__ = 'Andrea Esuli'
 
 Base = declarative_base()
 
+_ADMIN_NAME = 'admin'
+_ADMIN_PASSWORD = 'adminadmin'
+_NO_HOURLY_LIMIT = -1
+_NO_REQUEST_LIMIT = -1
+
 classifier_name_length = 100
 user_name_length = 50
 key_name_length = 50
@@ -61,6 +66,13 @@ class KeyTracker(Base):
         else:
             return False
 
+    def check_current_request_counter(self):
+        current_time_span = int(time.time() / 3600)
+        if self.counter_time_span < current_time_span:
+            self.current_request_counter = 0
+        self.counter_time_span = current_time_span
+        return self.current_request_counter
+
 
 class IPTracker(Base):
     __tablename__ = 'iptracker'
@@ -102,10 +114,43 @@ class User(Base):
     name = Column(String(user_name_length), unique=True)
     salted_password = Column(String())
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+    hourly_limit = Column(Integer())
+    current_request_counter = Column(Integer(), default=0)
+    counter_time_span = Column(Integer(), default=int(time.time() / 3600))
+    total_request_counter = Column(Integer(), default=0)
+    request_limit = Column(Integer(), default=0)
 
-    def __init__(self, name, password):
+    def __init__(self, name, password, hourly_limit=_NO_HOURLY_LIMIT,
+                 request_limit=_NO_REQUEST_LIMIT):
         self.name = name
         self.salted_password = pbkdf2_sha256.hash(password)
+        self.hourly_limit = int(hourly_limit)
+        self.request_limit = int(request_limit)
+
+    def check_and_count_request(self, cost=1):
+        if self.request_limit >= 0 and self.total_request_counter >= self.request_limit:
+            return False
+        if self.hourly_limit < 0:
+            self.current_request_counter += cost
+            self.total_request_counter += cost
+            return True
+        current_time_span = int(time.time() / 3600)
+        if self.counter_time_span < current_time_span:
+            self.current_request_counter = 0
+        self.counter_time_span = current_time_span
+        if self.current_request_counter < self.hourly_limit:
+            self.current_request_counter += cost
+            self.total_request_counter += cost
+            return True
+        else:
+            return False
+
+    def check_current_request_counter(self):
+        current_time_span = int(time.time() / 3600)
+        if self.counter_time_span < current_time_span:
+            self.current_request_counter = 0
+        self.counter_time_span = current_time_span
+        return self.current_request_counter
 
     def verify(self, password):
         return pbkdf2_sha256.verify(password, self.salted_password)
@@ -251,9 +296,6 @@ class Lock(Base):
 
 
 class SQLAlchemyDB(object):
-    _ADMIN_NAME = 'admin'
-    _ADMIN_PASSWORD = 'adminadmin'
-
     def __init__(self, name):
         self._engine = create_engine(name)
         Base.metadata.create_all(self._engine)
@@ -263,8 +305,9 @@ class SQLAlchemyDB(object):
 
     def _preload_data(self):
         with self.session_scope() as session:
-            if not session.query(exists().where(User.name == SQLAlchemyDB._ADMIN_NAME)).scalar():
-                session.add(User(SQLAlchemyDB._ADMIN_NAME, SQLAlchemyDB._ADMIN_PASSWORD))
+            if not session.query(exists().where(User.name == _ADMIN_NAME)).scalar():
+                session.add(User(_ADMIN_NAME, _ADMIN_PASSWORD, _NO_HOURLY_LIMIT,
+                                 _NO_REQUEST_LIMIT))
 
     def __enter__(self):
         return self
@@ -291,7 +334,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def admin_name():
-        return SQLAlchemyDB._ADMIN_NAME
+        return _ADMIN_NAME
 
     def create_user(self, name, password):
         with self.session_scope() as session:
@@ -321,15 +364,54 @@ class SQLAlchemyDB(object):
 
     def user_names(self):
         with self.session_scope() as session:
-            return list(session.query(User.name).order_by(User.name).all())
+            return self._flatten_list(session.query(User.name).order_by(User.name).all())
 
     def get_user_creation_time(self, name):
         with self.session_scope() as session:
             return session.query(User.creation).filter(User.name == name).scalar()
 
+    def get_user_hourly_limit(self, name):
+        with self.session_scope() as session:
+            return session.query(User.hourly_limit).filter(User.name == name).scalar()
+
+    def get_user_request_limit(self, name):
+        with self.session_scope() as session:
+            return session.query(User.request_limit).filter(User.name == name).scalar()
+
+    def get_user_current_request_counter(self, name):
+        with self.session_scope() as session:
+            user = session.query(User).filter(User.name == name).scalar()
+            return user.check_current_request_counter()
+
+    def get_user_total_request_counter(self, name):
+        with self.session_scope() as session:
+            return session.query(User.total_request_counter).filter(User.name == name).scalar()
+
+    def user_check_and_count_request(self, name, cost):
+        with self.session_scope() as session:
+            key_obj = session.query(User).filter(User.name == name).scalar()
+            if key_obj is None:
+                return False
+            return key_obj.check_and_count_request(cost)
+
+    def set_user_hourly_limit(self, name, hourly_limit):
+        with self.session_scope() as session:
+            key_obj = session.query(User).filter(User.name == name).scalar()
+            key_obj.hourly_limit = hourly_limit
+
+    def set_user_request_limit(self, name, request_limit):
+        with self.session_scope() as session:
+            key_obj = session.query(User).filter(User.name == name).scalar()
+            key_obj.request_limit = request_limit
+
+    def set_user_current_request_counter(self, name, count):
+        with self.session_scope() as session:
+            key_obj = session.query(User).filter(User.name == name).scalar()
+            key_obj.current_request_counter = count
+
     def classifier_names(self):
         with self.session_scope() as session:
-            return list(session.query(Classifier.name).order_by(Classifier.name).all())
+            return self._flatten_list(session.query(Classifier.name).order_by(Classifier.name).all())
 
     def classifier_exists(self, name):
         with self.session_scope() as session:
@@ -352,7 +434,7 @@ class SQLAlchemyDB(object):
 
     def get_classifier_labels(self, name):
         with self.session_scope() as session:
-            labels = list(x for (x,) in session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
+            labels = self._flatten_list(session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
                 Classifier.name == name))
             labels.remove(Label.HIDDEN_LABEL)
             return labels
@@ -476,7 +558,7 @@ class SQLAlchemyDB(object):
 
     def dataset_names(self):
         with self.session_scope() as session:
-            return list(session.query(Dataset.name).order_by(Dataset.name))
+            return self._flatten_list(session.query(Dataset.name).order_by(Dataset.name))
 
     def dataset_exists(self, name):
         with self.session_scope() as session:
@@ -717,7 +799,7 @@ class SQLAlchemyDB(object):
 
     def ipaddresses(self):
         with self.session_scope() as session:
-            return list(session.query(IPTracker.ip).order_by(IPTracker.ip))
+            return self._flatten_list(session.query(IPTracker.ip).order_by(IPTracker.ip))
 
     def get_iptracker_creation_time(self, ip):
         with self.session_scope() as session:
@@ -758,6 +840,10 @@ class SQLAlchemyDB(object):
             iptracker = IPTracker(ip, hourly_limit)
             session.add(iptracker)
 
+    def delete_iptracker(self, ip):
+        with self.session_scope() as session:
+            session.query(IPTracker).filter(IPTracker.ip == ip).delete()
+
     def acquire_lock(self, name, locker, poll_interval=1):
         with self.session_scope() as session:
             locked = False
@@ -779,7 +865,7 @@ class SQLAlchemyDB(object):
 
     def keys(self):
         with self.session_scope() as session:
-            return list(session.query(KeyTracker.key).order_by(KeyTracker.key))
+            return self._flatten_list(session.query(KeyTracker.key).order_by(KeyTracker.key))
 
     def get_keytracker_name(self, key):
         with self.session_scope() as session:
@@ -799,7 +885,8 @@ class SQLAlchemyDB(object):
 
     def get_keytracker_current_request_counter(self, key):
         with self.session_scope() as session:
-            return session.query(KeyTracker.current_request_counter).filter(KeyTracker.key == key).scalar()
+            keytracker = session.query(KeyTracker).filter(KeyTracker.key == key).scalar()
+            return keytracker.check_current_request_counter()
 
     def get_keytracker_total_request_counter(self, key):
         with self.session_scope() as session:
@@ -814,12 +901,12 @@ class SQLAlchemyDB(object):
 
     def set_keytracker_hourly_limit(self, key, hourly_limit):
         with self.session_scope() as session:
-            key_obj = session.query(IPTracker).filter(KeyTracker.key == key).scalar()
+            key_obj = session.query(KeyTracker).filter(KeyTracker.key == key).scalar()
             key_obj.hourly_limit = hourly_limit
 
     def set_keytracker_request_limit(self, key, request_limit):
         with self.session_scope() as session:
-            key_obj = session.query(IPTracker).filter(KeyTracker.key == key).scalar()
+            key_obj = session.query(KeyTracker).filter(KeyTracker.key == key).scalar()
             key_obj.request_limit = request_limit
 
     def set_keytracker_current_request_counter(self, key, count):
@@ -833,9 +920,16 @@ class SQLAlchemyDB(object):
             session.add(key_obj)
             return key_obj.key
 
+    def delete_keytracker(self, key):
+        with self.session_scope() as session:
+            session.query(KeyTracker).filter(KeyTracker.key == key).delete()
+
+    def _flatten_list(self, list_of_list):
+        return [item for sublist in list_of_list for item in sublist]
+
     @staticmethod
     def version():
-        return "1.5.3"
+        return "2.1.1"
 
 
 class DBLock(object):
