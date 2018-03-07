@@ -34,96 +34,18 @@ document_name_length = 100
 salt_length = 20
 
 
-class KeyTracker(Base):
-    __tablename__ = 'keytracker'
+class Tracker(Base):
+    __tablename__ = 'tracker'
     id = Column(Integer(), primary_key=True)
-    key = Column(String(key_length * 2), unique=True)
-    name = Column(String(key_name_length), unique=True)
     hourly_limit = Column(Integer())
     current_request_counter = Column(Integer(), default=0)
     counter_time_span = Column(Integer(), default=int(time.time() / 3600))
     total_request_counter = Column(Integer(), default=0)
     request_limit = Column(Integer(), default=0)
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+    last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now)
 
-    def __init__(self, name, hourly_limit, request_limit):
-        self.key = secrets.token_hex(key_length)
-        self.name = name
-        self.hourly_limit = int(hourly_limit)
-        self.request_limit = int(request_limit)
-
-    def check_and_count_request(self, cost=1):
-        if self.request_limit >= 0 and self.total_request_counter >= self.request_limit:
-            return False
-        current_time_span = int(time.time() / 3600)
-        if self.counter_time_span < current_time_span:
-            self.current_request_counter = 0
-        self.counter_time_span = current_time_span
-        if self.current_request_counter < self.hourly_limit:
-            self.current_request_counter += cost
-            self.total_request_counter += cost
-            return True
-        else:
-            return False
-
-    def check_current_request_counter(self):
-        current_time_span = int(time.time() / 3600)
-        if self.counter_time_span < current_time_span:
-            self.current_request_counter = 0
-        self.counter_time_span = current_time_span
-        return self.current_request_counter
-
-
-class IPTracker(Base):
-    __tablename__ = 'iptracker'
-    id = Column(Integer(), primary_key=True)
-    ip = Column(String(ipaddress_length), unique=True)
-    hourly_limit = Column(Integer())
-    current_request_counter = Column(Integer(), default=0)
-    total_request_counter = Column(Integer(), default=0)
-    counter_time_span = Column(Integer(), default=int(time.time() / 3600))
-    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
-
-    def __init__(self, ip, hourly_limit):
-        self.ip = ip.strip()
-        self.hourly_limit = hourly_limit
-
-    def check_and_count_request(self, cost=1):
-        current_time_span = int(time.time() / 3600)
-        if self.counter_time_span < current_time_span:
-            self.current_request_counter = 0
-        self.counter_time_span = current_time_span
-        if self.current_request_counter < self.hourly_limit:
-            self.current_request_counter += cost
-            self.total_request_counter += cost
-            return True
-        else:
-            return False
-
-    def check_current_request_counter(self):
-        current_time_span = int(time.time() / 3600)
-        if self.counter_time_span < current_time_span:
-            self.current_request_counter = 0
-        self.counter_time_span = current_time_span
-        return self.current_request_counter
-
-
-class User(Base):
-    __tablename__ = 'user'
-    id = Column(Integer(), primary_key=True)
-    name = Column(String(user_name_length), unique=True)
-    salted_password = Column(String())
-    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
-    hourly_limit = Column(Integer())
-    current_request_counter = Column(Integer(), default=0)
-    counter_time_span = Column(Integer(), default=int(time.time() / 3600))
-    total_request_counter = Column(Integer(), default=0)
-    request_limit = Column(Integer(), default=0)
-
-    def __init__(self, name, password, hourly_limit=_NO_HOURLY_LIMIT,
-                 request_limit=_NO_REQUEST_LIMIT):
-        self.name = name
-        self.salted_password = pbkdf2_sha256.hash(password)
+    def __init__(self, hourly_limit, request_limit):
         self.hourly_limit = int(hourly_limit)
         self.request_limit = int(request_limit)
 
@@ -133,6 +55,7 @@ class User(Base):
         if self.hourly_limit < 0:
             self.current_request_counter += cost
             self.total_request_counter += cost
+            self.last_updated = datetime.datetime.now()
             return True
         current_time_span = int(time.time() / 3600)
         if self.counter_time_span < current_time_span:
@@ -141,6 +64,7 @@ class User(Base):
         if self.current_request_counter < self.hourly_limit:
             self.current_request_counter += cost
             self.total_request_counter += cost
+            self.last_updated = datetime.datetime.now()
             return True
         else:
             return False
@@ -151,6 +75,41 @@ class User(Base):
             self.current_request_counter = 0
         self.counter_time_span = current_time_span
         return self.current_request_counter
+
+
+class KeyTracker(Tracker):
+    __tablename__ = 'key'
+    id = Column(Integer, ForeignKey('tracker.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
+    key = Column(String(key_length * 2), unique=True)
+    name = Column(String(key_name_length), unique=True)
+
+    def __init__(self, name, hourly_limit, request_limit):
+        super().__init__(hourly_limit, request_limit)
+        self.key = secrets.token_hex(key_length)
+        self.name = name
+
+
+class IPTracker(Tracker):
+    __tablename__ = 'ip'
+    id = Column(Integer, ForeignKey('tracker.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
+    ip = Column(String(ipaddress_length), unique=True)
+
+    def __init__(self, ip, hourly_limit, request_limit):
+        super().__init__(hourly_limit, request_limit)
+        self.ip = ip.strip()
+
+
+class User(Tracker):
+    __tablename__ = 'user'
+    id = Column(Integer, ForeignKey('tracker.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
+    name = Column(String(user_name_length), unique=True)
+    salted_password = Column(String())
+
+    def __init__(self, name, password, hourly_limit=_NO_HOURLY_LIMIT,
+                 request_limit=_NO_REQUEST_LIMIT):
+        super().__init__(hourly_limit, request_limit)
+        self.name = name
+        self.salted_password = pbkdf2_sha256.hash(password)
 
     def verify(self, password):
         return pbkdf2_sha256.verify(password, self.salted_password)
@@ -835,9 +794,9 @@ class SQLAlchemyDB(object):
                 raise LookupError()
             return iptracker.check_and_count_request(cost)
 
-    def create_iptracker(self, ip, hourly_limit):
+    def create_iptracker(self, ip, hourly_limit, request_limit):
         with self.session_scope() as session:
-            iptracker = IPTracker(ip, hourly_limit)
+            iptracker = IPTracker(ip, hourly_limit, request_limit)
             session.add(iptracker)
 
     def delete_iptracker(self, ip):
