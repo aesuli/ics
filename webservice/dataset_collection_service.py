@@ -39,9 +39,10 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self):
+    def info(self, page=0, page_size=50):
         result = []
-        for name in self._db.dataset_names():
+        names = self._db.dataset_names()[page * page_size:(page + 1) * page_size]
+        for name in names:
             dataset_info = dict()
             dataset_info['name'] = name
             dataset_info['created'] = str(self._db.get_dataset_creation_time(name))
@@ -187,7 +188,7 @@ class DatasetCollectionService(object):
     @cherrypy.tools.json_out()
     def most_uncertain_document_id(self, dataset_name, classifier_name):
         dataset_size = self._db.get_dataset_size(dataset_name)
-        offset = random.randint(0,dataset_size-QUICK_CLASSIFICATION_BATCH_SIZE)
+        offset = random.randint(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE)
         X = list()
         for doc in self._db.get_dataset_documents_by_position(dataset_name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
@@ -202,14 +203,14 @@ class DatasetCollectionService(object):
         for position, score in positions_scores:
             text = X[position]
             if not self._db.classifier_has_example(classifier_name, text, True):
-                return offset+position
+                return offset + position
         return random.randint(0, dataset_size - 1)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def most_certain_document_id(self, dataset_name, classifier_name):
         dataset_size = self._db.get_dataset_size(dataset_name)
-        offset = random.randint(0,dataset_size-QUICK_CLASSIFICATION_BATCH_SIZE)
+        offset = random.randint(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE)
         X = list()
         for doc in self._db.get_dataset_documents_by_position(dataset_name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
@@ -224,17 +225,17 @@ class DatasetCollectionService(object):
         for position, score in positions_scores:
             text = X[position]
             if not self._db.classifier_has_example(classifier_name, text, True):
-                return offset+position
+                return offset + position
         return random.randint(0, dataset_size - 1)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def random_hidden_document_id(self, dataset_name, classifier_name):
         document_ids = [document_id for document_id in
-                     self._db.get_dataset_documents_with_label(dataset_name, classifier_name, Label.HIDDEN_LABEL)]
+                        self._db.get_dataset_documents_with_label(dataset_name, classifier_name, Label.HIDDEN_LABEL)]
         if document_ids:
             document_id = random.choice(document_ids)
-            position = self._db.get_dataset_document_position_by_id(dataset_name,document_id)
+            position = self._db.get_dataset_document_position_by_id(dataset_name, document_id)
             return position
         else:
             cherrypy.response.status = 400
@@ -284,25 +285,30 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def get_classification_jobs(self, name):
-        result = list()
-        to_delete = list()
-        for classification_job in self._db.get_classification_jobs(name):
-            classification_job_info = dict()
-            classification_job_info['id'] = classification_job.id
-            if (classification_job.filename is None or not os.path.exists(
-                    classification_job.filename)) and classification_job.job.status == Job.status_done:
-                to_delete.append(classification_job.id)
-                continue
-            classification_job_info['dataset'] = name
-            classification_job_info['classifiers'] = classification_job.classifiers
-            classification_job_info['status'] = classification_job.job.status
-            classification_job_info['creation'] = str(classification_job.job.creation)
-            classification_job_info['completion'] = str(classification_job.job.completion)
-            result.append(classification_job_info)
+    def get_classification_jobs(self, name, page=0, page_size=50):
+        got_deleted = True
+        result = None
+        while got_deleted:
+            result = list()
+            to_delete = list()
+            jobs = self._db.get_classification_jobs(name)[page * page_size:(page + 1) * page_size]
+            for classification_job in jobs:
+                classification_job_info = dict()
+                classification_job_info['id'] = classification_job.id
+                if (classification_job.filename is None or not os.path.exists(
+                        classification_job.filename)) and classification_job.job.status == Job.status_done:
+                    to_delete.append(classification_job.id)
+                    got_deleted = True
+                    continue
+                classification_job_info['dataset'] = name
+                classification_job_info['classifiers'] = classification_job.classifiers
+                classification_job_info['status'] = classification_job.job.status
+                classification_job_info['creation'] = str(classification_job.job.creation)
+                classification_job_info['completion'] = str(classification_job.job.completion)
+                result.append(classification_job_info)
 
-        for id in to_delete:
-            self._db.delete_classification_job(id)
+            for id in to_delete:
+                self._db.delete_classification_job(id)
         return result
 
     @cherrypy.expose
@@ -325,7 +331,7 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "1.1.2 (db: %s)" % self._db.version()
+        return "1.2.1 (db: %s)" % self._db.version()
 
 
 @logged_call
@@ -396,8 +402,3 @@ def _create_dataset_documents(db_connection_string, dataset_name, filename):
                     document_name = row[0]
                     content = row[1]
                     db.create_dataset_document(dataset_name, document_name, content)
-
-
-if __name__ == "__main__":
-    with DatasetCollectionService('sqlite:///%s' % 'test.db', '.') as wcc:
-        cherrypy.quickstart(wcc, '/service/wdc')

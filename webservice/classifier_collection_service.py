@@ -45,9 +45,10 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self):
+    def info(self, page=0, page_size=50):
         result = []
-        for name in self._db.classifier_names():
+        names = self._db.classifier_names()[page * page_size:(page + 1) * page_size]
+        for name in names:
             classifier_info = dict()
             classifier_info['name'] = name
             classifier_info['labels'] = self._db.get_classifier_labels(name)
@@ -581,7 +582,7 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.7.2 (db: %s)" % self._db.version()
+        return "1.1.1 (db: %s)" % self._db.version()
 
 
 @logged_call
@@ -749,8 +750,3 @@ def _lock_model(db, name):
 
 def _lock_trainingset(db, name):
     return DBLock(db, '%s %s' % (name, 'trainingset'))
-
-
-if __name__ == "__main__":
-    with ClassifierCollectionService('sqlite:///%s' % 'test.db', '.') as wcc:
-        cherrypy.quickstart(wcc, '/service/wcc')

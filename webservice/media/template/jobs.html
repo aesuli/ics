@@ -2,9 +2,12 @@
 <%block name="head">
 ${parent.head()}
     <script type="text/javascript">
-       update_interval=5000
-       delay_interval=500
-        last_update = 0
+       update_interval=5000;
+       delay_interval=500;
+        last_update = 0;
+        page = 0;
+        page_size = 50;
+
         function timed_update() {
             now = Date.now();
             if(now-last_update>update_interval)

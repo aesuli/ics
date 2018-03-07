@@ -21,9 +21,10 @@ class JobsService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self):
+    def info(self, page=0, page_size=50):
         jobslist = list()
-        for job in self._db.get_jobs():
+        jobs = self._db.get_jobs()[page * page_size:(page + 1) * page_size]
+        for job in jobs:
             jobinfo = dict()
             jobinfo['id'] = job.id
             jobinfo['description'] = job.description
@@ -48,9 +49,10 @@ class JobsService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def locks(self):
+    def locks(self, page=0, page_size=50):
         lockslist = list()
-        for lock in self._db.get_locks():
+        locks = self._db.get_locks()[page * page_size:(page + 1) * page_size]
+        for lock in locks:
             lockinfo = dict()
             lockinfo['name'] = lock.name
             lockinfo['locker'] = lock.locker
@@ -82,9 +84,4 @@ class JobsService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.3.2 (db: %s)" % self._db.version()
-
-
-if __name__ == "__main__":
-    with JobsService('sqlite:///%s' % 'test.db') as js:
-        cherrypy.quickstart(js, '/service/js')
+        return "0.4.1 (db: %s)" % self._db.version()

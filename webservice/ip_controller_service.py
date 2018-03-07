@@ -27,14 +27,17 @@ class IPControllerService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self, page=0, page_count=50):
+    def info(self, page=0, page_size=50):
         result = []
         requester = cherrypy.request.login
         if requester is not None and requester == SQLAlchemyDB.admin_name():
             ips = self._db.ipaddresses()
         else:
-            ips = [cherrypy.request.remote.ip]
-        ips = ips[page * page_count:(page + 1) * page_count]
+            if cherrypy.request.remote.ip in self._db.ipaddresses():
+                ips = [cherrypy.request.remote.ip]
+            else:
+                ips = []
+        ips = ips[page * page_size:(page + 1) * page_size]
         for ip in ips:
             ip_info = dict()
             ip_info['ip'] = ip
@@ -93,4 +96,4 @@ class IPControllerService(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.1.3 (db: %s)" % self._db.version()
+        return "1.1.1 (db: %s)" % self._db.version()
