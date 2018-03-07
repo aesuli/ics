@@ -1,5 +1,6 @@
-import cherrypy
 import ipaddress
+
+import cherrypy
 
 from db.sqlalchemydb import SQLAlchemyDB
 from webservice.auth_controller_service import require
@@ -9,9 +10,11 @@ __author__ = 'Andrea Esuli'
 
 
 class IPControllerService(object):
-    def __init__(self, db_connection_string, default_hourly_limit=100, create_if_missing=False):
+    def __init__(self, db_connection_string, default_hourly_limit=100, default_request_limit=10000,
+                 create_if_missing=False):
         self._db = SQLAlchemyDB(db_connection_string)
         self.default_hourly_limit = default_hourly_limit
+        self.default_request_limit = default_request_limit
         self.create_if_missing = create_if_missing
 
     def close(self):
@@ -56,7 +59,7 @@ class IPControllerService(object):
                 return self._db.iptracker_check_and_count_request(ip, cost)
             except LookupError:
                 if self.create_if_missing:
-                    self._db.create_iptracker(ip, self.default_hourly_limit)
+                    self._db.create_iptracker(ip, self.default_hourly_limit, self.default_request_limit)
 
             try:
                 return self._db.iptracker_check_and_count_request(ip, cost)
@@ -67,13 +70,13 @@ class IPControllerService(object):
 
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))
-    def create(self, ip, hourly_limit):
+    def create(self, ip, hourly_limit, request_limit):
         try:
             ipaddress.ip_address(ip)
         except:
             cherrypy.response.status = 400
             return 'Not an IP'
-        self._db.create_iptracker(ip, int(hourly_limit))
+        self._db.create_iptracker(ip, int(hourly_limit), int(request_limit))
         return 'Ok'
 
     @cherrypy.expose

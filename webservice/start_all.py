@@ -5,8 +5,7 @@ import cherrypy
 from configargparse import ArgParser
 
 from db.sqlalchemydb import SQLAlchemyDB
-from webservice.auth_controller_service import enable_controller_service, fail_with_error_message, redirect, any_of, \
-    all_of
+from webservice.auth_controller_service import enable_controller_service, fail_with_error_message, redirect, any_of
 from webservice.background_processor_service import BackgroundProcessor
 from webservice.classifier_collection_service import ClassifierCollectionService
 from webservice.dataset_collection_service import DatasetCollectionService
@@ -35,6 +34,7 @@ if __name__ == "__main__":
     parser.add_argument('--admin_path', help='server path of the web admin app', type=str, required=True)
     parser.add_argument('--demo_path', help='server path of the web demo app', type=str, required=True)
     parser.add_argument('--ip_hourly_limit', help='ip hourly request limit', type=int, required=True)
+    parser.add_argument('--ip_request_limit', help='ip total request limit', type=int, required=True)
     parser.add_argument('--allow_unknown_ips', help='allow unknown IPs with rate limit', type=bool, required=True)
     parser.add_argument('--user_auth_path', help='server path of the user auth web service', type=str, required=True)
     parser.add_argument('--ip_auth_path', help='server path of the ip auth web service', type=str, required=True)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
             DatasetCollectionService(args.db_connection_string, args.data_dir) as dataset_service, \
             JobsService(args.db_connection_string) as jobs_service, \
             UserControllerService(args.db_connection_string, args.min_password_length) as user_auth_controller, \
-            IPControllerService(args.db_connection_string, args.ip_hourly_limit,
+            IPControllerService(args.db_connection_string, args.ip_hourly_limit, args.ip_request_limit,
                                 args.allow_unknown_ips) as ip_auth_controller, \
             KeyControllerService(args.db_connection_string) as key_auth_controller:
         background_processor.start()
@@ -112,9 +112,10 @@ if __name__ == "__main__":
                 'tools.icsauth.require': [],
             },
             '/classify': {
-                'tools.icsauth.require': [any_of(user_auth_controller.logged_in_with_cost(), key_auth_controller.has_key(),
-                                                 ip_auth_controller.ip_rate_limit(),
-                                                 fail_with_error_message(401, 'Reached request limit.'))],
+                'tools.icsauth.require': [
+                    any_of(user_auth_controller.logged_in_with_cost(), key_auth_controller.has_key(),
+                           ip_auth_controller.ip_rate_limit(),
+                           fail_with_error_message(401, 'Reached request limit.'))],
             },
         }
 
