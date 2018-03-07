@@ -1,20 +1,20 @@
 TODO
-- single limits and rates object
 - automatic DB creation
 - paginated view for
-    * dataset
-    * users
-    * classifiers
-    * keys
-    * ips
-    * jobs
-    * locks
-    * classifications
+    * dataset-
+    * users-
+    * classifiers-
+    * keys-
+    * ips-
+    * jobs-
+    * locks-
+    * classifications-
 - dataset documents as table view
 - classified dataset documents as table view
 - use ids rather than names in batch jobs
 - duplicate training sets on db, without reinserting text
-- user authorization
+- user authorization profiles
+- cost of batch classification
 - file import
     * skip comment lines, i.e., those starting with #
 - cleaning
@@ -36,6 +36,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- single limits and rates object
 - datasets page using a table
 - classifiers page using a table
 - classifications page using a table
