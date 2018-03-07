@@ -1,7 +1,5 @@
 TODO
-- datasets page using a table
-- classifiers page using a table
-- classifications page using a table
+- single limits and rates object
 - automatic DB creation
 - paginated view for
     * dataset
@@ -38,6 +36,9 @@ TOMONITOR
 - strip input strings
 
 DONE
+- datasets page using a table
+- classifiers page using a table
+- classifications page using a table
 - users with limits
 - users page using a table
 - key admin page
