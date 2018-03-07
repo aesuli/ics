@@ -84,7 +84,10 @@ ${parent.head()}
                             $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
                             if($('#classifier\\_'+msg[i].name).length==0) {
-                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'><div id=\'classifier_name_'+msg[i].name+'\' class=\' inline padded  ui-corner-all left classifier_name\' style=\'vertical-align: middle;\'>'+msg[i].name+'</div><div id=\'use_button_'+msg[i].name+'\' class=\'right\'>Use</div></div>');
+                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
+                                <div id=\'classifier_name_'+msg[i].name+'\' class=\' inline padded  ui-corner-all left classifier_name\' style=\'vertical-align: middle;\'>'+msg[i].name+'</div>\
+                                <div id=\'use_button_'+msg[i].name+'\' class=\'right\'>Use</div>\
+                                </div>');
                                 $('#use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-plus'} });
                                 $('#use\\_button\\_'+msg[i].name).click(
                                     (function() {

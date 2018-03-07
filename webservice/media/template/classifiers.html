@@ -1,7 +1,7 @@
 <%inherit file="basewithmenu.html" />
 <%block name="head">
 ${parent.head()}
-    <script type="text/javascript">
+<script type="text/javascript">
         update_interval=5000
         last_update = 0
         function timed_update() {
@@ -37,52 +37,71 @@ ${parent.head()}
                 }
                 else {
                     if($('#_gotclassifiers').length==0) {
-                        $('#classifiers\\_list').html('<div id="_gotclassifiers" class="padded ui-widget-header ui-corner-all">Avalilable classifiers:</div>');
+                            $('#classifiers\\_list').html('<div id="_gotclassifiers" class="padded ui-widget-header ui-corner-all">Classifiers:</div>\
+                            <div id="data" class="table margined ui-widget-content ui-corner-all">\
+                            <div><div>name</div>\
+                            <div>labels</div>\
+                            <div>size</div>\
+                            <div>created</div>\
+                            <div>updated</div>\
+                            <div>actions</div>\
+                            </div></div>');
                     }
+                    var curr_list = {};
+                    $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
                     for(var i = 0;i<msg.length;++i) {
-                        var classifierdiv = jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\'>\
-                        <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all classifier_name\'>'+msg[i].name+'</div>\
-                        <div id=\'del_button_'+msg[i].name+'\' class=\'right\'>Delete</div>\
-                        <div id=\'rename_label_button_'+msg[i].name+'\' class=\'right\'>Rename label</div>\
-                        <div id=\'rename_button_'+msg[i].name+'\' class=\'right\'>Rename</div>\
-                        <div id=\'extract_button_'+msg[i].name+'\' class=\'right\'>Extract</div>\
-                        <div id=\'select_button_'+msg[i].name+'\' class=\'right\'>Select</div>\
-                        <div id=\'duplicate_button_'+msg[i].name+'\' class=\'right\'>Duplicate</div>\
-                        <div id=\'download_button_'+msg[i].name+'\' class=\'right\'>Download training data</div>\
-                        <div id=\'download_model_button_'+msg[i].name+'\' class=\'right\'>Download classification model</div>\
-                        <div class="small margined">Labels: '+msg[i].labels+'</div><div class="small margined">Size: '+msg[i].size+'</div>\
-                        <div class="small margined">Created: '+msg[i].created+'</div><div class="small margined">Updated: '+msg[i].updated+'</div>\
+                        var name_string = msg[i].name
+                        var sort_string = msg[i].name.replace(/\W/g,'X')
+                        item = jQuery('<div id=\'entry_'+sort_string+'\'>\
+                        <div class="id">'+msg[i].name+'</div>\
+                        <div class="small">'+msg[i].labels+'</div>\
+                        <div class="small">'+msg[i].size+'</div>\
+                        <div class="small">'+msg[i].created+'</div>\
+                        <div class="small">'+msg[i].updated+'</div>\
+                        <div>\
+                            <div id="rename_button_'+name_string+'">Rename</div>\
+                            <div id="rename_label_button_'+name_string+'">Rename label</div>\
+                            <div id="extract_button_'+name_string+'">Extract</div>\
+                            <div id="select_button_'+name_string+'">Select</div>\
+                            <div id="duplicate_button_'+name_string+'">Duplicate</div>\
+                            <div id="download_button_'+name_string+'">Download training data</div>\
+                            <div id="download_model_button_'+name_string+'">Download classification model</div>\
+                            <div id="del_button_'+name_string+'">Delete</div>\
+                        </div>\
                         </div>');
-                        if($('#classifier\\_'+msg[i].name).length==0) {
-                            $('#classifiers\\_list').append(classifierdiv)
+                        if ($('#entry\\_'+sort_string).length!=0) {
+                            $('#entry\\_'+sort_string).replaceWith(item)
+                            delete curr_list['entry_'+sort_string];
                         }
-                        else {
-                            $('#classifier\\_'+msg[i].name).replaceWith(classifierdiv)
-                        }
-                        $('#download\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                        $('#download\\_button\\_'+msg[i].name).click(download_training_data);
-                        $('#download\\_model\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                        $('#download\\_model\\_button\\_'+msg[i].name).click(download_model);
+                        else
+                            $('#data').append(item);
+                        $('#download\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                        $('#download\\_button\\_'+name_string).click(download_training_data);
+                        $('#download\\_model\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                        $('#download\\_model\\_button\\_'+name_string).click(download_model);
                         if(selected_classifiers[msg[i].name]) {
-                            $('#select\\_button\\_'+msg[i].name).addClass('ui-state-focus');
-                            $('#select\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-check'} });
+                            $('#select\\_button\\_'+name_string).addClass('ui-state-focus');
+                            $('#select\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-check'} });
                         }
                         else {
-                            $('#select\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-plus'} });
+                            $('#select\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-plus'} });
                         }
-                        $('#select\\_button\\_'+msg[i].name).click(select_classifier);
-                        $('#extract\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-extlink'} });
-                        $('#extract\\_button\\_'+msg[i].name).click(extract_classifier);
-                        $('#rename\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#rename\\_button\\_'+msg[i].name).click(rename_classifier);
-                        $('#rename\\_label\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#rename\\_label\\_button\\_'+msg[i].name).click(rename_classifier_label);
-                        $('#duplicate\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-copy'} });
-                        $('#duplicate\\_button\\_'+msg[i].name).click(duplicate_classifier);
-                        $('#del\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-trash'} });
-                        $('#del\\_button\\_'+msg[i].name).click(delete_classifier);
+                        $('#select\\_button\\_'+name_string).click(select_classifier);
+                        $('#extract\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-extlink'} });
+                        $('#extract\\_button\\_'+name_string).click(extract_classifier);
+                        $('#rename\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
+                        $('#rename\\_button\\_'+name_string).click(rename_classifier);
+                        $('#rename\\_label\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
+                        $('#rename\\_label\\_button\\_'+name_string).click(rename_classifier_label);
+                        $('#duplicate\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-copy'} });
+                        $('#duplicate\\_button\\_'+name_string).click(duplicate_classifier);
+                        $('#del\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#del\\_button\\_'+name_string).click(delete_classifier);
                     }
-                    $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
+                    for (var key in curr_list) {
+                        $('#'+key).remove();
+                    }
+                    $('#data').append($('#data > div').get().sort(function (a, b) {
                         return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
                 }
@@ -210,7 +229,7 @@ ${parent.head()}
         function delete_classifier() {
             if(!confirm('Please confirm the DELETE request, proceed?'))
                 return;
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var classifier_name = $(this).parent().siblings('.id').text();
             $('#classifier\\_'+classifier_name).hide();
             if(selected_classifiers[classifier_name]) {
                 var item = $('#select\\_button\\_'+classifier_name);
@@ -231,7 +250,7 @@ ${parent.head()}
         };
 
         function extract_classifier() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var classifier_name = $(this).parent().siblings('.id').text();
             var labels = []
             $.ajax({
                 url:'${classifier_path}/labels/'+classifier_name})
@@ -283,7 +302,7 @@ ${parent.head()}
         };
 
          function rename_classifier_label() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var classifier_name = $(this).parent().siblings('.id').text();
             var labels = []
             $.ajax({
                 url:'${classifier_path}/labels/'+classifier_name})
@@ -334,7 +353,7 @@ ${parent.head()}
         };
 
         function rename_classifier() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var classifier_name = $(this).parent().siblings('.id').text();
             var rename_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_classifier_'+classifier_name+'\'><div><label for="rename_new_name_'+classifier_name+'">New name:</label><input id="rename_new_name_'+classifier_name+'" type="text"></div></div>');
             rename_dialog.dialog({modal:true,
                                     title:'Rename classifier',
@@ -363,7 +382,7 @@ ${parent.head()}
         };
 
         function select_classifier() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var classifier_name = $(this).parent().siblings('.id').text();
             var item = $('#select\\_button\\_'+classifier_name);
             if(item.hasClass('ui-state-focus')) {
                 item.removeClass('ui-state-focus');
@@ -384,7 +403,7 @@ ${parent.head()}
         };
 
         function duplicate_classifier() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var classifier_name = $(this).parent().siblings('.id').text();
             var new_name = prompt("Please enter the new name for the classifier", "copy_of_"+classifier_name);
             if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
                 custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
@@ -402,14 +421,14 @@ ${parent.head()}
         };
 
         function download_training_data() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var classifier_name = $(this).parent().siblings('.id').text();
             var form = $('<form></form>').attr('action', '${classifier_path}/download_training_data').attr('method', 'post');
             form.append($("<input></input>").attr('type', 'hidden').attr('name', 'name').attr('value', classifier_name));
             form.appendTo('body').submit().remove();
         };
 
         function download_model() {
-            var classifier_name = $(this).siblings('.classifier\\_name').text();
+            var classifier_name = $(this).parent().siblings('.id').text();
             var form = $('<form></form>').attr('action', '${classifier_path}/download_model').attr('method', 'post');
             form.append($("<input></input>").attr('type', 'hidden').attr('name', 'name').attr('value', classifier_name));
             form.appendTo('body').submit().remove();
@@ -431,6 +450,7 @@ ${parent.head()}
 
             timed_update();
         });
+
 </script>
 </%block>
 
@@ -442,13 +462,13 @@ ${parent.head()}
             <div class="padded ui-widget-header ui-corner-all">Create a classifier:</div>
             <form id="create_classifier" class="margined" action="#" method="post">
                 <p>
-                <label for="create_name">Name:</label>
-                <input type="text" id="create_name" /> </p>
+                    <label for="create_name">Name:</label>
+                    <input type="text" id="create_name"/></p>
                 <p>
-                <label for="labels">Labels (comma separated):</label>
-                <input type="text" id="labels" /> </p>
+                    <label for="labels">Labels (comma separated):</label>
+                    <input type="text" id="labels"/></p>
                 <p><label></label>
-                <input type="submit" value="Create" />
+                    <input type="submit" value="Create"/>
                 </p>
             </form>
         </div>
@@ -456,16 +476,18 @@ ${parent.head()}
             <div class="padded ui-widget-header ui-corner-all">Combine selected classifiers:</div>
             <form id="combine_form" class="margined" action="#" method="post">
                 <p>
-                <label for="combine_name">Name:</label>
-                <input type="text" id="combine_name" /> </p>
+                    <label for="combine_name">Name:</label>
+                    <input type="text" id="combine_name"/></p>
                 <p><label></label>
-                <input id="combine_button" type="submit" value="Combine" />
+                    <input id="combine_button" type="submit" value="Combine"/>
                 </p>
             </form>
             <!--<div class="margined" id="combine_button">Combine selected classifiers</div>-->
         </div>
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_upload">
-            <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to classifiers (create if missing):</div>
+            <div class="padded ui-widget-header ui-corner-all">Upload labeled documents to classifiers (create if
+                missing):
+            </div>
             <form enctype="multipart/form-data" id="upload_form" class="margined" action="#" method="post">
                 <p><label>Data file:</label><input type="file" id="dataFile"/></p>
 
@@ -476,7 +498,7 @@ ${parent.head()}
             <div class="padded ui-widget-header ui-corner-all">Upload a model to define a new classifier:</div>
             <form enctype="multipart/form-data" id="model_upload_form" class="margined" action="#" method="post">
                 <p><label for="model_name">Name:</label>
-                <input type="text" id="model_name" /> </p>
+                    <input type="text" id="model_name"/></p>
                 <p><label>Model file:</label><input type="file" id="modelFile"/></p>
 
                 <p><label></label><input id="model_upload_button" type="submit" value="Upload"/></p>
