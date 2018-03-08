@@ -47,7 +47,7 @@ class ClassifierCollectionService(object):
     @cherrypy.tools.json_out()
     def info(self, page=0, page_size=50):
         result = []
-        names = self._db.classifier_names()[page * page_size:(page + 1) * page_size]
+        names = self._db.classifier_names()[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for name in names:
             classifier_info = dict()
             classifier_info['name'] = name
@@ -57,6 +57,10 @@ class ClassifierCollectionService(object):
             classifier_info['size'] = self._db.get_classifier_examples_count(name)
             result.append(classifier_info)
         return result
+
+    @cherrypy.expose
+    def count(self):
+        return str(len(list(self._db.classifier_names())))
 
     @cherrypy.expose
     def create(self, **data):

@@ -4,6 +4,16 @@ ${parent.head()}
 <script type="text/javascript">
         update_interval=5000
         last_update = 0
+        page = 1;
+        page_size = 10;
+
+        pagination_div = jQuery('<div id="pagination" class="right plain">\
+                         page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                         /<span id="pagecount">X</span>\
+                         count<select id="pagesize"><option value="10" selected>10</option>\
+                         <option value="20">20</option><option value="50" >50</option>\
+                         <option value="100">100</option><option value="200">200</option></select></div></div>');
+
         function timed_update() {
             now = Date.now();
             if(now-last_update>update_interval)
@@ -13,102 +23,121 @@ ${parent.head()}
 
         function update() {
             last_update = Date.now();
+            var count = parseInt($(pagination_div.children()[2]).val())
+            $.ajax({
+                type:'POST',
+                url:'${dataset_path}/count',
+                dataType: 'json'})
+            .done(function(msg) {
+                count = parseInt(msg);
+                var maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+                $(pagination_div.children()[0]).attr({
+                       "max" : maxpage
+                    });
+                $(pagination_div.children()[1]).text(maxpage)
+            });
             $.ajax({
                 type:'POST',
                 url:'${dataset_path}/info',
-                dataType: 'json',
-                success: function(msg) {
-                    $('#datasets\\_list div .dataset\\_name').each(function(i,item) {
-                        var found = false;
-                        for(var i = 0;i<msg.length;++i) {
-                            if($(item).text()==msg[i].name) {
-                                found = true;
-                                break;
-                            }
+                dataType: 'json',})
+            .done(function(msg) {
+                $('#datasets\\_list div .dataset\\_name').each(function(i,item) {
+                    var found = false;
+                    for(var i = 0;i<msg.length;++i) {
+                        if($(item).text()==msg[i].name) {
+                            found = true;
+                            break;
                         }
-                        if(!found) {
-                            $(item).parent().remove();
-                        }
-                    });
-                    if(msg.length==0) {
-                        $('#datasets\\_list').html('<div class="padded ui-widget-header ui-corner-all">No dataset available</div>');
                     }
-                    else {
-                        if($('#_gotdatasets').length==0) {
-                            $('#datasets\\_list').html('<div id="_gotdatasets" class="padded ui-widget-header ui-corner-all">Datasets:</div>\
-                            <div id="data" class="table margined ui-widget-content ui-corner-all">\
-                            <div><div>name</div>\
-                            <div>size</div>\
-                            <div>created</div>\
-                            <div>updated</div>\
-                            <div>actions</div>\
-                            </div></div>');
-                        }
-                        var curr_list = {};
-                        $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
-                        for(var i = 0;i<msg.length;++i) {
-                            var name_string = msg[i].name
-                            var sort_string = msg[i].name.replace(/\W/g,'X')
-                            item = jQuery('<div id=\'entry_'+sort_string+'\'>\
-                            <div class="id">'+msg[i].name+'</div>\
-                            <div class="small">'+msg[i].size+'</div>\
-                            <div class="small">'+msg[i].created+'</div>\
-                            <div class="small">'+msg[i].updated+'</div>\
-                            <div>\
-                                <div id="browse_button_'+name_string+'">Browse &amp; label</div>\
-                                <div id="classify_button_'+name_string+'">Classify</div>\
-                                <div id="rename_button_'+name_string+'">Rename</div>\
-                                <div id="upload_button_'+name_string+'">Select for upload</div>\
-                                <div id="download_button_'+name_string+'">Download</div>\
-                                <div id="del_button_'+name_string+'">Delete</div>\
-                            </div>\
-                            </div>');
-                            if ($('#entry\\_'+sort_string).length!=0) {
-                                $('#entry\\_'+sort_string).replaceWith(item)
-                                delete curr_list['entry_'+sort_string];
-                            }
-                            else
-                                $('#data').append(item);
-                            $('#browse\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-search'} });
-                            $('#browse\\_button\\_'+name_string).click(
-                                (function() {
-                                    var dataset_name = msg[i].name;
-                                    return function() {
-                                        window.location.href = '${mount_dir}/browseandlabel/'+dataset_name;
-                                    }
-                            })());
-                            $('#classify\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
-                            $('#classify\\_button\\_'+msg[i].name).click(
-                                (function() {
-                                    var dataset_name = msg[i].name;
-                                    return function() {
-                                        window.location.href = '${mount_dir}/classify/'+dataset_name;
-                                    }
-                            })());
-                            $('#upload\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
-                            $('#upload\\_button\\_'+name_string).click(
-                                (function() {
-                                    var dataset_name = msg[i].name;
-                                    return function() {
-                                        $('#name').val(dataset_name);
-                                        $('#dataset\\_upload').effect("bounce", {'distance':'5', 'times':'2'}, 200)
-                                    }
-                            })());
-                            $('#download\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                            $('#download\\_button\\_'+name_string).click(download_dataset);
-                            $('#rename\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
-                            $('#rename\\_button\\_'+name_string).click(rename_dataset);
-                            $('#del\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
-                            $('#del\\_button\\_'+name_string).click(delete_dataset);
-                        }
-                        for (var key in curr_list) {
-                            $('#'+key).remove();
-                        }
-                        $('#data').append($('#data > div').get().sort(function (a, b) {
-                            return $(a)[0].id.localeCompare($(b)[0].id);
-                        }));
+                    if(!found) {
+                        $(item).parent().remove();
                     }
+                });
+                if(msg.length==0) {
+                    $('#datasets\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No dataset available</div>');
+                    $('#nodata').prepend(pagination_div);
+                    $('#page').val(1);
                 }
+                else {
+                    if($('#gotdata').length==0) {
+                        $('#datasets\\_list').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Datasets:</div>\
+                        <div id="data" class="table margined ui-widget-content ui-corner-all">\
+                        <div><div>name</div>\
+                        <div>size</div>\
+                        <div>created</div>\
+                        <div>updated</div>\
+                        <div>actions</div>\
+                        </div></div>');
+                        $('#gotdata').prepend(pagination_div);
+                    }
+                    var curr_list = {};
+                    $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                    for(var i = 0;i<msg.length;++i) {
+                        var name_string = msg[i].name
+                        var sort_string = msg[i].name.replace(/\W/g,'X')
+                        item = jQuery('<div id=\'entry_'+sort_string+'\'>\
+                        <div class="id">'+msg[i].name+'</div>\
+                        <div class="small">'+msg[i].size+'</div>\
+                        <div class="small">'+msg[i].created+'</div>\
+                        <div class="small">'+msg[i].updated+'</div>\
+                        <div>\
+                            <div id="browse_button_'+name_string+'">Browse &amp; label</div>\
+                            <div id="classify_button_'+name_string+'">Classify</div>\
+                            <div id="rename_button_'+name_string+'">Rename</div>\
+                            <div id="upload_button_'+name_string+'">Select for upload</div>\
+                            <div id="download_button_'+name_string+'">Download</div>\
+                            <div id="del_button_'+name_string+'">Delete</div>\
+                        </div>\
+                        </div>');
+                        if ($('#entry\\_'+sort_string).length!=0) {
+                            $('#entry\\_'+sort_string).replaceWith(item)
+                            delete curr_list['entry_'+sort_string];
+                        }
+                        else
+                            $('#data').append(item);
+                        $('#browse\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-search'} });
+                        $('#browse\\_button\\_'+name_string).click(
+                            (function() {
+                                var dataset_name = msg[i].name;
+                                return function() {
+                                    window.location.href = '${mount_dir}/browseandlabel/'+dataset_name;
+                                }
+                        })());
+                        $('#classify\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
+                        $('#classify\\_button\\_'+msg[i].name).click(
+                            (function() {
+                                var dataset_name = msg[i].name;
+                                return function() {
+                                    window.location.href = '${mount_dir}/classify/'+dataset_name;
+                                }
+                        })());
+                        $('#upload\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
+                        $('#upload\\_button\\_'+name_string).click(
+                            (function() {
+                                var dataset_name = msg[i].name;
+                                return function() {
+                                    $('#name').val(dataset_name);
+                                    $('#dataset\\_upload').effect("bounce", {'distance':'5', 'times':'2'}, 200)
+                                }
+                        })());
+                        $('#download\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                        $('#download\\_button\\_'+name_string).click(download_dataset);
+                        $('#rename\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
+                        $('#rename\\_button\\_'+name_string).click(rename_dataset);
+                        $('#del\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#del\\_button\\_'+name_string).click(delete_dataset);
+                    }
+                    for (var key in curr_list) {
+                        $('#'+key).remove();
+                    }
+                    $('#data').append($('#data > div').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                }
+                $('#page').unbind('keyup mouseup');
+                $('#pagesize').unbind('keyup mouseup');
+                $('#page').bind('keyup mouseup',update);
+                $('#pagesize').bind('keyup mouseup',update);
             });
         }
 

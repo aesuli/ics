@@ -99,7 +99,7 @@ div .table   {
 }
 
 .ui-menu-item{
-  width:200px;
+  padding: 5px;
 }
 
 /* make first item inline */
@@ -182,4 +182,8 @@ div .table   {
 .masked {
     color: black;
     background-color: black;
+}
+
+.plain {
+    font-weight:normal;
 }

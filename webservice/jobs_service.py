@@ -22,6 +22,8 @@ class JobsService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def info(self, page=0, page_size=50):
+        page = max(0,int(page))
+        page_size = max(1,int(page_size))
         jobslist = list()
         jobs = self._db.get_jobs()[page * page_size:(page + 1) * page_size]
         for job in jobs:
@@ -34,6 +36,10 @@ class JobsService(object):
             jobinfo['status'] = job.status
             jobslist.append(jobinfo)
         return jobslist
+
+    @cherrypy.expose
+    def count(self):
+        return str(len(list(self._db.get_jobs())))
 
     @cherrypy.expose
     def rerun_job(self, id):
@@ -50,6 +56,8 @@ class JobsService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def locks(self, page=0, page_size=50):
+        page = max(0,int(page))
+        page_size = max(1,int(page_size))
         lockslist = list()
         locks = self._db.get_locks()[page * page_size:(page + 1) * page_size]
         for lock in locks:
@@ -59,6 +67,10 @@ class JobsService(object):
             lockinfo['creation'] = str(lock.creation)
             lockslist.append(lockinfo)
         return lockslist
+
+    @cherrypy.expose
+    def locks_count(self):
+        return str(len(list(self._db.get_locks())))
 
     @cherrypy.expose
     def delete_lock(self, name):

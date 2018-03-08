@@ -35,18 +35,32 @@ class KeyControllerService(object):
                 keys = [key]
             else:
                 keys = []
-        keys = keys[page * page_size:(page + 1) * page_size]
+        keys = keys[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for key in keys:
             key_info = dict()
             key_info['key'] = key
             key_info['name'] = str(self._db.get_keytracker_name(key))
             key_info['created'] = str(self._db.get_keytracker_creation_time(key))
+            key_info['updated'] = str(self._db.get_keytracker_last_update_time(key))
             key_info['hourly_limit'] = str(self._db.get_keytracker_hourly_limit(key))
             key_info['request_limit'] = str(self._db.get_keytracker_request_limit(key))
             key_info['total_request_counter'] = str(self._db.get_keytracker_total_request_counter(key))
             key_info['current_request_counter'] = str(self._db.get_keytracker_current_request_counter(key))
             result.append(key_info)
         return result
+
+    @cherrypy.expose
+    def count(self):
+        requester = cherrypy.request.login
+        if requester is not None and requester == SQLAlchemyDB.admin_name():
+            keys = self._db.keys()
+        else:
+            key = cherrypy.request.body.params.get('authkey', None)
+            if key:
+                keys = [key]
+            else:
+                keys = []
+        return str(len(list(keys)))
 
     def has_key(self, cost=1):
 

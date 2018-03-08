@@ -56,17 +56,28 @@ class UserControllerService(object):
             names = self._db.user_names()
         else:
             names = [requester]
-        names = names[page * page_size:(page + 1) * page_size]
+        names = names[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for name in names:
             user_info = dict()
             user_info['name'] = name
             user_info['created'] = str(self._db.get_user_creation_time(name))
+            user_info['updated'] = str(self._db.get_user_last_update_time(name))
             user_info['hourly_limit'] = str(self._db.get_user_hourly_limit(name))
             user_info['request_limit'] = str(self._db.get_user_request_limit(name))
             user_info['total_request_counter'] = str(self._db.get_user_total_request_counter(name))
             user_info['current_request_counter'] = str(self._db.get_user_current_request_counter(name))
             result.append(user_info)
         return result
+
+    @cherrypy.expose
+    def count(self):
+        requester = cherrypy.request.login
+        if requester is None:
+            return '0'
+        if requester == SQLAlchemyDB.admin_name():
+            return str(len(list(self._db.user_names())))
+        else:
+            return '1'
 
     @cherrypy.expose
     def login(self, username=None, password=None):

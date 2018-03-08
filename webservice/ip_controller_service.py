@@ -40,16 +40,29 @@ class IPControllerService(object):
                 ips = [cherrypy.request.remote.ip]
             else:
                 ips = []
-        ips = ips[page * page_size:(page + 1) * page_size]
+        ips = ips[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for ip in ips:
             ip_info = dict()
             ip_info['ip'] = ip
             ip_info['created'] = str(self._db.get_iptracker_creation_time(ip))
+            ip_info['updated'] = str(self._db.get_iptracker_last_update_time(ip))
             ip_info['hourly_limit'] = str(self._db.get_iptracker_hourly_limit(ip))
             ip_info['total_request_counter'] = str(self._db.get_iptracker_total_request_counter(ip))
             ip_info['current_request_counter'] = str(self._db.get_iptracker_current_request_counter(ip))
             result.append(ip_info)
         return result
+
+    @cherrypy.expose
+    def count(self):
+        requester = cherrypy.request.login
+        if requester is not None and requester == SQLAlchemyDB.admin_name():
+            ips = self._db.ipaddresses()
+        else:
+            if cherrypy.request.remote.ip in self._db.ipaddresses():
+                ips = [cherrypy.request.remote.ip]
+            else:
+                ips = []
+        return str(len(list(ips)))
 
     def ip_rate_limit(self, cost=1):
 

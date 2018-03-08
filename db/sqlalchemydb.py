@@ -329,6 +329,10 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(User.creation).filter(User.name == name).scalar()
 
+    def get_user_last_update_time(self, name):
+        with self.session_scope() as session:
+            return session.query(User.last_updated).filter(User.name == name).scalar()
+
     def get_user_hourly_limit(self, name):
         with self.session_scope() as session:
             return session.query(User.hourly_limit).filter(User.name == name).scalar()
@@ -764,6 +768,10 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(IPTracker.creation).filter(IPTracker.ip == ip).scalar()
 
+    def get_iptracker_last_update_time(self, ip):
+        with self.session_scope() as session:
+            return session.query(IPTracker.last_updated).filter(IPTracker.ip == ip).scalar()
+
     def get_iptracker_hourly_limit(self, ip):
         with self.session_scope() as session:
             return session.query(IPTracker.hourly_limit).filter(IPTracker.ip == ip).scalar()
@@ -833,6 +841,10 @@ class SQLAlchemyDB(object):
     def get_keytracker_creation_time(self, key):
         with self.session_scope() as session:
             return session.query(KeyTracker.creation).filter(KeyTracker.key == key).scalar()
+
+    def get_keytracker_last_update_time(self, key):
+        with self.session_scope() as session:
+            return session.query(KeyTracker.last_updated).filter(KeyTracker.key == key).scalar()
 
     def get_keytracker_hourly_limit(self, key):
         with self.session_scope() as session:

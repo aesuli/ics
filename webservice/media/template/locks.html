@@ -2,9 +2,19 @@
 <%block name="head">
 ${parent.head()}
     <script type="text/javascript">
-       update_interval=500
+       update_interval=2000
        delay_interval=500
         last_update = 0
+        page = 1;
+        page_size = 10;
+
+        pagination_div = jQuery('<div id="pagination" class="right plain">\
+                         page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                         /<span id="pagecount">X</span>\
+                         count<select id="pagesize"><option value="10" selected>10</option>\
+                         <option value="20">20</option><option value="50" >50</option>\
+                         <option value="100">100</option><option value="200">200</option></select></div></div>');
+
         function timed_update() {
             now = Date.now();
             if(now-last_update>update_interval)
@@ -14,13 +24,29 @@ ${parent.head()}
 
         function update() {
             last_update = Date.now();
+            var count = parseInt($(pagination_div.children()[2]).val())
+            $.ajax({
+                type:'POST',
+                url:'${jobs_path}/locks_count',
+                dataType: 'json'})
+            .done(function(msg) {
+                count = parseInt(msg);
+                var maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+                $(pagination_div.children()[0]).attr({
+                       "max" : maxpage
+                    });
+                $(pagination_div.children()[1]).text(maxpage)
+            });
             $.ajax({
                 type:'POST',
                 url:'${jobs_path}/locks',
+                data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
             .done(function(msg) {
                 if(msg.length==0) {
-                    $('#lock\\_list').html('<div class="padded ui-widget-header ui-corner-all">No lock</div>');
+                    $('#lock\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No locks</div>');
+                    $('#nodata').prepend(pagination_div);
+                    $('#page').val(1);
                 }
                 else {
                     if($('#gotlock').length==0) {
@@ -31,6 +57,7 @@ ${parent.head()}
                         <div class="small">created</div>\
                         <div>actions</div>\
                         </div></div>');
+                        $('#gotlock').prepend(pagination_div);
                     }
                     var curr_list = {};
                     $('#lock').children().each(function (index, value) {if(value.id.startsWith('lock_')) { curr_list[value.id]=true;}})
@@ -54,6 +81,10 @@ ${parent.head()}
                         $('#'+key).remove();
                     }
                 }
+                $('#page').unbind('keyup mouseup');
+                $('#pagesize').unbind('keyup mouseup');
+                $('#page').bind('keyup mouseup',update);
+                $('#pagesize').bind('keyup mouseup',update);
             });
         }
 
@@ -80,11 +111,11 @@ ${parent.head()}
 </%block>
 <div id="main" class="padded ui-widget ui-widget-content">
     <div id="sidebar">
-<div class="margined  ui-corner-all ui-widget ui-widget-content" id="actions">
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="actions">
         </div>
-<!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
+        <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
-        </div>
+    </div>
     <div id="center">
         <div id="lock_list" class="margined ui-widget-content suggestion-container"></div>
     </div>

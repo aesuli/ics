@@ -4,6 +4,16 @@ ${parent.head()}
     <script type="text/javascript">
         update_interval=5000
         last_update = 0
+        page = 1;
+        page_size = 10;
+
+        pagination_div = jQuery('<div id="pagination" class="right plain">\
+                         page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                         /<span id="pagecount">X</span>\
+                         count<select id="pagesize"><option value="10" selected>10</option>\
+                         <option value="20">20</option><option value="50" >50</option>\
+                         <option value="100">100</option><option value="200">200</option></select></div></div>');
+
         function timed_update() {
             now = Date.now();
             if(now-last_update>update_interval)
@@ -13,9 +23,23 @@ ${parent.head()}
 
         function update() {
             last_update = Date.now();
+            var count = parseInt($(pagination_div.children()[2]).val())
+            $.ajax({
+                type:'POST',
+                url:'${ip_auth_path}/count',
+                dataType: 'json'})
+            .done(function(msg) {
+                count = parseInt(msg);
+                var maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+                $(pagination_div.children()[0]).attr({
+                       "max" : maxpage
+                    });
+                $(pagination_div.children()[1]).text(maxpage)
+            });
             $.ajax({
                 type:'POST',
                 url:'${ip_auth_path}/info',
+                data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
             .done( function(msg) {
                 $('#users\\_list div .user\\_name').each(function(i,item) {
@@ -31,19 +55,23 @@ ${parent.head()}
                     }
                 });
                 if(msg.length==0) {
-                    $('#data\\_list').html('<div class="padded ui-widget-header ui-corner-all">No IP address defined</div>');
+                    $('#data\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No IP addresses</div>');
+                    $('#nodata').prepend(pagination_div);
+                    $('#page').val(1);
                 }
                 else {
-                    if($('#_gotdata').length==0) {
-                        $('#data\\_list').html('<div id="_gotdata" class="padded ui-widget-header ui-corner-all">IP addresses:</div>\
+                    if($('#gotdata').length==0) {
+                        $('#data\\_list').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">IP addresses:</div>\
                         <div id="data" class="table margined ui-widget-content ui-corner-all">\
                         <div><div>IP</div>\
                         <div>created</div>\
+                        <div>updated</div>\
                         <div>total requests</div>\
                         <div>hourly limit</div>\
                         <div>requests this hour</div>\
                         <div>actions</div>\
                         </div></div>');
+                        $('#gotdata').prepend(pagination_div);
                     }
                     var curr_list = {};
                     $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
@@ -52,6 +80,7 @@ ${parent.head()}
                         item = jQuery('<div id=\'entry_'+name_string+'\'>\
                         <div class="id">'+msg[i].ip+'</div>\
                         <div class="small">'+msg[i].created+'</div>\
+                        <div class="small">'+msg[i].updated+'</div>\
                         <div>'+msg[i].total_request_counter+'</div>\
                         <div>'+msg[i].hourly_limit+'</div>\
                         <div>'+msg[i].current_request_counter+'</div>\
@@ -81,6 +110,10 @@ ${parent.head()}
                         return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
                 }
+                $('#page').unbind('keyup mouseup');
+                $('#pagesize').unbind('keyup mouseup');
+                $('#page').bind('keyup mouseup',update);
+                $('#pagesize').bind('keyup mouseup',update);
             });
         }
 
