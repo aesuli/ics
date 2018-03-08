@@ -5,8 +5,15 @@ ${parent.head()}
        update_interval=5000;
        delay_interval=500;
         last_update = 0;
-        page = 0;
-        page_size = 50;
+        page = 1;
+        page_size = 10;
+
+        pagination_div = jQuery('<div id="pagination" class="right plain">\
+                         page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                         /<span id="pagecount">X</span>\
+                         count<select id="pagesize"><option value="10" selected>10</option>\
+                         <option value="20">20</option><option value="50" >50</option>\
+                         <option value="100">100</option><option value="200">200</option></select></div></div>');
 
         function timed_update() {
             now = Date.now();
@@ -17,17 +24,33 @@ ${parent.head()}
 
         function update() {
             last_update = Date.now();
+            var count = parseInt($(pagination_div.children()[2]).val())
+            $.ajax({
+                type:'POST',
+                url:'${jobs_path}/count',
+                dataType: 'json'})
+            .done(function(msg) {
+                count = parseInt(msg);
+                var maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+                $(pagination_div.children()[0]).attr({
+                       "max" : maxpage
+                    });
+                $(pagination_div.children()[1]).text(maxpage)
+            });
             $.ajax({
                 type:'POST',
                 url:'${jobs_path}/info',
+                data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
             .done(function(msg) {
                 if(msg.length==0) {
-                    $('#job\\_list').html('<div class="padded ui-widget-header ui-corner-all">No job</div>');
+                    $('#job\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No jobs</div>');
+                    $('#nodata').prepend(pagination_div);
+                    $('#page').val(1);
                 }
                 else {
-                    if($('#gotjob').length==0) {
-                        $('#job\\_list').html('<div id="gotjob" class="padded ui-widget-header ui-corner-all">Jobs:</div>\
+                    if($('#gotdata').length==0) {
+                        $('#job\\_list').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Jobs:</div>\
                         <div id="job" class="table margined ui-widget-content ui-corner-all">\
                         <div><div>id</div>\
                         <div>description</div>\
@@ -37,6 +60,7 @@ ${parent.head()}
                         <div>status</div>\
                         <div>actions</div>\
                         </div></div>');
+                        $('#gotdata').prepend(pagination_div);
                     }
                     var curr_list = {};
                     $('#job').children().each(function (index, value) {if(value.id.startsWith('job_')) { curr_list[value.id]=true;}})
@@ -66,6 +90,10 @@ ${parent.head()}
                         $('#'+key).remove();
                     }
                 }
+                $('#page').unbind('keyup mouseup');
+                $('#pagesize').unbind('keyup mouseup');
+                $('#page').bind('keyup mouseup',update);
+                $('#pagesize').bind('keyup mouseup',update);
             });
         }
 
@@ -108,15 +136,16 @@ ${parent.head()}
         });
     </script>
 </%block>
+
 <div id="main" class="padded ui-widget ui-widget-content">
     <div id="sidebar">
-<div class="margined  ui-corner-all ui-widget ui-widget-content" id="actions">
-        <div class="padded ui-widget-header ui-corner-all">Actions</div>
-        <div id="delete_btn">Delete records for all completed jobs</div>
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="actions">
+            <div class="padded ui-widget-header ui-corner-all">Actions</div>
+            <div id="delete_btn">Delete records for all completed jobs</div>
         </div>
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
-        </div>
+    </div>
     <div id="center">
         <div id="job_list" class="margined ui-widget-content suggestion-container"></div>
     </div>

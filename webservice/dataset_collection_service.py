@@ -41,7 +41,7 @@ class DatasetCollectionService(object):
     @cherrypy.tools.json_out()
     def info(self, page=0, page_size=50):
         result = []
-        names = self._db.dataset_names()[page * page_size:(page + 1) * page_size]
+        names = self._db.dataset_names()[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for name in names:
             dataset_info = dict()
             dataset_info['name'] = name
@@ -50,6 +50,10 @@ class DatasetCollectionService(object):
             dataset_info['size'] = self._db.get_dataset_size(name)
             result.append(dataset_info)
         return result
+
+    @cherrypy.expose
+    def count(self):
+        return str(len(list(self._db.dataset_names())))
 
     @cherrypy.expose
     def create(self, name):
@@ -289,9 +293,10 @@ class DatasetCollectionService(object):
         got_deleted = True
         result = None
         while got_deleted:
+            got_deleted = False
             result = list()
             to_delete = list()
-            jobs = self._db.get_classification_jobs(name)[page * page_size:(page + 1) * page_size]
+            jobs = self._db.get_classification_jobs(name)[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
             for classification_job in jobs:
                 classification_job_info = dict()
                 classification_job_info['id'] = classification_job.id
@@ -310,6 +315,10 @@ class DatasetCollectionService(object):
             for id in to_delete:
                 self._db.delete_classification_job(id)
         return result
+
+    @cherrypy.expose
+    def get_classification_jobs_count(self, name):
+        return str(len(list(self._db.get_classification_jobs(name))))
 
     @cherrypy.expose
     def download_classification(self, id):

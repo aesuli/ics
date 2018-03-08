@@ -5,6 +5,16 @@ ${parent.head()}
        update_interval=5000
        delay_interval=500
         last_update = 0
+        page = 1;
+        page_size = 10;
+
+        pagination_div = jQuery('<div id="pagination" class="right plain">\
+                         page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                         /<span id="pagecount">X</span>\
+                         count<select id="pagesize"><option value="10" selected>10</option>\
+                         <option value="20">20</option><option value="50" >50</option>\
+                         <option value="100">100</option><option value="200">200</option></select></div></div>');
+
         function timed_update() {
             now = Date.now();
             if(now-last_update>update_interval)
@@ -16,46 +26,68 @@ ${parent.head()}
 
         function update() {
             last_update = Date.now();
+            var count = parseInt($(pagination_div.children()[2]).val())
+            $.ajax({
+                type:'POST',
+                url:'${dataset_path}/get_classification_jobs_count',
+                data: { name : datasetname},
+                dataType: 'json'})
+            .done(function(msg) {
+                count = parseInt(msg);
+                var maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+                $(pagination_div.children()[0]).attr({
+                       "max" : maxpage
+                    });
+                $(pagination_div.children()[1]).text(maxpage)
+            });
             $.ajax({
                 type:'POST',
                 url:'${dataset_path}/get_classification_jobs',
-                data: { name : datasetname },
+                data: { name : datasetname, page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
             .done(function(msg) {
-                    if(msg.length==0) {
-                        $('#classification').html('<div class="padded ui-widget-header ui-corner-all">No classification available for dataset \''+datasetname+'\'</div>');
+                if(msg.length==0) {
+                    $('#classification').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No classification available for dataset \''+datasetname+'\'</div>');
+                    $('#nodata').prepend(pagination_div);
+                    $('#page').val(1);
+                }
+                else {
+                    if($('#gotdata').length==0) {
+                        $('#classification').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Classifications for dataset \''+datasetname+'\':</div>\
+                        <div id="job" class="table margined ui-widget-content ui-corner-all"><div><div>id</div><div>classifiers</div><div>created</div><div>completed</div><div>status</div><div>actions</div></div></div>');
+                        $('#gotdata').prepend(pagination_div);
                     }
-                    else {
-                        if($('#gotclassification').length==0)
-                            $('#classification').html('<div id="gotclassification" class="padded ui-widget-header ui-corner-all">Classifications for dataset \''+datasetname+'\':</div>\
-                            <div id="job" class="table margined ui-widget-content ui-corner-all"><div><div>id</div><div>classifiers</div><div>created</div><div>completed</div><div>status</div><div>actions</div></div></div>');
-                        var curr_list = {};
-                        $('#job').children().each(function (index, value) {if(value.id.startsWith('job_')) { curr_list[value.id]=true;}});
-                        for(var i = 0;i<msg.length;++i) {
-                            item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
-                            <div class="id">'+msg[i].id+'</div>\
-                            <div>'+msg[i].classifiers+'</div>\
-                            <div>'+msg[i].creation+'</div>\
-                            <div>'+msg[i].completion+'</div>\
-                            <div>'+msg[i].status+'</div>\
-                            <div><div id="download_'+msg[i].id+'">Download</div>\
-                            <div id="delete_'+msg[i].id+'">Delete</div></div>\
-                            </div>');
-                            if ($('#job\\_'+msg[i].id).length!=0) {
-                                $('#job\\_'+msg[i].id).replaceWith(item);
-                                delete curr_list['job_'+msg[i].id];
-                            }
-                            else
-                                $('#job').append(item);
-                            $('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
-                            $('#delete\\_'+msg[i].id).click(delete_classification);
-                            $('#download\\_'+msg[i].id).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                            $('#download\\_'+msg[i].id).click(download_classification);
+                    var curr_list = {};
+                    $('#job').children().each(function (index, value) {if(value.id.startsWith('job_')) { curr_list[value.id]=true;}});
+                    for(var i = 0;i<msg.length;++i) {
+                        item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
+                        <div class="id">'+msg[i].id+'</div>\
+                        <div>'+msg[i].classifiers+'</div>\
+                        <div>'+msg[i].creation+'</div>\
+                        <div>'+msg[i].completion+'</div>\
+                        <div>'+msg[i].status+'</div>\
+                        <div><div id="download_'+msg[i].id+'">Download</div>\
+                        <div id="delete_'+msg[i].id+'">Delete</div></div>\
+                        </div>');
+                        if ($('#job\\_'+msg[i].id).length!=0) {
+                            $('#job\\_'+msg[i].id).replaceWith(item);
+                            delete curr_list['job_'+msg[i].id];
                         }
-                        for (var key in curr_list) {
-                            $('#'+key).remove();
-                        }
+                        else
+                            $('#job').append(item);
+                        $('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#delete\\_'+msg[i].id).click(delete_classification);
+                        $('#download\\_'+msg[i].id).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                        $('#download\\_'+msg[i].id).click(download_classification);
                     }
+                    for (var key in curr_list) {
+                        $('#'+key).remove();
+                    }
+                }
+                $('#page').unbind('keyup mouseup');
+                $('#pagesize').unbind('keyup mouseup');
+                $('#page').bind('keyup mouseup',update);
+                $('#pagesize').bind('keyup mouseup',update);
             });
 
             $.ajax({
