@@ -59,15 +59,10 @@ class WebDemo(object):
 
     @cherrypy.expose
     def api(self):
-        # TODO API page
-        template = self._lookup.get_template('about.html')
+        template = self._lookup.get_template('demo_api.html')
         return template.render(**{**self._template_data, **self.session_data()})
 
     @cherrypy.expose
     def version(self):
-        return "0.1.2"
+        return "0.2.1"
 
-
-if __name__ == "__main__":
-    with WebDemo('sqlite:///%s' % 'test.db', '.', '/service/wcc', 'test') as wcc:
-        cherrypy.quickstart(wcc, '/', config=wcc.get_config())

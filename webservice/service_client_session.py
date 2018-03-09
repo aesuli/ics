@@ -284,3 +284,6 @@ class ServiceClientSession:
         url = self._build_url(self._dataset_path + '/delete_classification/')
         r = self._session.post(url, data={'id': id})
         r.raise_for_status()
+
+    def version(self):
+        return "0.1.1"

@@ -124,7 +124,3 @@ class WebClient(object):
     def version(self):
         return "0.4.3"
 
-
-if __name__ == "__main__":
-    with WebClient('sqlite:///%s' % 'test.db', '.', '/service/wdc', '/service/wcc', '/service/bp', 'test') as wcc:
-        cherrypy.quickstart(wcc, '/', config=wcc.get_config())
