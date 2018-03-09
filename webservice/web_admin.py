@@ -102,7 +102,3 @@ class WebAdmin(object):
     def version(self):
         return "0.1.1"
 
-
-if __name__ == "__main__":
-    with WebAdmin('sqlite:///%s' % 'test.db', '.', '/service/wdc', '/service/wcc', '/service/bp', 'test') as wcc:
-        cherrypy.quickstart(wcc, '/', config=wcc.get_config())

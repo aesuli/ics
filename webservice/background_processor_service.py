@@ -66,9 +66,4 @@ class BackgroundProcessor(Thread):
         self._running = False
 
     def version(self):
-        return "0.2.1 (db: %s)" % self._db.version()
-
-
-if __name__ == "__main__":
-    with BackgroundProcessor('sqlite:///%s' % 'test.db') as bp:
-        bp.start()
+        return "0.2.2 (db: %s)" % self._db.version()
