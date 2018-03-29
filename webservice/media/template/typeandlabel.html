@@ -147,7 +147,8 @@
                 return false;
             }
             labels = labelsString.split(',');
-            var data = {name: name, labels: labels} ;
+            type = $("#type").val();
+            var data = {name: name, labels: labels, type: type} ;
             $.ajax({
                 type: "POST",
                 url: "${classifier_path}/create",
@@ -212,6 +213,14 @@
                 <p>
                 <label for="labels">Labels (comma separated):</label>
                 <input type="text" id="labels" /> </p>
+                 <p>
+                    <label for="type">Type:</label>
+                    <select id="type">
+<%! from db import sqlalchemydb %>
+% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+                        <option value="${classifier_type}">${classifier_type}</option>
+% endfor
+                    </select></p>
                 <p><label></label>
                 <input type="submit" value="Create" />
                 </p>
