@@ -12,7 +12,7 @@ import cherrypy
 import numpy
 from cherrypy.lib.static import serve_file
 
-from classifier.online_classifier import OnlineClassifier
+from db import sqlalchemydb
 from db.sqlalchemydb import SQLAlchemyDB, DBLock
 from util.util import get_fully_portable_file_name, logged_call, logged_call_with_args
 
@@ -22,7 +22,7 @@ MAX_BATCH_SIZE = 1000
 
 YES_LABEL = 'yes'
 NO_LABEL = 'no'
-BINARY_LABELS = {YES_LABEL, NO_LABEL}
+BINARY_LABELS = [YES_LABEL, NO_LABEL]
 CSV_LARGE_FIELD = 1024 * 1024 * 10
 
 
@@ -51,6 +51,7 @@ class ClassifierCollectionService(object):
         for name in names:
             classifier_info = dict()
             classifier_info['name'] = name
+            classifier_info['type'] = self._db.get_classifier_type(name)
             classifier_info['labels'] = self._db.get_classifier_labels(name)
             classifier_info['created'] = str(self._db.get_classifier_creation_time(name))
             classifier_info['updated'] = str(self._db.get_classifier_last_update_time(name))
@@ -63,12 +64,26 @@ class ClassifierCollectionService(object):
         return str(len(list(self._db.classifier_names())))
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def classifier_types(self):
+        return sqlalchemydb._CLASSIFIER_TYPES[:-2]
+
+    @cherrypy.expose
     def create(self, **data):
         try:
             name = data['name']
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a name'
+        try:
+            classifier_type = data['type']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a classifier type'
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+            cherrypy.response.status = 400
+            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
+
         try:
             labels = data['labels']
         except KeyError:
@@ -99,20 +114,46 @@ class ClassifierCollectionService(object):
                 overwrite = False
         except KeyError:
             overwrite = False
+
         with _lock_trainingset(self._db, name), _lock_model(self._db, name):
             if not self._db.classifier_exists(name):
-                self._db.create_classifier(name, labels)
+                self._db.create_classifier(name, labels, classifier_type)
             elif not overwrite:
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
             else:
                 self.delete(name)
-                self._db.create_classifier(name, labels)
+                self._db.create_classifier(name, labels, classifier_type)
         return 'Ok'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def duplicate(self, name, new_name, overwrite=False):
+    def duplicate(self, **data):
+        try:
+            name = data['name']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a name'
+        try:
+            new_name = data['new_name']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a new name'
+        try:
+            classifier_type = data['type']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a classifier type'
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+            cherrypy.response.status = 400
+            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
+        try:
+            overwrite = data['overwrite']
+            if overwrite == 'false' or overwrite == 'False':
+                overwrite = False
+        except KeyError:
+            overwrite = False
+
         name = str.strip(name)
         new_name = str.strip(new_name)
         if not self._db.classifier_exists(name):
@@ -124,14 +165,15 @@ class ClassifierCollectionService(object):
         if overwrite == 'false' or overwrite == 'False':
             overwrite = False
         with _lock_trainingset(self._db, new_name), _lock_model(self._db, new_name):
+            # TODO fix model creation and duplication
             if not self._db.classifier_exists(new_name):
-                self._db.create_classifier(new_name, self._db.get_classifier_labels(name))
+                self._db.create_classifier(new_name, self._db.get_classifier_labels(name), classifier_type)
             elif not overwrite:
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % new_name
             else:
                 self.delete(new_name)
-                self._db.create_classifier(new_name, self._db.get_classifier_labels(name))
+                self._db.create_classifier(new_name, self._db.get_classifier_labels(name), classifier_type)
         job_id_model = self._db.create_job(_duplicate_model, (self._db_connection_string, name, new_name),
                                            description='duplicate model \'%s\' to \'%s\'' % (name, new_name))
         job_id_training = self._db.create_job(_duplicate_trainingset, (self._db_connection_string, name, new_name),
@@ -294,8 +336,8 @@ class ClassifierCollectionService(object):
         if not os.path.isfile(fullpath):
             try:
                 with open(fullpath, 'wb') as file:
-                    clf = self._db.get_classifier_model(name)
-                    pickle.dump(clf, file)
+                    model = self._db.get_classifier_model(name)
+                    pickle.dump(model, file)
             except:
                 os.unlink(fullpath)
 
@@ -309,6 +351,14 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must upload a file'
+        try:
+            classifier_type = data['type']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a classifier type'
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+            cherrypy.response.status = 400
+            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
 
         filename = 'examples %s.csv' % (uuid4())
         filename = get_fully_portable_file_name(filename)
@@ -362,7 +412,7 @@ class ClassifierCollectionService(object):
                 if len(labels) < 2:
                     cherrypy.response.status = 400
                     return 'Must specify at least two labels for classifier \'%s\'' % classifier_name
-                self.create(**{'name': classifier_name, 'labels': labels})
+                self.create(**{'name': classifier_name, 'labels': labels, 'type': classifier_type})
             else:
                 if not len(set(self._db.get_classifier_labels(classifier_name)).intersection(labels)) == len(
                         labels):
@@ -417,9 +467,11 @@ class ClassifierCollectionService(object):
                     return 'A classifier with name %s is already in the collection' % name
 
             with open(fullpath, 'rb') as infile:
-                clf = pickle.load(infile)
-                labels = list(clf._clf.classes_)
-                self._db.create_classifier(name, labels, clf)
+                model = pickle.load(infile)
+                labels = list(model.classes())
+                classifier_type = sqlalchemydb.get_classifier_type_from_model(model)
+                self._db.create_classifier(name, labels, classifier_type)
+                self._db.update_classifier_model(name, model)
         return 'Ok'
 
     @cherrypy.expose
@@ -469,6 +521,14 @@ class ClassifierCollectionService(object):
             cherrypy.response.status = 400
             return 'Must specify a name'
         try:
+            classifier_type = data['type']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a classifier type'
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+            cherrypy.response.status = 400
+            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
+        try:
             labels = data['labels']
         except KeyError:
             try:
@@ -510,13 +570,13 @@ class ClassifierCollectionService(object):
         for label in labels:
             with _lock_trainingset(self._db, label), _lock_model(self._db, label):
                 if not self._db.classifier_exists(label):
-                    self._db.create_classifier(label, BINARY_LABELS)
+                    self._db.create_classifier(label, BINARY_LABELS, classifier_type)
                 elif not overwrite:
                     cherrypy.response.status = 403
                     return 'A classifier with name %s is already in the collection' % label
                 else:
                     self.delete(label)
-                    self._db.create_classifier(label, BINARY_LABELS)
+                    self._db.create_classifier(label, BINARY_LABELS, classifier_type)
                 jobs.append(self._db.create_job(_extract_binary_trainingset, (self._db_connection_string, name, label),
                                                 description='extract binary classifier from \'%s\' to \'%s\'' % (
                                                     name, label)))
@@ -530,6 +590,14 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a name for the new classifier'
+        try:
+            classifier_type = data['type']
+        except KeyError:
+            cherrypy.response.status = 400
+            return 'Must specify a classifier type'
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+            cherrypy.response.status = 400
+            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
         try:
             sources = data['sources']
         except KeyError:
@@ -570,15 +638,17 @@ class ClassifierCollectionService(object):
             else:
                 labels.update(self._db.get_classifier_labels(source_name))
 
+        labels = list(labels)
+
         with _lock_trainingset(self._db, name), _lock_model(self._db, name):
             if not self._db.classifier_exists(name):
-                self._db.create_classifier(name, labels)
+                self._db.create_classifier(name, labels, classifier_type)
             elif not overwrite:
                 cherrypy.response.status = 403
                 return '%s is already in the collection' % name
             else:
                 self.delete(name)
-                self._db.create_classifier(name, sources)
+                self._db.create_classifier(name, labels, classifier_type)
             job_id = self._db.create_job(_combine_classifiers, (self._db_connection_string, name, sources),
                                          description='combining classifiers from \'%s\' to \'%s\'' % (
                                              ', '.join(sources), name))
@@ -599,14 +669,12 @@ def _update_trainingset(db_connection_string, name, X, y):
 
 @logged_call
 def _update_model(db_connection_string, name, X, y):
-    with SQLAlchemyDB(db_connection_string) as db:
-        with _lock_model(db, name):
-            clf = db.get_classifier_model(name)
-            if clf is None:
-                clf = OnlineClassifier(name, db.get_classifier_labels(name), average=20)
-            if len(X) > 0:
-                clf.partial_fit(X, y)
-            db.update_classifier_model(name, clf)
+    if len(X) > 0:
+        with SQLAlchemyDB(db_connection_string) as db:
+            with _lock_model(db, name):
+                model = db.get_classifier_model(name)
+                model.partial_fit(X, y)
+                db.update_classifier_model(name, model)
 
 
 @logged_call_with_args
@@ -647,16 +715,31 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
 def _duplicate_model(db_connection_string, name, new_name):
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_model(db, new_name):
-            if not db.classifier_exists(new_name):
-                clf = db.get_classifier_model(name)
-                clf.name = new_name
-                labels = db.get_classifier_labels(name)
-                db.create_classifier(new_name, labels, clf)
-            elif db.get_classifier_model(new_name) is None:
-                clf = db.get_classifier_model(name)
-                if clf is not None:
-                    clf.name = new_name
-                db.update_classifier_model(new_name, clf)
+            source_type = db.get_classifier_type(name)
+            new_type = db.get_classifier_type(new_name)
+            if source_type == new_type:
+                model = db.get_classifier_model(name)
+                model.name = new_name
+                db.update_classifier_model(new_name, model)
+            else:
+                padding = 0
+
+                batchsize = MAX_BATCH_SIZE
+                batchX = list()
+                batchy = list()
+                added = 1
+                while added > 0:
+                    added = 0
+                    example_numerator = db.get_classifier_examples(name, padding, batchsize)
+                    for example in example_numerator:
+                        batchX.append(example.document.text)
+                        batchy.append(example.label.name)
+                        added += 1
+                    padding += batchsize
+                    r = random.random()
+                    random.shuffle(batchX, lambda: r)
+                    random.shuffle(batchy, lambda: r)
+                    _update_model(db_connection_string, name, batchX, batchy)
 
 
 @logged_call_with_args

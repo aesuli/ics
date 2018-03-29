@@ -67,6 +67,7 @@ ${parent.head()}
                         <div id="data" class="table margined ui-widget-content ui-corner-all">\
                         <div><div>name</div>\
                         <div>labels</div>\
+                        <div>type</div>\
                         <div>size</div>\
                         <div>created</div>\
                         <div>updated</div>\
@@ -82,6 +83,7 @@ ${parent.head()}
                         item = jQuery('<div id=\'entry_'+sort_string+'\'>\
                         <div class="id">'+msg[i].name+'</div>\
                         <div class="small">'+msg[i].labels+'</div>\
+                        <div class="small">'+msg[i].type+'</div>\
                         <div class="small">'+msg[i].size+'</div>\
                         <div class="small">'+msg[i].created+'</div>\
                         <div class="small">'+msg[i].updated+'</div>\
@@ -155,7 +157,8 @@ ${parent.head()}
                 return false;
             }
             labels = labelsString.split(',');
-            var data = {name: name, labels: labels} ;
+            type = $("#type").val();
+            var data = {name: name, labels: labels, type: type} ;
             $.ajax({
                 type: "POST",
                 url: "${classifier_path}/create",
@@ -174,7 +177,8 @@ ${parent.head()}
                 return false;
             }
             sources = Object.keys(selected_classifiers);
-            var data = {name: name, sources: sources};
+            combinetype = $("#combinetype").val();
+            var data = {name: name, sources: sources, type:combinetype};
             $.ajax({
                 type: "POST",
                 url: "${classifier_path}/combine",
@@ -191,7 +195,9 @@ ${parent.head()}
                 custom_alert("Must select a file.");
                 return false;
             }
+            uploadtype = $("#uploadtype").val();
             var data = new FormData()
+            data.append("type", uploadtype);
             data.append("file", $('#dataFile')[0].files[0]);
             $.ajax({
                 type: "POST",
@@ -304,6 +310,14 @@ ${parent.head()}
                         });
                         extract_dialog.append(labeldiv);
                     }
+                    var typediv = jQuery('<div><p>\
+                                        <select id="extracttype">\
+                    <option value="Not specified">Not specified</option>\<%! from db import sqlalchemydb %>
+% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+                    <option value="${classifier_type}">${classifier_type}</option>\
+% endfor
+                </select></p></div>');
+                    extract_dialog.append(typediv);
                     extract_dialog.dialog({modal:true,
                                             title:'Extract binary classifiers from "'+classifier_name+'"',
                                             width: $(window).width()*0.5,
@@ -313,7 +327,8 @@ ${parent.head()}
                                                     $('div[id^="extract\\_"].ui-state-focus').each(function () {
                                                         selected.push($($(this)[0]).text());
                                                     });
-                                                    var data = {name: classifier_name, labels: selected};
+                                                    extracttype = $("#extracttype").val();
+                                                    var data = {name: classifier_name, labels: selected, type: extracttype};
                                                     $.ajax({
                                                         type: "POST",
                                                         url: "${classifier_path}/extract",
@@ -435,20 +450,44 @@ ${parent.head()}
 
         function duplicate_classifier() {
             var classifier_name = $(this).parent().siblings('.id').text();
-            var new_name = prompt("Please enter the new name for the classifier", "copy_of_"+classifier_name);
-            if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            if (new_name != null) {
-                $.ajax({
-                    type:'POST',
-                    url:'${classifier_path}/duplicate/'+classifier_name+'/'+new_name})
-                .done(update)
-                .fail(function (errMsg) {
-                    custom_alert(errMsg.responseText);
-                });
-            }
+			var duplicate_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' 	id=\'duplicate_classifier_'+classifier_name+'\'></div>');
+			var typediv = jQuery('<div><p><label for="new_name">Name:</label><input type="text" id="new_name"/></p>\
+                 <p><label for="duplicatetype">Type:</label>\
+				<select id="duplicatetype">\
+                    <option value="Not specified">Not specified</option>\<%! from db import sqlalchemydb %>
+% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+                    <option value="${classifier_type}">${classifier_type}</option>\
+% endfor
+                </select></p></div>');
+			duplicate_dialog.append(typediv);
+			duplicate_dialog.dialog({modal:true,
+                                            title:'Duplicate classifiers from "'+classifier_name+'"',
+                                            width: $(window).width()*0.5,
+                                            buttons: {
+                                                'Duplicate': function() {
+													var new_name = $("#new_name").val();
+                                                    if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
+                                                        custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                                                        $(this).dialog('destroy').remove();
+                                                        return false;
+                                                     }
+                                                    var duplicatetype = $("#duplicatetype").val();
+                                                    var data = {name: classifier_name, new_name: new_name, type: duplicatetype};
+                                                    $.ajax({
+                                                        type: "POST",
+                                                        url: "${classifier_path}/duplicate",
+                                                        data: data})
+                                                    .done(update)
+                                                    .fail(function(errMsg) {
+                                                        custom_alert(errMsg.responseText);
+                                                    });
+                                                    $(this).dialog('destroy').remove();
+                                                },
+                                                'Cancel': function() {
+                                                    $(this).dialog('destroy').remove();
+                                                }
+                                            },
+                                          });
         };
 
         function download_training_data() {
@@ -498,6 +537,14 @@ ${parent.head()}
                 <p>
                     <label for="labels">Labels (comma separated):</label>
                     <input type="text" id="labels"/></p>
+                 <p>
+                    <label for="type">Type:</label>
+                    <select id="type">
+<%! from db import sqlalchemydb %>
+% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+                        <option value="${classifier_type}">${classifier_type}</option>
+% endfor
+                    </select></p>
                 <p><label></label>
                     <input type="submit" value="Create"/>
                 </p>
@@ -509,6 +556,14 @@ ${parent.head()}
                 <p>
                     <label for="combine_name">Name:</label>
                     <input type="text" id="combine_name"/></p>
+                 <p>
+                    <label for="combinetype">Type:</label>
+                    <select id="combinetype">
+<%! from db import sqlalchemydb %>
+% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+                        <option value="${classifier_type}">${classifier_type}</option>
+% endfor
+                    </select></p>
                 <p><label></label>
                     <input id="combine_button" type="submit" value="Combine"/>
                 </p>
@@ -521,7 +576,14 @@ ${parent.head()}
             </div>
             <form enctype="multipart/form-data" id="upload_form" class="margined" action="#" method="post">
                 <p><label>Data file:</label><input type="file" id="dataFile"/></p>
-
+                 <p>
+                    <label for="uploadtype">Type:</label>
+                    <select id="uploadtype">
+<%! from db import sqlalchemydb %>
+% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+                        <option value="${classifier_type}">${classifier_type}</option>
+% endfor
+                    </select></p>
                 <p><label></label><input id="upload_button" type="submit" value="Upload"/></p>
             </form>
         </div>

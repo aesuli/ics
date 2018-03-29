@@ -14,6 +14,9 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, deferred, relationship, configure_mappers
 from sqlalchemy.orm.session import sessionmaker
 
+from classifier.online_classifier import OnlineClassifier
+from classifier.pytorch_classifier import LSTMClassifier
+
 __author__ = 'Andrea Esuli'
 
 Base = declarative_base()
@@ -22,6 +25,19 @@ _ADMIN_NAME = 'admin'
 _ADMIN_PASSWORD = 'adminadmin'
 _NO_HOURLY_LIMIT = -1
 _NO_REQUEST_LIMIT = -1
+
+_CLASSIFIER_TYPES = ['Statistical', 'Neural', 'Custom']
+
+
+def get_classifier_type_from_model(model):
+    if isinstance(model, OnlineClassifier):
+        type = _CLASSIFIER_TYPES[0]
+    elif isinstance(model, LSTMClassifier):
+        type = _CLASSIFIER_TYPES[1]
+    else:
+        type = _CLASSIFIER_TYPES[-1]
+    return type
+
 
 classifier_name_length = 100
 user_name_length = 50
@@ -122,13 +138,17 @@ class Classifier(Base):
     __tablename__ = 'classifier'
     id = Column(Integer(), primary_key=True)
     name = Column(String(classifier_name_length), unique=True)
+    type = Column(String(max([len(name) + 2 for name in _CLASSIFIER_TYPES])))
     model = deferred(Column(PickleType()))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
-    def __init__(self, name, model):
+    def __init__(self, name, type):
         self.name = name
-        self.model = model
+        self.model = None
+        if not type in _CLASSIFIER_TYPES[:-1]:
+            raise ValueError('Unknown classifier type')
+        self.type = type
 
 
 class Label(Base):
@@ -380,9 +400,9 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(exists().where(Classifier.name == name)).scalar()
 
-    def create_classifier(self, name, labels, model=None):
+    def create_classifier(self, name, labels, type):
         with self.session_scope() as session:
-            classifier = Classifier(name, model)
+            classifier = Classifier(name, type)
             session.add(classifier)
             session.flush()
             for label in labels:
@@ -393,7 +413,20 @@ class SQLAlchemyDB(object):
 
     def get_classifier_model(self, name):
         with self.session_scope() as session:
-            return session.query(Classifier.model).filter(Classifier.name == name).scalar()
+            classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
+            if classifier.model is None:
+                labels = self.get_classifier_labels(name)
+                if classifier.type == _CLASSIFIER_TYPES[0]:
+                    classifier.model = OnlineClassifier(name, labels)
+                elif classifier.type == _CLASSIFIER_TYPES[1]:
+                    classifier.model = LSTMClassifier(name, labels)
+                else:
+                    raise ValueError('Unknown classifier type')
+            return classifier.model
+
+    def get_classifier_type(self, name):
+        with self.session_scope() as session:
+            return session.query(Classifier.type).filter(Classifier.name == name).scalar()
 
     def get_classifier_labels(self, name):
         with self.session_scope() as session:
@@ -427,7 +460,9 @@ class SQLAlchemyDB(object):
     def update_classifier_model(self, name, model):
         with self.session_scope() as session:
             try:
-                session.query(Classifier).filter(Classifier.name == name).update({Classifier.model: model})
+                classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
+                classifier.model = model
+                classifier.type = get_classifier_type_from_model(model)
             except (OperationalError, MemoryError) as e:
                 session.rollback()
                 raise e
