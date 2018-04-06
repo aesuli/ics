@@ -64,18 +64,24 @@ class IPControllerService(object):
                 ips = []
         return str(len(list(ips)))
 
-    def ip_rate_limit(self, cost=1):
+    def ip_rate_limit(self, default_cost=1, cost_function=None):
 
         def check():
             ip = cherrypy.request.remote.ip
             try:
-                return self._db.iptracker_check_and_count_request(ip, cost)
+                if cost_function:
+                    return self._db.iptracker_check_and_count_request(ip, cost_function(default_cost))
+                else:
+                    return self._db.iptracker_check_and_count_request(ip, default_cost)
             except LookupError:
                 if self.create_if_missing:
                     self._db.create_iptracker(ip, self.default_hourly_limit, self.default_request_limit)
 
             try:
-                return self._db.iptracker_check_and_count_request(ip, cost)
+                if cost_function:
+                    return self._db.iptracker_check_and_count_request(ip, cost_function(default_cost))
+                else:
+                    return self._db.iptracker_check_and_count_request(ip, default_cost)
             except:
                 return False
 

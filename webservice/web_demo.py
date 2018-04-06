@@ -15,6 +15,7 @@ class WebDemo(object):
         self._template_data = {'ip_auth_path': ip_auth_path,
                                'classifier_path': classifier_path,
                                'name': name,
+                               'version': self.version(),
                                'base_template': 'demo_basewithmenu.html'}
         self._lookup = TemplateLookup(os.path.join(media_dir, 'template'), input_encoding='utf-8',
                                       output_encoding='utf-8')
@@ -65,4 +66,3 @@ class WebDemo(object):
     @cherrypy.expose
     def version(self):
         return "0.2.1"
-

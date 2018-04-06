@@ -10,7 +10,7 @@ import numpy as np
 from cherrypy.lib.static import serve_file
 
 from db.sqlalchemydb import SQLAlchemyDB, Job, Label
-from util.util import get_fully_portable_file_name, logged_call
+from util.util import get_fully_portable_file_name
 
 __author__ = 'Andrea Esuli'
 
@@ -343,8 +343,9 @@ class DatasetCollectionService(object):
         return "1.2.1 (db: %s)" % self._db.version()
 
 
-@logged_call
 def _classify(db_connection_string, datasetname, classifiers, fullpath):
+    cherrypy.log('DatasetCollectionService._classify(datasetname="' + datasetname + '", classifiers="' + str(
+        classifiers) + '", fullpath="' + fullpath + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         tempfile = fullpath + '.tmp'
         try:
@@ -396,8 +397,9 @@ def _classify_and_write(db, id, X, classifiers, writer):
         writer.writerow(row)
 
 
-@logged_call
 def _create_dataset_documents(db_connection_string, dataset_name, filename):
+    cherrypy.log(
+        '_create_dataset_documents._duplicate_trainingset(dataset_name="' + dataset_name + '", filename="' + filename + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         if not db.dataset_exists(dataset_name):
             db.create_dataset(dataset_name)
@@ -405,7 +407,6 @@ def _create_dataset_documents(db_connection_string, dataset_name, filename):
             csv.field_size_limit(CSV_LARGE_FIELD)
         with open(filename, 'r', encoding='utf-8', errors='ignore') as file:
             reader = csv.reader(file)
-            batch_size = 1000
             for row in reader:
                 if len(row) > 1:
                     document_name = row[0]

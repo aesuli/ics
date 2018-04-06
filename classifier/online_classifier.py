@@ -18,7 +18,7 @@ class OnlineClassifier(Classifier):
         # the entire classifier when the one-vs-all multi-class method
         analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[4])
         self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), analyzer=analyzer)
-        self._clf = SGDClassifier(average=average, n_jobs=-1)
+        self._clf = SGDClassifier(average=average, n_jobs=-1, max_iter=1000, tol=1e-3)
         self._clf.partial_fit(self._vec.transform(['']), [classes[0]], classes)
 
     def partial_fit(self, X, y):

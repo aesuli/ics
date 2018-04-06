@@ -1,4 +1,5 @@
 import cherrypy
+import numpy
 
 __author__ = 'Andrea Esuli, adapted from: https://github.com/cherrypy/tools/blob/master/AuthenticationAndAccessRestrictions'
 
@@ -76,3 +77,17 @@ def all_of(*conditions):
         return True
 
     return check
+
+
+def arg_len_cost_function(arg_name):
+    def cost_function(default_cost):
+        try:
+            arg = cherrypy.request.params[arg_name]
+        except KeyError:
+            try:
+                arg = cherrypy.request.params[arg_name + '[]']
+            except KeyError:
+                return default_cost
+        return len(numpy.atleast_1d(arg))
+
+    return cost_function

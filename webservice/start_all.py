@@ -1,11 +1,15 @@
+import logging
+import multiprocessing
 import os
 import sys
+from logging import handlers
 
 import cherrypy
 from configargparse import ArgParser
 
 from db.sqlalchemydb import SQLAlchemyDB
-from webservice.auth_controller_service import enable_controller_service, fail_with_error_message, redirect, any_of
+from webservice.auth_controller_service import enable_controller_service, fail_with_error_message, redirect, any_of, \
+    arg_len_cost_function
 from webservice.background_processor_service import BackgroundProcessor
 from webservice.classifier_collection_service import ClassifierCollectionService
 from webservice.dataset_collection_service import DatasetCollectionService
@@ -18,6 +22,45 @@ from webservice.web_client import WebClient
 from webservice.web_demo import WebDemo
 
 __author__ = 'Andrea Esuli'
+
+
+def setup_log(access_filename, app_filename):
+    path = os.path.dirname(access_filename)
+    os.makedirs(path, exist_ok=True)
+    path = os.path.dirname(app_filename)
+    os.makedirs(path, exist_ok=True)
+
+    cherrypy.config.update({'environment': 'production', 'log.error_file': '', 'log.access_file': ''})
+
+    error_handler = handlers.TimedRotatingFileHandler(app_filename + '.log', when='midnight')
+    error_handler.setLevel(logging.DEBUG)
+    cherrypy.log.error_log.addHandler(error_handler)
+
+    access_handler = handlers.TimedRotatingFileHandler(access_filename + '.log', when='midnight')
+    access_handler.setLevel(logging.DEBUG)
+    cherrypy.log.access_log.addHandler(access_handler)
+
+
+def setup_background_processor_log(access_filename, app_filename):
+    path = os.path.dirname(access_filename)
+    os.makedirs(path, exist_ok=True)
+    path = os.path.dirname(app_filename)
+    os.makedirs(path, exist_ok=True)
+
+    cherrypy.config.update({'environment': 'production', 'log.error_file': '', 'log.access_file': ''})
+
+    process = multiprocessing.current_process()
+
+    error_handler = handlers.TimedRotatingFileHandler(app_filename + '-' + str(process.name) + '.log',
+                                                      when='midnight')
+    error_handler.setLevel(logging.DEBUG)
+    cherrypy.log.error_log.addHandler(error_handler)
+
+    access_handler = handlers.TimedRotatingFileHandler(access_filename + '-' + str(process.name) + '.log',
+                                                       when='midnight')
+    access_handler.setLevel(logging.DEBUG)
+    cherrypy.log.access_log.addHandler(access_handler)
+
 
 if __name__ == "__main__":
     parser = ArgParser()
@@ -46,7 +89,10 @@ if __name__ == "__main__":
     parser.add_argument('--min_password_length', help='minimum password length', type=int, required=True)
     args = parser.parse_args(sys.argv[1:])
 
-    with BackgroundProcessor(args.db_connection_string) as background_processor, \
+    setup_log('./logs/access', './logs/app')
+
+    with BackgroundProcessor(args.db_connection_string, os.cpu_count() - 2, initializer=setup_background_processor_log,
+                             initargs=('./logs/bpaccess', './logs/bpapp')) as background_processor, \
             WebClient(args.db_connection_string, args.media_dir, args.user_auth_path, args.admin_path,
                       args.classifier_path, args.dataset_path, args.jobs_path, args.name) as client, \
             WebDemo(args.db_connection_string, args.media_dir, args.ip_auth_path, args.classifier_path,
@@ -113,8 +159,9 @@ if __name__ == "__main__":
             },
             '/classify': {
                 'tools.icsauth.require': [
-                    any_of(user_auth_controller.logged_in_with_cost(), key_auth_controller.has_key(),
-                           ip_auth_controller.ip_rate_limit(),
+                    any_of(user_auth_controller.logged_in_with_cost(cost_function=arg_len_cost_function('X')),
+                           key_auth_controller.has_key(cost_function=arg_len_cost_function('X')),
+                           ip_auth_controller.ip_rate_limit(cost_function=arg_len_cost_function('X')),
                            fail_with_error_message(401, 'Reached request limit.'))],
             },
         }
@@ -154,8 +201,6 @@ if __name__ == "__main__":
                 'tools.icsauth.require': [],
             },
         }
-
-        # cherrypy.config.update({'environment': 'production', 'log.error_file': 'site.log', })
 
         cherrypy.tree.mount(demo, args.demo_path, config={**demo.get_config(), **conf_demo})
         cherrypy.tree.mount(client, args.client_path, config={**client.get_config(), **conf_client})

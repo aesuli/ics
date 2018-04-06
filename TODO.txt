@@ -1,6 +1,4 @@
 TODO
-- cost of batch classification
-- demo API page
 - automatic DB creation
 - dataset documents as table view
 - classified dataset documents as table view
@@ -28,6 +26,8 @@ TOMONITOR
 - strip input strings
 
 DONE
+- demo API page
+- cost of batch classification
 - paginated view for
     * dataset
     * users
