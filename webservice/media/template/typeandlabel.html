@@ -68,6 +68,7 @@
                                                 data: { name: classifier_name, X: [last_text], y: [label] }})
                                             .done(function() {
                                                     $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
+                                                    $('#textbox').focus();
                                                 })
                                             .fail(function(msg) {
                                                     custom_alert(msg);
@@ -82,6 +83,7 @@
                                     var classifier_name = msg[i].name;
                                     return function() {
                                         $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
+                                        $('#textbox').focus();
                                     };
                                 })());
                                 $('#assignments\\_'+msg[i].name).append(skipline);

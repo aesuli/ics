@@ -8,7 +8,6 @@ from time import sleep
 import cherrypy
 
 from db.sqlalchemydb import SQLAlchemyDB, Job
-from util.util import logged_call
 
 __author__ = 'Andrea Esuli'
 
@@ -16,10 +15,10 @@ LOOP_WAIT = 0.1
 
 
 class BackgroundProcessor(Thread):
-    def __init__(self, db_connection_string, pool_size=10):
+    def __init__(self, db_connection_string, pool_size, initializer=None, initargs=None):
         Thread.__init__(self)
         self._semaphore = BoundedSemaphore(pool_size)
-        self._pool = Pool(processes=pool_size)
+        self._pool = Pool(processes=pool_size, initializer=initializer, initargs=initargs)
         self._db = SQLAlchemyDB(db_connection_string)
         self._running = False
 
@@ -34,12 +33,15 @@ class BackgroundProcessor(Thread):
             try:
                 self._db.set_job_start_time(job.id)
                 self._db.set_job_status(job.id, Job.status_running)
+                cherrypy.log('Starting ' + str(job.id) + ': ' + str(job.action['function']), severity=logging.INFO)
                 self._pool.apply_async(job.action['function'], job.action['args'], job.action['kwargs'],
                                        callback=partial(self._release, job.id, Job.status_done),
                                        error_callback=partial(self._release, job.id, Job.status_error))
             except Exception as e:
                 self._semaphore.release()
-                cherrypy.log('Error on job ' + str(job) + ':' + str(e), severity=logging.ERROR)
+                cherrypy.log(
+                    'Error on job ' + str(job.id) + ': ' + str(job.action['function']) + '\nException: ' + str(e),
+                    severity=logging.ERROR)
 
     def close(self):
         self.stop()
@@ -54,9 +56,9 @@ class BackgroundProcessor(Thread):
         self.close()
         return False
 
-    @logged_call
     def _release(self, job_id, status, msg):
         try:
+            cherrypy.log('Completed ' + str(job_id) + ' ' + str(status))
             self._db.set_job_completion_time(job_id)
             self._db.set_job_status(job_id, status)
         finally:
@@ -66,4 +68,4 @@ class BackgroundProcessor(Thread):
         self._running = False
 
     def version(self):
-        return "0.2.2 (db: %s)" % self._db.version()
+        return "0.3.1 (db: %s)" % self._db.version()

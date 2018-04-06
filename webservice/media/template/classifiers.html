@@ -359,7 +359,6 @@ ${parent.head()}
                         var labeldiv = jQuery('<div id="rename_label_'+labels[i]+'">'+labels[i]+'</div>');
                         labeldiv.button({ icons: {primary:'ui-icon-radio-off'} });
                         labeldiv.click(function(){
-                            var label = $(this).text();
                              $('div[id^="rename\\_label\\_"].ui-state-focus').each(function () {
                                 $(this).removeClass('ui-state-focus');
                                 $(this).button({icons: {primary :'ui-icon-radio-off'}});
@@ -379,7 +378,7 @@ ${parent.head()}
                                                         custom_alert("The name of the label can only contain letters, numbers and the underscore character '_'");
                                                         return false;
                                                     }
-                                                    var selected_label =  $($('div[id^="rename\\_label\\_"].ui-state-focus')[0]).text();
+                                                    var selected_label =  $($('div[id^="rename\\_label\\_"].ui-state-focus')[0]).text().trim();
                                                     $.ajax({
                                                         type: "POST",
                                                         url: "${classifier_path}/rename_label/"+classifier_name+"/"+selected_label+"/"+new_name

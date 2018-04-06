@@ -14,7 +14,7 @@ from cherrypy.lib.static import serve_file
 
 from db import sqlalchemydb
 from db.sqlalchemydb import SQLAlchemyDB, DBLock
-from util.util import get_fully_portable_file_name, logged_call, logged_call_with_args
+from util.util import get_fully_portable_file_name
 
 __author__ = 'Andrea Esuli'
 
@@ -482,6 +482,9 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a name'
+        if len(name.strip()) == 0:
+            cherrypy.response.status = 400
+            return 'Must specify a name'
         try:
             X = data['X']
         except KeyError:
@@ -490,6 +493,7 @@ class ClassifierCollectionService(object):
             except KeyError:
                 cherrypy.response.status = 400
                 return 'Must specify a vector of strings (X)'
+        cherrypy.log('ClassifierCollectionService.classify(name="' + name + '", X="' + str(X) + '")')
         X = numpy.atleast_1d(X)
         return self._db.classify(name, X)
 
@@ -509,6 +513,7 @@ class ClassifierCollectionService(object):
             except KeyError:
                 cherrypy.response.status = 400
                 return 'Must specify a vector of strings (X)'
+        cherrypy.log('ClassifierCollectionService.score(name="' + name + '", X="' + str(X) + '")')
         X = numpy.atleast_1d(X)
         return self._db.score(name, X)
 
@@ -656,20 +661,20 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     def version(self):
-        return "1.1.1 (db: %s)" % self._db.version()
+        return "2.1.1 (db: %s)" % self._db.version()
 
 
-@logged_call
 def _update_trainingset(db_connection_string, name, X, y):
+    cherrypy.log('ClassifierCollectionService._update_trainingset(name="' + name + '", len(X)="' + str(len(X)) + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_trainingset(db, name):
             for (content, label) in zip(X, y):
                 db.create_training_example(name, content, label)
 
 
-@logged_call
 def _update_model(db_connection_string, name, X, y):
     if len(X) > 0:
+        cherrypy.log('ClassifierCollectionService._update_model(name="' + name + '", len(X)="' + str(len(X)) + '")')
         with SQLAlchemyDB(db_connection_string) as db:
             with _lock_model(db, name):
                 model = db.get_classifier_model(name)
@@ -677,8 +682,9 @@ def _update_model(db_connection_string, name, X, y):
                 db.update_classifier_model(name, model)
 
 
-@logged_call_with_args
 def _update_from_file(update_function, encoding, db_connection_string, filename, classifier_name):
+    cherrypy.log(
+        'ClassifierCollectionService._update_from_file(filename="' + filename + '", classifier_name="' + classifier_name + '")')
     if csv.field_size_limit() < CSV_LARGE_FIELD:
         csv.field_size_limit(CSV_LARGE_FIELD)
     with open(filename, encoding=encoding, errors='ignore') as file:
@@ -711,8 +717,8 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
             update_function(db_connection_string, classifier_name, X, y)
 
 
-@logged_call_with_args
 def _duplicate_model(db_connection_string, name, new_name):
+    cherrypy.log('ClassifierCollectionService._duplicate_model(name="' + name + '", new_name="' + new_name + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_model(db, new_name):
             source_type = db.get_classifier_type(name)
@@ -742,8 +748,8 @@ def _duplicate_model(db_connection_string, name, new_name):
                     _update_model(db_connection_string, name, batchX, batchy)
 
 
-@logged_call_with_args
 def _duplicate_trainingset(db_connection_string, name, new_name):
+    cherrypy.log('ClassifierCollectionService._duplicate_trainingset(name="' + name + '", new_name="' + new_name + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_trainingset(db, new_name):
             batchsize = MAX_BATCH_SIZE
@@ -760,8 +766,9 @@ def _duplicate_trainingset(db_connection_string, name, new_name):
                 block += 1
 
 
-@logged_call_with_args
 def _extract_binary_trainingset(db_connection_string, classifier, label):
+    cherrypy.log(
+        'ClassifierCollectionService._extract_binary_trainingset(classifier="' + classifier + '", label="' + label + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         batchsize = MAX_BATCH_SIZE
         block = 0
@@ -782,8 +789,9 @@ def _extract_binary_trainingset(db_connection_string, classifier, label):
             block += 1
 
 
-@logged_call_with_args
 def _combine_classifiers(db_connection_string, name, sources):
+    cherrypy.log(
+        'ClassifierCollectionService._combine_classifiers(name="' + name + '", sources="' + str(sources) + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         binary_sources = set()
         for source_name in sources:

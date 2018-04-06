@@ -22,6 +22,7 @@ class WebAdmin(object):
                                'dataset_path': dataset_path,
                                'jobs_path': jobs_path,
                                'name': name,
+                               'version': self.version(),
                                'base_template': 'admin_basewithmenu.html'}
         self._lookup = TemplateLookup(os.path.join(media_dir, 'template'), input_encoding='utf-8',
                                       output_encoding='utf-8')
@@ -100,5 +101,4 @@ class WebAdmin(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.1.1"
-
+        return "0.2.1"

@@ -31,12 +31,12 @@ _CLASSIFIER_TYPES = ['Statistical', 'Neural', 'Custom']
 
 def get_classifier_type_from_model(model):
     if isinstance(model, OnlineClassifier):
-        type = _CLASSIFIER_TYPES[0]
+        classifier_type = _CLASSIFIER_TYPES[0]
     elif isinstance(model, LSTMClassifier):
-        type = _CLASSIFIER_TYPES[1]
+        classifier_type = _CLASSIFIER_TYPES[1]
     else:
-        type = _CLASSIFIER_TYPES[-1]
-    return type
+        classifier_type = _CLASSIFIER_TYPES[-1]
+    return classifier_type
 
 
 classifier_name_length = 100
@@ -138,17 +138,17 @@ class Classifier(Base):
     __tablename__ = 'classifier'
     id = Column(Integer(), primary_key=True)
     name = Column(String(classifier_name_length), unique=True)
-    type = Column(String(max([len(name) + 2 for name in _CLASSIFIER_TYPES])))
+    classifier_type = Column(String(max([len(name) + 2 for name in _CLASSIFIER_TYPES])))
     model = deferred(Column(PickleType()))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
-    def __init__(self, name, type):
+    def __init__(self, name, classifier_type):
         self.name = name
         self.model = None
-        if not type in _CLASSIFIER_TYPES[:-1]:
+        if not classifier_type in _CLASSIFIER_TYPES[:-1]:
             raise ValueError('Unknown classifier type')
-        self.type = type
+        self.classifier_type = classifier_type
 
 
 class Label(Base):
@@ -400,9 +400,9 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             return session.query(exists().where(Classifier.name == name)).scalar()
 
-    def create_classifier(self, name, labels, type):
+    def create_classifier(self, name, labels, classifier_type):
         with self.session_scope() as session:
-            classifier = Classifier(name, type)
+            classifier = Classifier(name, classifier_type)
             session.add(classifier)
             session.flush()
             for label in labels:
@@ -415,10 +415,13 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
             if classifier.model is None:
-                labels = self.get_classifier_labels(name)
-                if classifier.type == _CLASSIFIER_TYPES[0]:
+                labels = self._flatten_list(
+                    session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
+                        Classifier.name == name))
+                labels.remove(Label.HIDDEN_LABEL)
+                if classifier.classifier_type == _CLASSIFIER_TYPES[0]:
                     classifier.model = OnlineClassifier(name, labels)
-                elif classifier.type == _CLASSIFIER_TYPES[1]:
+                elif classifier.classifier_type == _CLASSIFIER_TYPES[1]:
                     classifier.model = LSTMClassifier(name, labels)
                 else:
                     raise ValueError('Unknown classifier type')
@@ -426,7 +429,7 @@ class SQLAlchemyDB(object):
 
     def get_classifier_type(self, name):
         with self.session_scope() as session:
-            return session.query(Classifier.type).filter(Classifier.name == name).scalar()
+            return session.query(Classifier.classifier_type).filter(Classifier.name == name).scalar()
 
     def get_classifier_labels(self, name):
         with self.session_scope() as session:
@@ -462,7 +465,7 @@ class SQLAlchemyDB(object):
             try:
                 classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
                 classifier.model = model
-                classifier.type = get_classifier_type_from_model(model)
+                classifier.classifier_type = get_classifier_type_from_model(model)
             except (OperationalError, MemoryError) as e:
                 session.rollback()
                 raise e
@@ -935,7 +938,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "2.1.1"
+        return "2.2.1"
 
 
 class DBLock(object):

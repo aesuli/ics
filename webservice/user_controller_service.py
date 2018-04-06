@@ -1,7 +1,6 @@
 import cherrypy
 
 from db.sqlalchemydb import SQLAlchemyDB
-from util.util import logged_call_with_args
 from webservice.auth_controller_service import require, SESSION_KEY
 
 __author__ = 'Andrea Esuli'
@@ -36,14 +35,6 @@ class UserControllerService(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
         return False
-
-    @logged_call_with_args
-    def on_login(self, username):
-        pass
-
-    @logged_call_with_args
-    def on_logout(self, username):
-        pass
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -87,10 +78,11 @@ class UserControllerService(object):
 
         if self._db.verify_user(username, password):
             cherrypy.session[SESSION_KEY] = cherrypy.request.login = username
-            self.on_login(username)
+            cherrypy.log('LOGIN(username="' + username + '")')
             return 'Ok'
         else:
             cherrypy.response.status = 401
+            cherrypy.log('REJECTED_LOGIN(username="' + username + '")')
             return 'Wrong credentials'
 
     @cherrypy.expose
@@ -140,10 +132,22 @@ class UserControllerService(object):
         sess[SESSION_KEY] = None
         if username:
             cherrypy.request.login = None
-            self.on_logout(username)
+            cherrypy.log('LOGOUT(username="' + username + '")')
 
-    def logged_in_with_cost(self, cost=1):
+    def logged_in_with_cost(self, default_cost=1, cost_function=None):
+        def check():
+            name = cherrypy.request.login
+            if name:
+                if cost_function:
+                    return self._db.user_check_and_count_request(name, cost_function(default_cost))
+                else:
+                    return self._db.user_check_and_count_request(name, default_cost)
+            else:
+                return False
 
+        return check
+
+    def logged_in_with_arg_len_cost(self, cost=1):
         def check():
             name = cherrypy.request.login
             if name:

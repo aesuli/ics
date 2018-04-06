@@ -62,12 +62,15 @@ class KeyControllerService(object):
                 keys = []
         return str(len(list(keys)))
 
-    def has_key(self, cost=1):
+    def has_key(self, default_cost=1, cost_function=None):
 
         def check():
-            key = cherrypy.request.body.params.get('authkey',None)
+            key = cherrypy.request.body.params.get('authkey', None)
             if key:
-                return self._db.keytracker_check_and_count_request(key, cost)
+                if cost_function:
+                    return self._db.keytracker_check_and_count_request(key, cost_function(default_cost))
+                else:
+                    return self._db.keytracker_check_and_count_request(key, default_cost)
             else:
                 return False
 
@@ -77,7 +80,7 @@ class KeyControllerService(object):
     @require(name_is(SQLAlchemyDB.admin_name()))
     def create(self, name, hourly_limit, request_limit):
         name = name.strip()
-        if len(name)<1:
+        if len(name) < 1:
             cherrypy.response.status = 400
             return 'Cannot use an empty name'
         key = self._db.create_keytracker(name, int(hourly_limit), int(request_limit))
