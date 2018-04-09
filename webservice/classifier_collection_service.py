@@ -166,7 +166,6 @@ class ClassifierCollectionService(object):
         if overwrite == 'false' or overwrite == 'False':
             overwrite = False
         with _lock_trainingset(self._db, new_name), _lock_model(self._db, new_name):
-            # TODO fix model creation and duplication
             if not self._db.classifier_exists(new_name):
                 self._db.create_classifier(new_name, self._db.get_classifier_labels(name), classifier_type)
             elif not overwrite:
@@ -726,32 +725,32 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
 def _duplicate_model(db_connection_string, name, new_name):
     cherrypy.log('ClassifierCollectionService._duplicate_model(name="' + name + '", new_name="' + new_name + '")')
     with SQLAlchemyDB(db_connection_string) as db:
-        with _lock_model(db, new_name):
-            source_type = db.get_classifier_type(name)
-            new_type = db.get_classifier_type(new_name)
-            if source_type == new_type:
+        source_type = db.get_classifier_type(name)
+        new_type = db.get_classifier_type(new_name)
+        if source_type == new_type:
+            with _lock_model(db, new_name):
                 model = db.get_classifier_model(name)
                 model.name = new_name
                 db.update_classifier_model(new_name, model)
-            else:
-                padding = 0
+        else:
+            padding = 0
 
-                batchsize = MAX_BATCH_SIZE
-                batchX = list()
-                batchy = list()
-                added = 1
-                while added > 0:
-                    added = 0
-                    example_numerator = db.get_classifier_examples(name, padding, batchsize)
-                    for example in example_numerator:
-                        batchX.append(example.document.text)
-                        batchy.append(example.label.name)
-                        added += 1
-                    padding += batchsize
-                    r = random.random()
-                    random.shuffle(batchX, lambda: r)
-                    random.shuffle(batchy, lambda: r)
-                    _update_model(db_connection_string, name, batchX, batchy)
+            batchsize = MAX_BATCH_SIZE
+            batchX = list()
+            batchy = list()
+            added = 1
+            while added > 0:
+                added = 0
+                example_numerator = db.get_classifier_examples(name, padding, batchsize)
+                for example in example_numerator:
+                    batchX.append(example.document.text)
+                    batchy.append(example.label.name)
+                    added += 1
+                padding += batchsize
+                r = random.random()
+                random.shuffle(batchX, lambda: r)
+                random.shuffle(batchy, lambda: r)
+                _update_model(db_connection_string, new_name, batchX, batchy)
 
 
 def _duplicate_trainingset(db_connection_string, name, new_name):
