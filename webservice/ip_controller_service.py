@@ -47,6 +47,7 @@ class IPControllerService(object):
             ip_info['created'] = str(self._db.get_iptracker_creation_time(ip))
             ip_info['updated'] = str(self._db.get_iptracker_last_update_time(ip))
             ip_info['hourly_limit'] = str(self._db.get_iptracker_hourly_limit(ip))
+            ip_info['request_limit'] = str(self._db.get_iptracker_request_limit(ip))
             ip_info['total_request_counter'] = str(self._db.get_iptracker_total_request_counter(ip))
             ip_info['current_request_counter'] = str(self._db.get_iptracker_current_request_counter(ip))
             result.append(ip_info)
@@ -112,10 +113,16 @@ class IPControllerService(object):
 
     @cherrypy.expose
     @require(name_is(SQLAlchemyDB.admin_name()))
+    def set_request_limit(self, ip, request_limit):
+        self._db.set_iptracker_request_limit(ip, int(request_limit))
+        return 'Ok'
+
+    @cherrypy.expose
+    @require(name_is(SQLAlchemyDB.admin_name()))
     def set_current_request_counter(self, ip, count=0):
         self._db.set_iptracker_current_request_counter(ip, int(count))
         return 'Ok'
 
     @cherrypy.expose
     def version(self):
-        return "1.1.1 (db: %s)" % self._db.version()
+        return "1.2.1 (db: %s)" % self._db.version()

@@ -95,8 +95,8 @@ if __name__ == "__main__":
                              initargs=('./logs/bpaccess', './logs/bpapp')) as background_processor, \
             WebClient(args.db_connection_string, args.media_dir, args.user_auth_path, args.admin_path,
                       args.classifier_path, args.dataset_path, args.jobs_path, args.name) as client, \
-            WebDemo(args.db_connection_string, args.media_dir, args.ip_auth_path, args.classifier_path,
-                    args.name) as demo, \
+            WebDemo(args.db_connection_string, args.media_dir, args.ip_auth_path, args.key_auth_path,
+                    args.classifier_path, args.name) as demo, \
             WebAdmin(args.db_connection_string, args.media_dir, args.client_path, args.user_auth_path,
                      args.ip_auth_path, args.key_auth_path, args.classifier_path, args.dataset_path, args.jobs_path,
                      args.name) as admin, \
@@ -184,7 +184,7 @@ if __name__ == "__main__":
                 'tools.icsauth.require': [logged_in()],
             },
             '/info': {
-                'tools.icsauth.require': [],
+                'tools.icsauth.require': [any_of(logged_in(), key_auth_controller.has_key(default_cost=0))],
             },
         }
 
@@ -195,9 +195,6 @@ if __name__ == "__main__":
                 'tools.icsauth.require': [logged_in()],
             },
             '/login': {
-                'tools.icsauth.require': [],
-            },
-            '/info': {
                 'tools.icsauth.require': [],
             },
         }

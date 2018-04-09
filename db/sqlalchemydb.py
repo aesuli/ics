@@ -39,7 +39,8 @@ def get_classifier_type_from_model(model):
     return classifier_type
 
 
-classifier_name_length = 100
+classifier_name_length = 80
+classifier_description_length = 300
 user_name_length = 50
 key_name_length = 50
 ipaddress_length = 45
@@ -138,6 +139,7 @@ class Classifier(Base):
     __tablename__ = 'classifier'
     id = Column(Integer(), primary_key=True)
     name = Column(String(classifier_name_length), unique=True)
+    description = Column(String(classifier_description_length), default="No description")
     classifier_type = Column(String(max([len(name) + 2 for name in _CLASSIFIER_TYPES])))
     model = deferred(Column(PickleType()))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
@@ -455,6 +457,17 @@ class SQLAlchemyDB(object):
                 session.query(Classifier).filter(Classifier.name == newname).delete()
                 session.flush()
             classifier.name = newname
+
+    def get_classifier_description(self, name):
+        with self.session_scope() as session:
+            return session.query(Classifier.description).filter(Classifier.name == name).scalar()
+
+    def set_classifier_description(self, name, description):
+        with self.session_scope() as session:
+            classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
+            if classifier is None:
+                return
+            classifier.description = description
 
     def delete_classifier(self, name):
         with self.session_scope() as session:
@@ -818,6 +831,15 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             iptracker = session.query(IPTracker).filter(IPTracker.ip == ip).scalar()
             iptracker.hourly_limit = hourly_limit
+
+    def get_iptracker_request_limit(self, ip):
+        with self.session_scope() as session:
+            return session.query(IPTracker.request_limit).filter(IPTracker.ip == ip).scalar()
+
+    def set_iptracker_request_limit(self, ip, request_limit):
+        with self.session_scope() as session:
+            iptracker = session.query(IPTracker).filter(IPTracker.ip == ip).scalar()
+            iptracker.request_limit = request_limit
 
     def get_iptracker_total_request_counter(self, ip):
         with self.session_scope() as session:

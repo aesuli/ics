@@ -67,6 +67,7 @@ ${parent.head()}
                         <div id="data" class="table margined ui-widget-content ui-corner-all">\
                         <div><div>name</div>\
                         <div>labels</div>\
+                        <div>description</div>\
                         <div>type</div>\
                         <div>size</div>\
                         <div>created</div>\
@@ -83,6 +84,7 @@ ${parent.head()}
                         item = jQuery('<div id=\'entry_'+sort_string+'\'>\
                         <div class="id">'+msg[i].name+'</div>\
                         <div class="small">'+msg[i].labels+'</div>\
+                        <div class="small" id="classifier_description_'+msg[i].name+'">'+msg[i].description+'</div>\
                         <div class="small">'+msg[i].type+'</div>\
                         <div class="small">'+msg[i].size+'</div>\
                         <div class="small">'+msg[i].created+'</div>\
@@ -90,6 +92,7 @@ ${parent.head()}
                         <div>\
                             <div id="rename_button_'+name_string+'">Rename</div>\
                             <div id="rename_label_button_'+name_string+'">Rename label</div>\
+                            <div id="description_button_'+name_string+'">Description</div>\
                             <div id="extract_button_'+name_string+'">Extract</div>\
                             <div id="select_button_'+name_string+'">Select</div>\
                             <div id="duplicate_button_'+name_string+'">Duplicate</div>\
@@ -120,6 +123,8 @@ ${parent.head()}
                         $('#extract\\_button\\_'+name_string).click(extract_classifier);
                         $('#rename\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
                         $('#rename\\_button\\_'+name_string).click(rename_classifier);
+                        $('#description\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
+                        $('#description\\_button\\_'+name_string).click(classifier_description);
                         $('#rename\\_label\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
                         $('#rename\\_label\\_button\\_'+name_string).click(rename_classifier_label);
                         $('#duplicate\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-copy'} });
@@ -413,6 +418,32 @@ ${parent.head()}
                                             $.ajax({
                                                 type: "POST",
                                                 url: "${classifier_path}/rename/"+classifier_name+"/"+new_name})
+                                            .done(update)
+                                            .fail(function(errMsg) {
+                                                custom_alert(errMsg.responseText);
+                                            });
+                                            $(this).dialog('destroy').remove();
+                                        },
+                                        'Cancel': function() {
+                                            $(this).dialog('destroy').remove();
+                                        }
+                                    },
+                                  });
+        };
+
+        function classifier_description() {
+            var classifier_name = $(this).parent().siblings('.id').text();
+            var classifier_description = $("#classifier\\_description\\_"+classifier_name).text()
+            var description_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_description_'+classifier_name+'\'><div><label for="classifier_new_description_'+classifier_name+'">New description:</label><input id="classifier_new_description_'+classifier_name+'" type="text" value="'+classifier_description+'"></div></div>');
+            description_dialog.dialog({modal:true,
+                                    title:'Classifier description',
+                                    width: $(window).width()*0.5,
+                                    buttons: {
+                                        'Change description': function() {
+                                            var description = $('#classifier\\_new\\_description\\_'+classifier_name).val()
+                                            $.ajax({
+                                                type: "POST",
+                                                url: "${classifier_path}/set_description/"+classifier_name+"/"+description})
                                             .done(update)
                                             .fail(function(errMsg) {
                                                 custom_alert(errMsg.responseText);

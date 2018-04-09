@@ -26,6 +26,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- description of classifier
 - demo API page
 - cost of batch classification
 - paginated view for

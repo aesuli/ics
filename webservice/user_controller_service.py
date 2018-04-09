@@ -1,7 +1,7 @@
 import cherrypy
 
 from db.sqlalchemydb import SQLAlchemyDB
-from webservice.auth_controller_service import require, SESSION_KEY
+from webservice.auth_controller_service import require, USER_SESSION_KEY
 
 __author__ = 'Andrea Esuli'
 
@@ -77,7 +77,7 @@ class UserControllerService(object):
             return 'Wrong credentials'
 
         if self._db.verify_user(username, password):
-            cherrypy.session[SESSION_KEY] = cherrypy.request.login = username
+            cherrypy.session[USER_SESSION_KEY] = cherrypy.request.login = username
             cherrypy.log('LOGIN(username="' + username + '")')
             return 'Ok'
         else:
@@ -128,8 +128,8 @@ class UserControllerService(object):
     @cherrypy.expose
     def logout(self):
         sess = cherrypy.session
-        username = sess.get(SESSION_KEY, None)
-        sess[SESSION_KEY] = None
+        username = sess.get(USER_SESSION_KEY, None)
+        sess[USER_SESSION_KEY] = None
         if username:
             cherrypy.request.login = None
             cherrypy.log('LOGOUT(username="' + username + '")')

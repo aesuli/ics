@@ -26,6 +26,8 @@ form > p     { display: table-row;  }
 label { display: table-cell; }
 input { display: table-cell; }
 
+#data_list {overflow: auto;}
+
 div .table   {
  display: table;
 }
@@ -186,4 +188,9 @@ div .table   {
 
 .plain {
     font-weight:normal;
+}
+
+.tip {
+    text-decoration: underline;
+    text-decoration-style: dotted
 }

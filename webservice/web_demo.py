@@ -9,10 +9,11 @@ __author__ = 'Andrea Esuli'
 
 
 class WebDemo(object):
-    def __init__(self, db_connection_string, media_dir, ip_auth_path, classifier_path, name):
+    def __init__(self, db_connection_string, media_dir, ip_auth_path, key_auth_path, classifier_path, name):
         self._db = SQLAlchemyDB(db_connection_string)
         self._media_dir = media_dir
         self._template_data = {'ip_auth_path': ip_auth_path,
+                               'key_auth_path': key_auth_path,
                                'classifier_path': classifier_path,
                                'name': name,
                                'version': self.version(),

@@ -53,6 +53,7 @@ class ClassifierCollectionService(object):
             classifier_info['name'] = name
             classifier_info['type'] = self._db.get_classifier_type(name)
             classifier_info['labels'] = self._db.get_classifier_labels(name)
+            classifier_info['description'] = self._db.get_classifier_description(name)
             classifier_info['created'] = str(self._db.get_classifier_creation_time(name))
             classifier_info['updated'] = str(self._db.get_classifier_last_update_time(name))
             classifier_info['size'] = self._db.get_classifier_examples_count(name)
@@ -258,6 +259,11 @@ class ClassifierCollectionService(object):
         for x in X:
             self._db.mark_classifier_text_as_hidden(name, x)
         return 'Ok'
+
+    @cherrypy.expose
+    def set_description(self, name, description):
+        if description is not None:
+            self._db.set_classifier_description(name, description)
 
     @cherrypy.expose
     def rename(self, name, new_name, overwrite=False):

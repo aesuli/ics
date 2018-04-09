@@ -67,6 +67,7 @@ ${parent.head()}
                         <div>created</div>\
                         <div>updated</div>\
                         <div>total requests</div>\
+                        <div>request limit</div>\
                         <div>hourly limit</div>\
                         <div>requests this hour</div>\
                         <div>actions</div>\
@@ -82,9 +83,11 @@ ${parent.head()}
                         <div class="small">'+msg[i].created+'</div>\
                         <div class="small">'+msg[i].updated+'</div>\
                         <div>'+msg[i].total_request_counter+'</div>\
+                        <div>'+msg[i].request_limit+'</div>\
                         <div>'+msg[i].hourly_limit+'</div>\
                         <div>'+msg[i].current_request_counter+'</div>\
                         <div>\
+                            <div id="change_request_limit_'+name_string+'">Change request limit</div>\
                             <div id="change_hourly_limit_'+name_string+'">Change hourly limit</div>\
                             <div id="counter_reset_'+name_string+'">Reset current counter</div>\
                             <div id="delete_'+name_string+'">Delete</div>\
@@ -96,6 +99,8 @@ ${parent.head()}
                         }
                         else
                             $('#data').append(item);
+                        $('#change\\_request\\_limit\\_'+name_string).button({ icons: {primary:'ui-icon-alert'} });
+                        $('#change\\_request\\_limit\\_'+name_string).click(change_request_limit);
                         $('#change\\_hourly\\_limit\\_'+name_string).button({ icons: {primary:'ui-icon-clock'} });
                         $('#change\\_hourly\\_limit\\_'+name_string).click(change_hourly_limit);
                         $('#delete\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
@@ -106,7 +111,7 @@ ${parent.head()}
                     for (var key in curr_list) {
                         $('#'+key).remove();
                     }
-                    $('#data\\_list').append($('#data\\_list > div').get().sort(function (a, b) {
+                    $('#data').append($('#data > div').get().sort(function (a, b) {
                         return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
                 }
@@ -119,8 +124,9 @@ ${parent.head()}
 
         function create_ip() {
             name = $("#create\\_name").val();
-            limit = $("#create\\_limit").val();
-            var data = {ip: name, hourly_limit: limit} ;
+            request_limit = $("#create\\_request\\_limit").val();
+            hourly_limit = $("#create\\_limit").val();
+            var data = {ip: name, request_limit: request_limit, hourly_limit: hourly_limit} ;
             $.ajax({
                 type: "POST",
                 url: "${ip_auth_path}/create",
@@ -185,6 +191,36 @@ ${parent.head()}
                                   });
         };
 
+        function change_request_limit() {
+            var user_name = $(this).parent().siblings('.id').text();
+            var name_string = user_name.replace(/\W/g,'X');
+            var change_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'diag_change_request_limit_'+name_string+'\'><div><label for="new_limit_'+name_string+'">New request limit:</label><input id="new_request_limit_'+name_string+'" type="number" value="10000"></div></div>');
+            change_dialog.dialog({modal:true,
+                                    title:'Change request limit',
+                                    width: $(window).width()*0.5,
+                                    buttons: {
+                                        'Change': function() {
+                                            var new_request_limit = $('#new\\_request\\_limit\\_'+name_string).val();
+                                            var data = {ip: user_name, request_limit: new_request_limit} ;
+                                            $.ajax({
+                                                type: "POST",
+                                                url: "${ip_auth_path}/set_request_limit",
+                                                data: data})
+                                            .done(function() {
+                                                change_dialog.dialog('destroy').remove();
+                                                update();})
+                                            .fail(function(errMsg) {
+                                                change_dialog.dialog('destroy').remove();
+                                                custom_alert(errMsg.responseText);
+                                            });
+                                        },
+                                        'Cancel': function() {
+                                            $(this).dialog('destroy').remove();
+                                        }
+                                    },
+                                  });
+        };
+
         $( document ).ready(function() {
 
             $('#create\\_user').submit(create_ip);
@@ -210,6 +246,9 @@ ${parent.head()}
                 <label for="create_name">IP:</label>
                 <input type="text" id="create_name" /> </p>
                 <p>
+                <p>
+                <label for="create_limit">Request limit:</label>
+                <input type="number" value="10000" id="create_request_limit" /> </p>
                 <p>
                 <label for="create_limit">Hourly limit:</label>
                 <input type="number" value="100" id="create_limit" /> </p>
