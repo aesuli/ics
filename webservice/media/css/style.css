@@ -157,9 +157,10 @@ div .table   {
 }
 
 .not_relevant {
-    background-color: #FFC1B5;
+    background-color: lightyellow;
     background-image: none;
-    border: 1px solid #DD7777;
+    color: #999999;
+    border: 1px solid #AAAAAA;
 }
 
 .skip {
