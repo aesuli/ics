@@ -30,7 +30,7 @@ class KeyControllerService(object):
         if requester is not None and requester == SQLAlchemyDB.admin_name():
             keys = self._db.keys()
         else:
-            key = cherrypy.request.body.params.get('authkey', None)
+            key = cherrypy.request.key
             if key:
                 keys = [key]
             else:
@@ -55,7 +55,7 @@ class KeyControllerService(object):
         if requester is not None and requester == SQLAlchemyDB.admin_name():
             keys = self._db.keys()
         else:
-            key = cherrypy.request.body.params.get('authkey', None)
+            key = cherrypy.request.params.get('authkey', None)
             if key:
                 keys = [key]
             else:
@@ -65,13 +65,16 @@ class KeyControllerService(object):
     def has_key(self, default_cost=1, cost_function=None):
 
         def check():
-            key = cherrypy.request.body.params.get('authkey', None)
+            key = cherrypy.request.params.get('authkey', None)
             if key:
+                del cherrypy.request.params['authkey']
+                cherrypy.request.key = key
                 if cost_function:
                     return self._db.keytracker_check_and_count_request(key, cost_function(default_cost))
                 else:
                     return self._db.keytracker_check_and_count_request(key, default_cost)
             else:
+                del cherrypy.request.key
                 return False
 
         return check
