@@ -67,14 +67,20 @@ class KeyControllerService(object):
         def check():
             key = cherrypy.request.params.get('authkey', None)
             if key:
-                del cherrypy.request.params['authkey']
+                try:
+                    del cherrypy.request.params['authkey']
+                except AttributeError:
+                    pass
                 cherrypy.request.key = key
                 if cost_function:
                     return self._db.keytracker_check_and_count_request(key, cost_function(default_cost))
                 else:
                     return self._db.keytracker_check_and_count_request(key, default_cost)
             else:
-                del cherrypy.request.key
+                try:
+                    del cherrypy.request.key
+                except AttributeError:
+                    pass
                 return False
 
         return check
