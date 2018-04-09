@@ -46,8 +46,7 @@ class WebDemo(object):
         return False
 
     def session_data(self):
-        return {'ip': cherrypy.request.remote.ip, 'mount_dir': cherrypy.request.app.script_name,
-                'rate': self._db.get_iptracker_hourly_limit(cherrypy.request.remote.ip)}
+        return {'ip': cherrypy.request.remote.ip, 'mount_dir': cherrypy.request.app.script_name}
 
     @cherrypy.expose
     def index(self):
