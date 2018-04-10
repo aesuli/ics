@@ -41,7 +41,7 @@ class ServiceClientSession:
         r.raise_for_status()
 
     def users(self):
-        url = self._build_url(self._auth_path)
+        url = self._build_url(self._auth_path + '/info/')
         r = self._session.get(url)
         r.raise_for_status()
         return json.loads(r.content.decode())
@@ -64,7 +64,7 @@ class ServiceClientSession:
     # jobs
 
     def jobs(self):
-        url = self._build_url(self._jobs_path)
+        url = self._build_url(self._jobs_path + '/info/')
         r = self._session.get(url)
         r.raise_for_status()
         return json.loads(r.content.decode())
@@ -98,7 +98,7 @@ class ServiceClientSession:
     # classifiers
 
     def classifiers(self):
-        url = self._build_url(self._classifier_path)
+        url = self._build_url(self._classifier_path + '/info/')
         r = self._session.get(url)
         r.raise_for_status()
         return json.loads(r.content.decode())
@@ -170,9 +170,13 @@ class ServiceClientSession:
         r = self._session.post(url, data=data, files=files)
         r.raise_for_status()
 
-    def classifier_classify(self, name, X):
+    def classifier_classify(self, name, X, authkey=None):
         url = self._build_url(self._classifier_path + '/classify/')
-        r = self._session.post(url, data={'name': name, 'X': X})
+        if authkey:
+            data = {'name': name, 'X': X, 'authkey': authkey}
+        else:
+            data = {'name': name, 'X': X}
+        r = self._session.post(url, data=data)
         r.raise_for_status()
         return json.loads(r.content.decode())
 
@@ -197,7 +201,7 @@ class ServiceClientSession:
     # datasets
 
     def datasets(self):
-        url = self._build_url(self._dataset_path)
+        url = self._build_url(self._dataset_path + '/info/')
         r = self._session.get(url)
         r.raise_for_status()
         return json.loads(r.content.decode())
@@ -286,4 +290,4 @@ class ServiceClientSession:
         r.raise_for_status()
 
     def version(self):
-        return "0.1.1"
+        return "0.2.1"
