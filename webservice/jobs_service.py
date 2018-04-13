@@ -38,24 +38,27 @@ class JobsService(object):
         return jobslist
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def count(self):
         return str(len(list(self._db.get_jobs())))
 
     @cherrypy.expose
-    def rerun_job(self, id):
+    @cherrypy.tools.json_out()
+    def rerun(self, id):
         self._db.set_job_start_time(id, None)
         self._db.set_job_completion_time(id, None)
         self._db.set_job_status(id, Job.status_pending)
         return 'Ok'
 
     @cherrypy.expose
-    def delete_job(self, id):
+    @cherrypy.tools.json_out()
+    def delete(self, id):
         self._db.delete_job(id)
         return 'Ok'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def locks(self, page=0, page_size=50):
+    def lock_info(self, page=0, page_size=50):
         page = max(0,int(page))
         page_size = max(1,int(page_size))
         lockslist = list()
@@ -69,22 +72,24 @@ class JobsService(object):
         return lockslist
 
     @cherrypy.expose
-    def locks_count(self):
+    def lock_count(self):
         return str(len(list(self._db.get_locks())))
 
     @cherrypy.expose
-    def delete_lock(self, name):
+    @cherrypy.tools.json_out()
+    def lock_delete(self, name):
         self._db.delete_lock(name)
         return 'Ok'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def job_completed(self, id):
+    def completed(self, id):
         job_status = self._db.get_job_status(id)
         return job_status == Job.status_done or job_status == Job.status_error or job_status == Job.status_missing
 
     @cherrypy.expose
-    def delete_all_jobs_done(self):
+    @cherrypy.tools.json_out()
+    def delete_all_done(self):
         to_remove = set()
         for job in self._db.get_jobs():
             if job.status == Job.status_done:
@@ -95,5 +100,6 @@ class JobsService(object):
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def version(self):
-        return "0.4.1 (db: %s)" % self._db.version()
+        return "0.6.1 (db: %s)" % self._db.version()

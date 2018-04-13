@@ -52,26 +52,36 @@ class DatasetCollectionService(object):
         return result
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def count(self):
         return str(len(list(self._db.dataset_names())))
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def create(self, name):
+        name = name.strip()
+        if len(name)==0:
+            cherrypy.response.status = 400
+            return 'Must specify a dataset name'
         self._db.create_dataset(name)
         return 'Ok'
 
     @cherrypy.expose
-    def add_document(self, dataset_name, document_name, document_content):
-        if not self._db.dataset_exists(dataset_name):
-            self._db.create_dataset(dataset_name)
-        self._db.create_dataset_document(dataset_name, document_name, document_content)
+    @cherrypy.tools.json_out()
+    def add_document(self, name, document_name, document_content):
+        if not self._db.dataset_exists(name):
+            self._db.create_dataset(name)
+        self._db.create_dataset_document(name, document_name, document_content)
+        return 'Ok'
 
     @cherrypy.expose
-    def delete_document(self, dataset_name, document_name):
-        if not self._db.dataset_exists(dataset_name):
+    @cherrypy.tools.json_out()
+    def delete_document(self, name, document_name):
+        if not self._db.dataset_exists(name):
             cherrypy.response.status = 404
-            return '%s does not exits' % dataset_name
-        self._db.delete_dataset_document(dataset_name, document_name)
+            return '%s does not exits' % name
+        self._db.delete_dataset_document(name, document_name)
+        return 'Ok'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -102,9 +112,10 @@ class DatasetCollectionService(object):
         return [job_id]
 
     @cherrypy.expose
-    def rename(self, name, newname):
+    @cherrypy.tools.json_out()
+    def rename(self, name, new_name):
         try:
-            self._db.rename_dataset(name, newname)
+            self._db.rename_dataset(name, new_name)
         except KeyError:
             cherrypy.response.status = 404
             return '%s does not exits' % name
@@ -115,6 +126,7 @@ class DatasetCollectionService(object):
             return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def delete(self, name):
         try:
             self._db.delete_dataset(name)
@@ -144,6 +156,7 @@ class DatasetCollectionService(object):
         return serve_file(fullpath, "text/csv", "attachment")
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def size(self, name):
         if not self._db.dataset_exists(name):
             cherrypy.response.status = 404
@@ -152,11 +165,11 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def document_by_name(self, name, documentname):
+    def document_by_name(self, name, document_name):
         if not self._db.dataset_exists(name):
             cherrypy.response.status = 404
             return '\'%s\' does not exits' % name
-        document = self._db.get_dataset_document_by_name(name, documentname)
+        document = self._db.get_dataset_document_by_name(name, document_name)
         if document is not None:
             result = dict()
             result['external_id'] = document.external_id
@@ -165,7 +178,7 @@ class DatasetCollectionService(object):
             return result
         else:
             cherrypy.response.status = 404
-            return 'Document with name \'%i\' does not exits in \'%s\'' % (documentname, name)
+            return 'Document with name \'%i\' does not exits in \'%s\'' % (document_name, name)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -190,11 +203,11 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def most_uncertain_document_id(self, dataset_name, classifier_name):
-        dataset_size = self._db.get_dataset_size(dataset_name)
+    def most_uncertain_document_id(self, name, classifier_name):
+        dataset_size = self._db.get_dataset_size(name)
         offset = random.randint(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE)
         X = list()
-        for doc in self._db.get_dataset_documents_by_position(dataset_name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
+        for doc in self._db.get_dataset_documents_by_position(name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
@@ -212,11 +225,11 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def most_certain_document_id(self, dataset_name, classifier_name):
-        dataset_size = self._db.get_dataset_size(dataset_name)
+    def most_certain_document_id(self, name, classifier_name):
+        dataset_size = self._db.get_dataset_size(name)
         offset = random.randint(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE)
         X = list()
-        for doc in self._db.get_dataset_documents_by_position(dataset_name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
+        for doc in self._db.get_dataset_documents_by_position(name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
@@ -234,16 +247,16 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def random_hidden_document_id(self, dataset_name, classifier_name):
+    def random_hidden_document_id(self, name, classifier_name):
         document_ids = [document_id for document_id in
-                        self._db.get_dataset_documents_with_label(dataset_name, classifier_name, Label.HIDDEN_LABEL)]
+                        self._db.get_dataset_documents_with_label(name, classifier_name, Label.HIDDEN_LABEL)]
         if document_ids:
             document_id = random.choice(document_ids)
-            position = self._db.get_dataset_document_position_by_id(dataset_name, document_id)
+            position = self._db.get_dataset_document_position_by_id(name, document_id)
             return position
         else:
             cherrypy.response.status = 400
-            return f'No hidden documents in dataset \'{dataset_name}\' for classifier \'{classifier_name}\''
+            return f'No hidden documents in dataset \'{name}\' for classifier \'{classifier_name}\''
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -289,7 +302,7 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def get_classification_jobs(self, name, page=0, page_size=50):
+    def classification_info(self, name, page=0, page_size=50):
         got_deleted = True
         result = None
         while got_deleted:
@@ -317,19 +330,21 @@ class DatasetCollectionService(object):
         return result
 
     @cherrypy.expose
-    def get_classification_jobs_count(self, name):
+    @cherrypy.tools.json_out()
+    def classification_count(self, name):
         return str(len(list(self._db.get_classification_jobs(name))))
 
     @cherrypy.expose
-    def download_classification(self, id):
-        filename = self._db.get_classification_job_filename(id)
+    def classification_download(self, id):
+        filename = self._db.get_classification_job_filename(int(id))
         if filename is None or not os.path.exists(filename):
             cherrypy.response.status = 404
             return "File not found"
         return serve_file(filename, "text/csv", "attachment")
 
     @cherrypy.expose
-    def delete_classification(self, id):
+    @cherrypy.tools.json_out()
+    def classification_delete(self, id):
         filename = self._db.get_classification_job_filename(id)
         try:
             os.unlink(filename)
@@ -339,8 +354,9 @@ class DatasetCollectionService(object):
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def version(self):
-        return "1.2.1 (db: %s)" % self._db.version()
+        return "2.2.1 (db: %s)" % self._db.version()
 
 
 def _classify(db_connection_string, datasetname, classifiers, fullpath):

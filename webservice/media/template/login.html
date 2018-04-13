@@ -5,7 +5,7 @@
         function login() {
             username = $("#username").val();
             password = $("#password").val();
-            var data = {username: username, password: password} ;
+            var data = {name: username, password: password} ;
             $.ajax({
                 type: "POST",
                 url: "${user_auth_path}/login",

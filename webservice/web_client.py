@@ -51,15 +51,15 @@ class WebClient(object):
         return {'username': cherrypy.request.login, 'mount_dir': cherrypy.request.app.script_name}
 
     @cherrypy.expose
-    def login(self, username=None, password=None, error_message=None):
-        if username is None or password is None:
+    def login(self, name=None, password=None, error_message=None):
+        if name is None or password is None:
             template = self._lookup.get_template('login.html')
-            if username is None:
-                username = ""
+            if name is None:
+                name = ""
             if error_message is None:
                 error_message = ""
             return template.render(
-                **{**self._template_data, **self.session_data(), **{'username': username, 'msg': error_message}})
+                **{**self._template_data, **self.session_data(), **{'username': name, 'msg': error_message}})
 
     @cherrypy.expose
     def index(self):
@@ -124,4 +124,4 @@ class WebClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.4.3"
+        return "0.4.4"

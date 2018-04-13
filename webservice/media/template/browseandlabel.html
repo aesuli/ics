@@ -335,7 +335,7 @@ ${parent.head()}
                         $.ajax({
                             type:'POST',
                             url:'${dataset_path}/most_uncertain_document_id',
-                            data: { dataset_name: dataset_name , classifier_name: classifier_name },
+                            data: { name: dataset_name , classifier_name: classifier_name },
                             dataType: 'json'})
                         .done(function(msg) {
                             var newposition = parseInt(msg);
@@ -354,7 +354,7 @@ ${parent.head()}
                         $.ajax({
                             type:'POST',
                             url:'${dataset_path}/most_certain_document_id',
-                            data: { dataset_name: dataset_name , classifier_name: classifier_name },
+                            data: { name: dataset_name , classifier_name: classifier_name },
                             dataType: 'json'})
                         .done(function(msg) {
                             var newposition = parseInt(msg);
@@ -368,7 +368,7 @@ ${parent.head()}
                     $.ajax({
                         type:'POST',
                         url:'${dataset_path}/random_hidden_document_id',
-                        data: { dataset_name: dataset_name , classifier_name: classifier_name},
+                        data: { name: dataset_name , classifier_name: classifier_name},
                         dataType: 'json'})
                     .done(function(msg) {
                         var newposition = parseInt(msg);
