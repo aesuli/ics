@@ -30,7 +30,9 @@ def setup_log(access_filename, app_filename):
     path = os.path.dirname(app_filename)
     os.makedirs(path, exist_ok=True)
 
-    cherrypy.config.update({'environment': 'production', 'log.error_file': '', 'log.access_file': ''})
+    cherrypy.config.update({#'environment': 'production',
+                            'log.error_file': '',
+                            'log.access_file': ''})
 
     error_handler = handlers.TimedRotatingFileHandler(app_filename + '.log', when='midnight')
     error_handler.setLevel(logging.DEBUG)
@@ -47,7 +49,9 @@ def setup_background_processor_log(access_filename, app_filename):
     path = os.path.dirname(app_filename)
     os.makedirs(path, exist_ok=True)
 
-    cherrypy.config.update({'environment': 'production', 'log.error_file': '', 'log.access_file': ''})
+    cherrypy.config.update({#'environment': 'production',
+                            'log.error_file': '',
+                            'log.access_file': ''})
 
     process = multiprocessing.current_process()
 

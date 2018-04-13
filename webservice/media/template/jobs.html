@@ -67,7 +67,7 @@ ${parent.head()}
                     for(var i = 0;i<msg.length;++i) {
                         item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
                         <div class="id">'+msg[i].id+'</div>\
-                        <div>'+msg[i].description+'</div>\
+                        <div class="small">'+msg[i].description+'</div>\
                         <div class="small">'+msg[i].creation+'</div>\
                         <div class="small">'+msg[i].start+'</div>\
                         <div class="small">'+msg[i].completion+'</div>\
@@ -101,7 +101,7 @@ ${parent.head()}
             var job_id = $(this).parent().siblings('.id').text();
             $.ajax({
                 type:'POST',
-                url:'${jobs_path}/rerun_job/'+job_id})
+                url:'${jobs_path}/rerun/'+job_id})
             .done(update)
             .fail(update);
         };
@@ -113,7 +113,7 @@ ${parent.head()}
             $('#job\\_'+job_id).hide();
             $.ajax({
                 type:'POST',
-                url:'${jobs_path}/delete_job/'+job_id})
+                url:'${jobs_path}/delete/'+job_id})
             .done(update)
             .fail(function () {
                     $('#job\\_'+job_id).show();
@@ -125,7 +125,7 @@ ${parent.head()}
                 return;
             $.ajax({
                 type:'POST',
-                url:'${jobs_path}/delete_all_jobs_done'})
+                url:'${jobs_path}/delete_all_done'})
             .done(update);
         };
 

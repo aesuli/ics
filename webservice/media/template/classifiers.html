@@ -295,7 +295,7 @@ ${parent.head()}
             var classifier_name = $(this).parent().siblings('.id').text();
             var labels = []
             $.ajax({
-                url:'${classifier_path}/labels/'+classifier_name})
+                url:'${classifier_path}/label_info/'+classifier_name})
                 .done(function(msg) {
                     var extract_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'extract_classifier_'+classifier_name+'\'></div>');
                     labels = msg;
@@ -356,7 +356,7 @@ ${parent.head()}
             var classifier_name = $(this).parent().siblings('.id').text();
             var labels = []
             $.ajax({
-                url:'${classifier_path}/labels/'+classifier_name})
+                url:'${classifier_path}/label_info/'+classifier_name})
                 .done(function(msg) {
                     var rename_label_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_classifier_label_'+classifier_name+'\'><div><label for="rename_label_new_name_'+classifier_name+'">New name:</label><input id="rename_label_new_name_'+classifier_name+'" type="text"></div></div>');
                     labels = msg;
@@ -386,7 +386,7 @@ ${parent.head()}
                                                     var selected_label =  $($('div[id^="rename\\_label\\_"].ui-state-focus')[0]).text().trim();
                                                     $.ajax({
                                                         type: "POST",
-                                                        url: "${classifier_path}/rename_label/"+classifier_name+"/"+selected_label+"/"+new_name
+                                                        url: "${classifier_path}/label_rename/"+classifier_name+"/"+selected_label+"/"+new_name
                                                         })
                                                     .done(update)
                                                     .fail(function(errMsg) {

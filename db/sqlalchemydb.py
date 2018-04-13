@@ -1,4 +1,5 @@
 import datetime
+import datetime
 import os
 import secrets
 import time
@@ -11,7 +12,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, crea
     UniqueConstraint, desc, exists, func
 from sqlalchemy.exc import OperationalError, IntegrityError
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, deferred, relationship, configure_mappers
+from sqlalchemy.orm import scoped_session, deferred, relationship, configure_mappers, backref
 from sqlalchemy.orm.session import sessionmaker
 
 from classifier.online_classifier import OnlineClassifier
@@ -61,6 +62,12 @@ class Tracker(Base):
     request_limit = Column(Integer(), default=0)
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now)
+    type = Column(String(20))
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'tracker',
+        'polymorphic_on': type
+    }
 
     def __init__(self, hourly_limit, request_limit):
         self.hourly_limit = int(hourly_limit)
@@ -99,6 +106,9 @@ class KeyTracker(Tracker):
     id = Column(Integer, ForeignKey('tracker.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
     key = Column(String(key_length * 2), unique=True)
     name = Column(String(key_name_length), unique=True)
+    __mapper_args__ = {
+        'polymorphic_identity': 'keytracker',
+    }
 
     def __init__(self, name, hourly_limit, request_limit):
         super().__init__(hourly_limit, request_limit)
@@ -110,6 +120,9 @@ class IPTracker(Tracker):
     __tablename__ = 'ip'
     id = Column(Integer, ForeignKey('tracker.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
     ip = Column(String(ipaddress_length), unique=True)
+    __mapper_args__ = {
+        'polymorphic_identity': 'iptracker',
+    }
 
     def __init__(self, ip, hourly_limit, request_limit):
         super().__init__(hourly_limit, request_limit)
@@ -121,6 +134,9 @@ class User(Tracker):
     id = Column(Integer, ForeignKey('tracker.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
     name = Column(String(user_name_length), unique=True)
     salted_password = Column(String())
+    __mapper_args__ = {
+        'polymorphic_identity': 'usertracker',
+    }
 
     def __init__(self, name, password, hourly_limit=_NO_HOURLY_LIMIT,
                  request_limit=_NO_REQUEST_LIMIT):
@@ -158,9 +174,8 @@ class Label(Base):
     HIDDEN_LABEL = '__hidden_label'
     id = Column(Integer(), primary_key=True)
     name = Column(String(label_name_length), nullable=False)
-    classifier_id = Column(Integer(), ForeignKey('classifier.id', onupdate="CASCADE", ondelete="CASCADE"),
-                           nullable=False)
-    classifier = relationship('Classifier', backref='labels')
+    classifier_id = Column(Integer(), ForeignKey('classifier.id'))
+    classifier = relationship('Classifier', backref=backref('labels', cascade='all,delete'))
     __table_args__ = (UniqueConstraint('classifier_id', 'name'),)
 
     def __init__(self, name, classifier_id):
@@ -195,9 +210,8 @@ class DatasetDocument(Base):
     __tablename__ = 'dataset_document'
     id = Column(Integer(), primary_key=True, index=True)
     external_id = Column(String(document_name_length))
-    dataset_id = Column(Integer(), ForeignKey('dataset.id', onupdate='CASCADE', ondelete='CASCADE'),
-                        nullable=False)
-    dataset = relationship('Dataset', backref='documents')
+    dataset_id = Column(Integer(), ForeignKey('dataset.id'))
+    dataset = relationship('Dataset', backref=backref('documents', cascade='all,delete'))
     text = Column(Text())
     md5 = Column(Text(), index=True)
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
@@ -213,11 +227,10 @@ class DatasetDocument(Base):
 class Classification(Base):
     __tablename__ = 'classification'
     id = Column(Integer(), primary_key=True)
-    document_id = Column(Integer(), ForeignKey('training_document.id', onupdate='CASCADE', ondelete='CASCADE'),
-                         nullable=False)
-    document = relationship('TrainingDocument', backref='classifications')
-    label_id = Column(Integer(), ForeignKey('label.id', onupdate='CASCADE', ondelete='CASCADE'), nullable=False)
-    label = relationship('Label', backref='classifications')
+    document_id = Column(Integer(), ForeignKey('training_document.id'))
+    document = relationship('TrainingDocument', backref=backref('classifications', cascade='all,delete'))
+    label_id = Column(Integer(), ForeignKey('label.id'))
+    label = relationship('Label', backref=backref('classifications', cascade='all,delete'))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
 
     def __init__(self, document_id, label_id):
@@ -249,14 +262,16 @@ class Job(Base):
 class ClassificationJob(Base):
     __tablename__ = 'classificationjob'
     id = Column(Integer(), primary_key=True)
-    dataset_id = Column(Integer(), ForeignKey('dataset.id', onupdate='CASCADE', ondelete='CASCADE'),
-                        nullable=False)
-    dataset = relationship('Dataset', backref='classifications')
-    job_id = Column(Integer(), ForeignKey('job.id', onupdate='CASCADE', ondelete='CASCADE'),
-                    nullable=False)
-    job = relationship('Job', backref='classification_job')
+    dataset_id = Column(Integer(), ForeignKey('dataset.id'))
+    dataset = relationship('Dataset', backref=backref('classifications', cascade='all,delete'))
+    job_id = Column(Integer(), ForeignKey('job.id'))
+    job = relationship('Job', backref=backref('classification_job', cascade='all,delete'))
     classifiers = Column(Text())
     filename = Column(Text())
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'classification',
+    }
 
     def __init__(self, dataset_id, classifiers, job_id, filename):
         self.dataset_id = dataset_id
@@ -336,7 +351,9 @@ class SQLAlchemyDB(object):
 
     def delete_user(self, name):
         with self.session_scope() as session:
-            session.query(User).filter(User.name == name).delete()
+            user = session.query(User).filter(User.name == name).scalar()
+            if user is not None:
+                session.delete(user)
 
     def change_password(self, name, password):
         with self.session_scope() as session:
@@ -454,8 +471,10 @@ class SQLAlchemyDB(object):
             if classifier is None:
                 return
             if overwrite:
-                session.query(Classifier).filter(Classifier.name == newname).delete()
-                session.flush()
+                old_classifier = session.query(Classifier).filter(Classifier.name == newname).scalar()
+                if old_classifier is not None:
+                    session.delete(old_classifier)
+                    session.flush()
             classifier.name = newname
 
     def get_classifier_description(self, name):
@@ -471,7 +490,9 @@ class SQLAlchemyDB(object):
 
     def delete_classifier(self, name):
         with self.session_scope() as session:
-            session.query(Classifier).filter(Classifier.name == name).delete()
+            classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
+            if classifier is not None:
+                session.delete(classifier)
 
     def update_classifier_model(self, name, model):
         with self.session_scope() as session:
@@ -592,7 +613,9 @@ class SQLAlchemyDB(object):
 
     def delete_dataset(self, name):
         with self.session_scope() as session:
-            session.query(Dataset).filter(Dataset.name == name).delete()
+            dataset = session.query(Dataset).filter(Dataset.name == name).scalar()
+            if dataset is not None:
+                session.delete(dataset)
 
     def get_dataset_creation_time(self, name):
         with self.session_scope() as session:
@@ -624,8 +647,10 @@ class SQLAlchemyDB(object):
     def delete_dataset_document(self, dataset_name, external_id):
         with self.session_scope() as session:
             dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
-            session.query(DatasetDocument).filter(DatasetDocument.dataset_id == dataset.id).filter(
-                DatasetDocument.external_id == external_id).delete()
+            document = session.query(DatasetDocument).filter(DatasetDocument.dataset_id == dataset.id).filter(
+                DatasetDocument.external_id == external_id).scalar()
+            if document is not None:
+                session.delete(document)
             dataset.last_updated = datetime.datetime.now()
 
     def get_classifier_examples_count(self, name, include_hidden=False):
@@ -789,19 +814,22 @@ class SQLAlchemyDB(object):
             classification_job = session.query(ClassificationJob).filter(
                 ClassificationJob.id == id).scalar()
             if os.path.exists(classification_job.filename):
-                try:
-                    os.remove(classification_job.filename)
-                except:
-                    pass
-            session.delete(classification_job)
+                # TODO handle the eventual failure in removing the file
+                os.remove(classification_job.filename)
+            if classification_job is not None:
+                session.delete(classification_job)
 
     def delete_job(self, id):
         with self.session_scope() as session:
-            session.query(Job).filter(Job.id == id).delete()
+            job = session.query(Job).filter(Job.id == id).scalar()
+            if job is not None:
+                session.delete(job)
 
     def delete_lock(self, name):
         with self.session_scope() as session:
-            session.query(Lock).filter(Lock.name == name).delete()
+            lock = session.query(Lock).filter(Lock.name == name).scalar()
+            if lock is not None:
+                session.delete(lock)
 
     def classification_exists(self, filename):
         with self.session_scope() as session:
@@ -869,7 +897,9 @@ class SQLAlchemyDB(object):
 
     def delete_iptracker(self, ip):
         with self.session_scope() as session:
-            session.query(IPTracker).filter(IPTracker.ip == ip).delete()
+            ip = session.query(IPTracker).filter(IPTracker.ip == ip).scalar()
+            if ip is not None:
+                session.delete(ip)
 
     def acquire_lock(self, name, locker, poll_interval=1):
         with self.session_scope() as session:
@@ -953,14 +983,16 @@ class SQLAlchemyDB(object):
 
     def delete_keytracker(self, key):
         with self.session_scope() as session:
-            session.query(KeyTracker).filter(KeyTracker.key == key).delete()
+            key = session.query(KeyTracker).filter(KeyTracker.key == key).scalar()
+            if key is not None:
+                session.delete(key)
 
     def _flatten_list(self, list_of_list):
         return [item for sublist in list_of_list for item in sublist]
 
     @staticmethod
     def version():
-        return "2.2.1"
+        return "2.3.1"
 
 
 class DBLock(object):

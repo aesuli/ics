@@ -54,6 +54,7 @@ class IPControllerService(object):
         return result
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def count(self):
         requester = cherrypy.request.login
         if requester is not None and requester == SQLAlchemyDB.admin_name():
@@ -89,6 +90,7 @@ class IPControllerService(object):
         return check
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def create(self, ip, hourly_limit, request_limit):
         try:
@@ -100,29 +102,34 @@ class IPControllerService(object):
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def delete(self, ip):
         self._db.delete_iptracker(ip)
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def set_hourly_limit(self, ip, hourly_limit):
         self._db.set_iptracker_hourly_limit(ip, int(hourly_limit))
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def set_request_limit(self, ip, request_limit):
         self._db.set_iptracker_request_limit(ip, int(request_limit))
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def set_current_request_counter(self, ip, count=0):
         self._db.set_iptracker_current_request_counter(ip, int(count))
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def version(self):
-        return "1.2.1 (db: %s)" % self._db.version()
+        return "1.3.1 (db: %s)" % self._db.version()

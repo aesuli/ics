@@ -61,6 +61,7 @@ class UserControllerService(object):
         return result
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def count(self):
         requester = cherrypy.request.login
         if requester is None:
@@ -71,61 +72,67 @@ class UserControllerService(object):
             return '1'
 
     @cherrypy.expose
-    def login(self, username=None, password=None):
-        if username is None or password is None:
+    @cherrypy.tools.json_out()
+    def login(self, name=None, password=None):
+        if name is None or password is None:
             cherrypy.response.status = 401
             return 'Wrong credentials'
 
-        if self._db.verify_user(username, password):
-            cherrypy.session[USER_SESSION_KEY] = cherrypy.request.login = username
-            cherrypy.log('LOGIN(username="' + username + '")')
+        if self._db.verify_user(name, password):
+            cherrypy.session[USER_SESSION_KEY] = cherrypy.request.login = name
+            cherrypy.log('LOGIN(username="' + name + '")')
             return 'Ok'
         else:
             cherrypy.response.status = 401
-            cherrypy.log('REJECTED_LOGIN(username="' + username + '")')
+            cherrypy.log('REJECTED_LOGIN(username="' + name + '")')
             return 'Wrong credentials'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
-    def create_user(self, username, password):
+    def create(self, name, password):
         if len(password) < self._min_password_length:
             cherrypy.response.status = 400
             return "Password must be at least %i characters long" % self._min_password_length
 
-        if self._db.user_exists(username):
+        if self._db.user_exists(name):
             cherrypy.response.status = 403
-            return 'User "%s" already exists' % username
+            return 'User "%s" already exists' % name
 
-        self._db.create_user(username, password)
+        self._db.create_user(name, password)
 
     @cherrypy.expose
-    def change_password(self, username, password):
-        if not self._db.user_exists(username):
+    @cherrypy.tools.json_out()
+    def change_password(self, name, password):
+        if not self._db.user_exists(name):
             cherrypy.response.status = 403
-            return 'User "%s" does not exists' % username
+            return 'User "%s" does not exists' % name
 
         if len(password) < self._min_password_length:
             cherrypy.response.status = 400
             return "Password must be at least %i characters long" % self._min_password_length
 
         requester = cherrypy.request.login
-        if requester != SQLAlchemyDB.admin_name() and requester != username:
+        if requester != SQLAlchemyDB.admin_name() and requester != name:
             cherrypy.response.status = 403
             return 'Forbidden'
 
-        self._db.change_password(username, password)
+        self._db.change_password(name, password)
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
-    def delete_user(self, username):
-        if username != SQLAlchemyDB.admin_name():
-            self._db.delete_user(username)
+    def delete(self, name):
+        if name != SQLAlchemyDB.admin_name():
+            self._db.delete_user(name)
         else:
             cherrypy.response.status = 403
-            return 'Cannot delete "%s"' % username
+            return 'Cannot delete "%s"' % name
+        return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def logout(self):
         sess = cherrypy.session
         username = sess.get(USER_SESSION_KEY, None)
@@ -133,6 +140,7 @@ class UserControllerService(object):
         if username:
             cherrypy.request.login = None
             cherrypy.log('LOGOUT(username="' + username + '")')
+        return 'Ok'
 
     def logged_in_with_cost(self, default_cost=1, cost_function=None):
         def check():
@@ -158,31 +166,35 @@ class UserControllerService(object):
         return check
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
-    def set_hourly_limit(self, username, hourly_limit):
-        if username != SQLAlchemyDB.admin_name():
-            self._db.set_user_hourly_limit(username, int(hourly_limit))
+    def set_hourly_limit(self, name, hourly_limit):
+        if name != SQLAlchemyDB.admin_name():
+            self._db.set_user_hourly_limit(name, int(hourly_limit))
             return 'Ok'
         else:
             cherrypy.response.status = 403
-            return 'Cannot change "%s"' % username
+            return 'Cannot change "%s"' % name
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
-    def set_request_limit(self, username, request_limit):
-        if username != SQLAlchemyDB.admin_name():
-            self._db.set_user_request_limit(username, int(request_limit))
+    def set_request_limit(self, name, request_limit):
+        if name != SQLAlchemyDB.admin_name():
+            self._db.set_user_request_limit(name, int(request_limit))
             return 'Ok'
         else:
             cherrypy.response.status = 403
-            return 'Cannot change "%s"' % username
+            return 'Cannot change "%s"' % name
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
-    def set_current_request_counter(self, username, count=0):
-        self._db.set_user_current_request_counter(username, int(count))
+    def set_current_request_counter(self, name, count=0):
+        self._db.set_user_current_request_counter(name, int(count))
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def version(self):
-        return "1.2.1 (db: %s)" % self._db.version()
+        return "1.4.1 (db: %s)" % self._db.version()

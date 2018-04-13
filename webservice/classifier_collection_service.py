@@ -61,15 +61,17 @@ class ClassifierCollectionService(object):
         return result
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def count(self):
         return str(len(list(self._db.classifier_names())))
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def classifier_types(self):
-        return sqlalchemydb._CLASSIFIER_TYPES[:-2]
+        return sqlalchemydb._CLASSIFIER_TYPES[:-1]
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def create(self, **data):
         try:
             name = data['name']
@@ -81,7 +83,7 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
             cherrypy.response.status = 400
             return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
 
@@ -145,7 +147,7 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
             cherrypy.response.status = 400
             return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
         try:
@@ -236,6 +238,7 @@ class ClassifierCollectionService(object):
             return [job_id_model, job_id_training]
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def hide(self, **data):
         try:
             name = data['name']
@@ -260,11 +263,14 @@ class ClassifierCollectionService(object):
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def set_description(self, name, description):
         if description is not None:
             self._db.set_classifier_description(name, description)
+        return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def rename(self, name, new_name, overwrite=False):
         if overwrite == 'false' or overwrite == 'False':
             overwrite = False
@@ -280,6 +286,7 @@ class ClassifierCollectionService(object):
             return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def delete(self, name):
         try:
             self._db.delete_classifier(name)
@@ -291,16 +298,17 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def labels(self, name):
+    def label_info(self, name):
         return self._db.get_classifier_labels(name)
 
     @cherrypy.expose
-    def rename_label(self, classifier_name, label_name, new_name):
+    @cherrypy.tools.json_out()
+    def label_rename(self, name, label_name, new_label_name):
         try:
-            self._db.rename_classifier_label(classifier_name, label_name, new_name)
+            self._db.rename_classifier_label(name, label_name, new_label_name)
         except KeyError:
             cherrypy.response.status = 404
-            return '%s does not exits in %s' % (label_name, classifier_name)
+            return '%s does not exits in %s' % (label_name, name)
         except Exception as e:
             cherrypy.response.status = 500
             return 'Error (%s)' % str(e)
@@ -335,7 +343,7 @@ class ClassifierCollectionService(object):
         if not self._db.classifier_exists(name):
             cherrypy.response.status = 404
             return '%s does not exits' % name
-        filename = 'model %s %s.pickle' % (name, str(self._db.get_classifier_last_update_time(name)))
+        filename = 'model %s %s.modeldata' % (name, str(self._db.get_classifier_last_update_time(name)))
         filename = get_fully_portable_file_name(filename)
         fullpath = os.path.join(self._download_dir, filename)
         if not os.path.isfile(fullpath):
@@ -361,7 +369,7 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
             cherrypy.response.status = 400
             return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
 
@@ -437,6 +445,7 @@ class ClassifierCollectionService(object):
         return jobs
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def upload_model(self, **data):
         try:
             name = data['name']
@@ -535,7 +544,7 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
             cherrypy.response.status = 400
             return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
         try:
@@ -605,7 +614,7 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
             cherrypy.response.status = 400
             return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
         try:
@@ -665,6 +674,7 @@ class ClassifierCollectionService(object):
         return [job_id]
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def version(self):
         return "2.1.1 (db: %s)" % self._db.version()
 

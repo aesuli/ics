@@ -140,10 +140,10 @@ ${parent.head()}
                 return false;
             }
             password = $("#create\\_password").val();
-            var data = {username: name, password: password} ;
+            var data = {name: name, password: password} ;
             $.ajax({
                 type: "POST",
-                url: "${user_auth_path}/create_user",
+                url: "${user_auth_path}/create",
                 data: data})
             .done(update)
             .fail(function(errMsg) {
@@ -171,7 +171,7 @@ ${parent.head()}
                                     buttons: {
                                         'Change': function() {
                                             var new_limit = $('#new\\_limit\\_'+name_string).val();
-                                            var data = {username: user_name, hourly_limit: new_limit} ;
+                                            var data = {name: user_name, hourly_limit: new_limit} ;
                                             $.ajax({
                                                 type: "POST",
                                                 url: "${user_auth_path}/set_hourly_limit",
@@ -201,7 +201,7 @@ ${parent.head()}
                                     buttons: {
                                         'Change': function() {
                                             var new_request_limit = $('#new\\_request\\_limit\\_'+name_string).val();
-                                            var data = {username: user_name, request_limit: new_request_limit} ;
+                                            var data = {name: user_name, request_limit: new_request_limit} ;
                                             $.ajax({
                                                 type: "POST",
                                                 url: "${user_auth_path}/set_request_limit",
@@ -228,7 +228,7 @@ ${parent.head()}
             $('#entry\\_'+user_name).hide();
             $.ajax({
                 type:'POST',
-                url:'${user_auth_path}/delete_user/'+user_name })
+                url:'${user_auth_path}/delete/'+user_name })
             .done(update)
             .fail(function (msg) {
                 custom_alert(msg);
@@ -250,7 +250,7 @@ ${parent.head()}
                                                 custom_alert("The passwords typed in the two fields are different.");
                                                 return false;
                                             }
-                                            var data = {username: user_name, password: new_password} ;
+                                            var data = {name: user_name, password: new_password} ;
                                             $.ajax({
                                                 type: "POST",
                                                 url: "${user_auth_path}/change_password",

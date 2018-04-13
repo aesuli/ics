@@ -27,7 +27,7 @@ ${parent.head()}
             var count = parseInt($(pagination_div.children()[2]).val())
             $.ajax({
                 type:'POST',
-                url:'${jobs_path}/locks_count',
+                url:'${jobs_path}/lock_count',
                 dataType: 'json'})
             .done(function(msg) {
                 count = parseInt(msg);
@@ -39,7 +39,7 @@ ${parent.head()}
             });
             $.ajax({
                 type:'POST',
-                url:'${jobs_path}/locks',
+                url:'${jobs_path}/lock_info',
                 data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
             .done(function(msg) {
@@ -95,7 +95,7 @@ ${parent.head()}
             $('#lock\\_'+lock_id.replace(/(\W)/gi,'_')).hide();
             $.ajax({
                 type:'POST',
-                url:'${jobs_path}/delete_lock/'+lock_id})
+                url:'${jobs_path}/lock_delete/'+lock_id})
             .done(update())
             .fail(function () {
                     $('#lock\\_'+lock_id.replace(/(\W)/gi,'_')).show();

@@ -29,7 +29,7 @@ ${parent.head()}
             var count = parseInt($(pagination_div.children()[2]).val())
             $.ajax({
                 type:'POST',
-                url:'${dataset_path}/get_classification_jobs_count',
+                url:'${dataset_path}/classification_count',
                 data: { name : datasetname},
                 dataType: 'json'})
             .done(function(msg) {
@@ -42,7 +42,7 @@ ${parent.head()}
             });
             $.ajax({
                 type:'POST',
-                url:'${dataset_path}/get_classification_jobs',
+                url:'${dataset_path}/classification_info',
                 data: { name : datasetname, page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
             .done(function(msg) {
@@ -158,7 +158,7 @@ ${parent.head()}
             $('#job\\_'+classification_id).hide();
             $.ajax({
                 type:'POST',
-                url:'${dataset_path}/delete_classification',
+                url:'${dataset_path}/classification_delete',
                 data: { id : classification_id }})
             .done(update)
             .fail(function () {

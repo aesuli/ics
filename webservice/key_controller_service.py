@@ -50,6 +50,7 @@ class KeyControllerService(object):
         return result
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def count(self):
         requester = cherrypy.request.login
         if requester is not None and requester == SQLAlchemyDB.admin_name():
@@ -86,6 +87,7 @@ class KeyControllerService(object):
         return check
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def create(self, name, hourly_limit, request_limit):
         name = name.strip()
@@ -96,29 +98,34 @@ class KeyControllerService(object):
         return key
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def delete(self, key):
         self._db.delete_keytracker(key)
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def set_hourly_limit(self, key, hourly_limit):
         self._db.set_keytracker_hourly_limit(key, int(hourly_limit))
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def set_request_limit(self, key, request_limit):
         self._db.set_keytracker_request_limit(key, int(request_limit))
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     @require(name_is(SQLAlchemyDB.admin_name()))
     def set_current_request_counter(self, key, count=0):
         self._db.set_keytracker_current_request_counter(key, int(count))
         return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def version(self):
-        return "0.2.2 (db: %s)" % self._db.version()
+        return "0.3.2 (db: %s)" % self._db.version()
