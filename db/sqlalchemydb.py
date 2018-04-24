@@ -1,5 +1,4 @@
 import datetime
-import datetime
 import os
 import secrets
 import time
@@ -15,8 +14,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, deferred, relationship, configure_mappers, backref
 from sqlalchemy.orm.session import sessionmaker
 
-from classifier.online_classifier import OnlineClassifier
-from classifier.pytorch_classifier import LSTMClassifier
+from classifier.classifier import get_classifier_model, get_classifier_type_from_model, _CLASSIFIER_TYPES
 
 __author__ = 'Andrea Esuli'
 
@@ -26,19 +24,6 @@ _ADMIN_NAME = 'admin'
 _ADMIN_PASSWORD = 'adminadmin'
 _NO_HOURLY_LIMIT = -1
 _NO_REQUEST_LIMIT = -1
-
-_CLASSIFIER_TYPES = ['Statistical', 'Neural', 'Custom']
-
-
-def get_classifier_type_from_model(model):
-    if isinstance(model, OnlineClassifier):
-        classifier_type = _CLASSIFIER_TYPES[0]
-    elif isinstance(model, LSTMClassifier):
-        classifier_type = _CLASSIFIER_TYPES[1]
-    else:
-        classifier_type = _CLASSIFIER_TYPES[-1]
-    return classifier_type
-
 
 classifier_name_length = 80
 classifier_description_length = 300
@@ -438,12 +423,7 @@ class SQLAlchemyDB(object):
                     session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
                         Classifier.name == name))
                 labels.remove(Label.HIDDEN_LABEL)
-                if classifier.classifier_type == _CLASSIFIER_TYPES[0]:
-                    classifier.model = OnlineClassifier(name, labels)
-                elif classifier.classifier_type == _CLASSIFIER_TYPES[1]:
-                    classifier.model = LSTMClassifier(name, labels)
-                else:
-                    raise ValueError('Unknown classifier type')
+                classifier.model = get_classifier_model(classifier.classifier_type, name, labels)
             return classifier.model
 
     def get_classifier_type(self, name):
@@ -475,7 +455,7 @@ class SQLAlchemyDB(object):
                 if old_classifier is not None:
                     session.delete(old_classifier)
                     session.flush()
-            classifier.name = newname
+            classifier.rename(newname)
 
     def get_classifier_description(self, name):
         with self.session_scope() as session:
@@ -566,7 +546,7 @@ class SQLAlchemyDB(object):
         if clf is None:
             return [{'dummy_yes': 1, 'dummy_no': 0} for _ in X]
         scores = clf.decision_function(X)
-        labels = clf.classes()
+        labels = clf.labels()
         if labels.shape[0] == 2:
             return [dict(zip(labels, [-value, value])) for value in scores]
         else:
@@ -588,7 +568,7 @@ class SQLAlchemyDB(object):
             label.name = new_name
         clf = self.get_classifier_model(classifier_name)
         if clf is not None:
-            clf.rename_class(label_name, new_name)
+            clf.rename_label(label_name, new_name)
             self.update_classifier_model(classifier_name, clf)
 
     def dataset_names(self):
