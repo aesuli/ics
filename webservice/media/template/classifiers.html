@@ -83,7 +83,7 @@ ${parent.head()}
                         var sort_string = msg[i].name.replace(/\W/g,'X')
                         item = jQuery('<div id=\'entry_'+sort_string+'\'>\
                         <div class="id">'+msg[i].name+'</div>\
-                        <div class="small">'+String(msg[i].String(msg[i].labels).replace(/,/g,', ')).replace(/,/g,', ')+'</div>\
+                        <div>'+String(msg[i].labels).replace(/,/g,', ')+'</div>\
                         <div class="small" id="classifier_description_'+msg[i].name+'">'+msg[i].description+'</div>\
                         <div class="small">'+msg[i].type+'</div>\
                         <div class="small">'+msg[i].size+'</div>\
