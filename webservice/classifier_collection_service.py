@@ -482,7 +482,7 @@ class ClassifierCollectionService(object):
 
             with open(fullpath, 'rb') as infile:
                 model = pickle.load(infile)
-                labels = list(model.classes())
+                labels = list(model.labels())
                 classifier_type = sqlalchemydb.get_classifier_type_from_model(model)
                 self._db.create_classifier(name, labels, classifier_type)
                 self._db.update_classifier_model(name, model)
@@ -740,7 +740,7 @@ def _duplicate_model(db_connection_string, name, new_name):
         if source_type == new_type:
             with _lock_model(db, new_name):
                 model = db.get_classifier_model(name)
-                model.name = new_name
+                model.rename(new_name)
                 db.update_classifier_model(new_name, model)
         else:
             padding = 0

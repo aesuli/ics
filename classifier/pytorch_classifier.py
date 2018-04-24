@@ -53,7 +53,7 @@ class LSTMClassifier(Classifier):
         lr = 1
         self.max_steps = 100
         self.no_improvement_reset = 10
-        self.name = name
+        self._name = name
         self.n_features = n_features
         self.min_accuracy = 0.9
         self._classes = list(set(classes))
@@ -117,11 +117,17 @@ class LSTMClassifier(Classifier):
         self._net.eval()
         return self._net.forward(X).exp().data.tolist()
 
-    def rename_class(self, label_name, new_name):
+    def name(self):
+        return self._name
+
+    def rename(self, new_name):
+        self._name = new_name
+
+    def rename_label(self, label_name, new_name):
         self._classes = [new_name if name == label_name else name for name in self._classes]
 
-    def classes(self):
-        return self._classes
+    def labels(self):
+        return list(self._classes)
 
 
 if __name__ == '__main__':
