@@ -106,14 +106,14 @@ if __name__ == '__main__':
 
     print('Classification report:')
     print(classification_report(all_y, all_yhat, target_names=labels))
-    print('Confusion matrix:')
-    cm = confusion_matrix(all_y, all_yhat, labels=labels)
-    tab_len = max([len(label) for label in labels]) + 3
-    print('\t'.join([f'{label:{tab_len}}' for label in ['LABELS'] + labels]))
-    for label, row in zip(labels, cm):
-        print('\t'.join([f'{label:{tab_len}}' for label in [label] + [f'{value:{tab_len}}' for value in row]]))
-    print('Row normalized confusion matrix:')
-    ncm = normalize(cm, 'l1', 1)
-    print('\t'.join([f'{label:{tab_len}}' for label in ['LABELS'] + labels]))
-    for label, row in zip(labels, ncm):
-        print('\t'.join([f'{label:{tab_len}}' for label in [label] + [f'{value:{tab_len}.3f}' for value in row]]))
+    # print('Confusion matrix:')
+    # cm = confusion_matrix(all_y, all_yhat, labels=labels)
+    # tab_len = max([len(label) for label in labels]) + 3
+    # print('\t'.join([f'{label:{tab_len}}' for label in ['LABELS'] + labels]))
+    # for label, row in zip(labels, cm):
+    #     print('\t'.join([f'{label:{tab_len}}' for label in [label] + [f'{value:{tab_len}}' for value in row]]))
+    # print('Row normalized confusion matrix:')
+    # ncm = normalize(cm, 'l1', 1)
+    # print('\t'.join([f'{label:{tab_len}}' for label in ['LABELS'] + labels]))
+    # for label, row in zip(labels, ncm):
+    #     print('\t'.join([f'{label:{tab_len}}' for label in [label] + [f'{value:{tab_len}.3f}' for value in row]]))
