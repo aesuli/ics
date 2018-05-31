@@ -1,6 +1,7 @@
 import re
 
 import torch
+import hashlib
 import torch.nn.functional as F
 from torch.autograd import Variable
 
@@ -70,19 +71,20 @@ class LSTMClassifier(Classifier):
     def partial_fit(self, X, y):
         X = self.index(X)
         y = Variable(torch.LongTensor([self._classes.index(label) for label in y]))
-        self._net.train()
         step = 0
         last_loss = float('inf')
         no_improvement = self.no_improvement_reset
         while step < self.max_steps:
+            self._net.train()
             self._optimizer.zero_grad()
-            yhat = self._net.forward(X)
+            yhat = self._net(X)
             loss = self._loss(yhat, y)
             loss.backward()
             self._optimizer.step()
             self._net.eval()
-            yhat = [scoring.index(max(scoring)) for scoring in self._net.forward(X).exp().data.tolist()]
+            yhat = [scoring.index(max(scoring)) for scoring in self._net(X).exp().data.tolist()]
             accuracy = len([1 for pred, real in zip(yhat, y) if pred == real.data[0]]) / len(y)
+            print('accuracy', accuracy)
             if accuracy > self.min_accuracy:
                 print('accuracy', accuracy)
                 break
@@ -103,9 +105,12 @@ class LSTMClassifier(Classifier):
         scores = self.decision_function(X)
         return [self._classes[scoring.index(max(scoring))] for scoring in scores]
 
+    def _hash(self,token):
+        return int(hashlib.md5(token.encode('utf8')).hexdigest(),16)
+
     def index(self, X):
         X = [self._tokenizer.split(x) for x in X]
-        X = [[hash(t) % self.n_features for t in x] for x in X]
+        X = [[self._hash(t) % self.n_features for t in x] for x in X]
         lengths = [len(x) for x in X]
         maxlen = max(lengths)
         X = [x + [0] * (maxlen - lengths[i]) for i, x in enumerate(X)]
