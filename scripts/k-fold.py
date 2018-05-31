@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--type', help='type of classifier to learn', type=str,
                         default='Statistical')
     parser.add_argument('-k', '--folds', help='number of folds', type=int, default=10)
-    parser.add_argument('-b', '--batch_size', help='Size of data batch', type=int, default=BATCH_SIZE)
+    parser.add_argument('-b', '--batch_size', help='size of data batch', type=int, default=BATCH_SIZE)
     parser.add_argument('classifier_name', help='name of the classifier to be read from input file', type=str)
     parser.add_argument('input', help='input csv file', type=str)
     args = parser.parse_args()
@@ -83,7 +83,7 @@ if __name__ == '__main__':
                     label = label.strip()
                     if example_classifier_name is not None and example_classifier_name == classifier_name and \
                                     label is not None and len(label) > 0:
-                        if count % args.folds == fold:
+                        if count % args.folds != fold:
                             X_train.append(text)
                             y_train.append(label)
                         else:
