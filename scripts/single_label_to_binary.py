@@ -80,13 +80,13 @@ if __name__ == '__main__':
                 else:
                     mode = 'a'
 
-                with open(args.output, mode=mode, encoding='utf-8') as outputfile:
+                with open(args.output, mode=mode, encoding='utf-8', newline='') as outputfile:
                     if first_batch:
                         header_start = '"# {""classifiers"": ['
                         header_end = ']}"\n'
                         header_list = ','.join(
                             ['{""name"": ""' + label + '"", ""labels"": [""yes"", ""no""]}' for label in labels])
-                        outputfile.write(header_start+header_list+header_end)
+                        outputfile.write(header_start + header_list + header_end)
                         first_batch = False
                     writer = csv.writer(outputfile, lineterminator='\n')
                     for id_, text, example_label in zip(ids, X, y):
@@ -109,7 +109,7 @@ if __name__ == '__main__':
             else:
                 mode = 'a'
 
-            with open(args.output, mode=mode, encoding='utf-8') as outputfile:
+            with open(args.output, mode=mode, encoding='utf-8', newline='') as outputfile:
                 if first_batch:
                     header_start = '"# {""classifiers"": ['
                     header_end = ']}"\n'
