@@ -30,8 +30,12 @@ class OnlineClassifier(Classifier):
         return self._clf.predict(X)
 
     def decision_function(self, X):
-        X = self._vec.transform(X)
-        return self._clf.decision_function(X)
+        if self._clf.classes_.shape[0] == 2:
+            X = self._vec.transform(X)
+            return [(-score, score) for score in  self._clf.decision_function(X)]
+        else:
+            X = self._vec.transform(X)
+            return self._clf.decision_function(X)
 
     def name(self):
         return self._name

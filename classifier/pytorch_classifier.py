@@ -1,7 +1,7 @@
+import hashlib
 import re
 
 import torch
-import hashlib
 import torch.nn.functional as F
 from torch.autograd import Variable
 
@@ -19,9 +19,14 @@ class LSTMTextClassificationNet(torch.nn.Module):
         self.class_lstm_hidden_size = class_lstm_hidden_size
 
         self.dropout = dropout
+        if class_lstm_layers < 1:
+            self.lstm_dropout = dropout
+        else:
+            self.lstm_dropout = 0
 
         self.embedding = torch.nn.Embedding(vocabulary_size, embedding_size)
-        self.class_lstm = torch.nn.LSTM(embedding_size, class_lstm_hidden_size, class_lstm_layers, dropout=self.dropout, bidirectional=False)
+        self.class_lstm = torch.nn.LSTM(embedding_size, class_lstm_hidden_size, class_lstm_layers,
+                                        dropout=self.lstm_dropout, bidirectional=False)
         prev_size = class_lstm_hidden_size
         self.class_lins = torch.nn.ModuleList()
         for lin_size in class_lin_layers_sizes:
@@ -49,8 +54,8 @@ class LSTMTextClassificationNet(torch.nn.Module):
 
 
 class LSTMClassifier(Classifier):
-    def __init__(self, name, classes, n_features=(2 ** 16), embedding_size=100, class_lstm_hidden_size=100,
-                 class_lstm_layers=1, class_lin_layers_sizes=[256,128], dropout=0.1):
+    def __init__(self, name, classes, n_features=(2 ** 16), embedding_size=20, class_lstm_hidden_size=50,
+                 class_lstm_layers=1, class_lin_layers_sizes=[128, 128, 128], dropout=0.1):
         lr = 0.01
         self.max_steps = 100
         self.no_improvement_reset = 10
@@ -65,8 +70,7 @@ class LSTMClassifier(Classifier):
                                               class_lstm_hidden_size=class_lstm_hidden_size,
                                               class_lstm_layers=class_lstm_layers,
                                               class_lin_layers_sizes=class_lin_layers_sizes, dropout=dropout)
-        #self._optimizer = torch.optim.SGD(self._net.parameters(), lr=lr)
-        self._optimizer = torch.optim.Adam(self._net.parameters(), lr=lr)#, weight_decay=1e-5)
+        self._optimizer = torch.optim.Adam(self._net.parameters(), lr=lr)
         self._loss = torch.nn.NLLLoss()
 
     def partial_fit(self, X, y):
@@ -76,56 +80,46 @@ class LSTMClassifier(Classifier):
         last_loss = float('inf')
         no_improvement = self.no_improvement_reset
         while step < self.max_steps:
-            __batch_size=250
-            __steps = X.shape[1]//__batch_size
-            __epochs = 1
-            print('steps',__steps)
-            for __e in range(__epochs):
-                for __i in range(__steps):
-                    __X = X[:,__i*__batch_size:(__i+1)*__batch_size]
-                    __y = y[__i * __batch_size:(__i + 1) * __batch_size]
+            batch_size = 250
+            batch_steps = X.shape[1] // batch_size
+            epochs = 1
+            for epoch in range(epochs):
+                for batch_step in range(batch_steps):
+                    batch_X = X[:, batch_step * batch_size:(batch_step + 1) * batch_size]
+                    batch_y = y[batch_step * batch_size:(batch_step + 1) * batch_size]
                     self._net.train()
                     self._optimizer.zero_grad()
-                    yhat = self._net(__X)
-                    loss = self._loss(yhat, __y)
-                    print('i',__i,'/',__steps,'loss',loss.data[0])
+                    yhat = self._net(batch_X)
+                    loss = self._loss(yhat, batch_y)
+                    print('epoch', epoch, 'batch', batch_step, '/', batch_steps, 'loss', loss.item())
                     loss.backward()
                     self._optimizer.step()
-
-            # self._net.train()
-            # self._optimizer.zero_grad()
-            # yhat = self._net(X)
-            # loss = self._loss(yhat, y)
-            # print('loss',loss.data[0])
-            # loss.backward()
-            # self._optimizer.step()
             self._net.eval()
             yhat = [scoring.index(max(scoring)) for scoring in self._net(X).exp().data.tolist()]
-            print(yhat)
-            accuracy = len([1 for pred, real in zip(yhat, y) if pred == real.data[0]]) / len(y)
+            accuracy = len([1 for pred, real in zip(yhat, y) if pred == real.item()]) / len(y)
             print('accuracy', accuracy)
-            if accuracy > self.min_accuracy:
-                print('accuracy', accuracy)
-                break
-            else:
-                if loss.data[0] < last_loss:
-                    last_loss = loss.data[0]
-                    no_improvement = self.no_improvement_reset
-                else:
-                    no_improvement -= 1
-                    if no_improvement == 0:
-                        print('break', step)
-                        break
+            # if accuracy > self.min_accuracy:
+            #     print('accuracy break', accuracy)
+            #     break
+            # else:
+            #     if loss.item() < last_loss:
+            #         last_loss = loss.item()
+            #         no_improvement = self.no_improvement_reset
+            #     else:
+            #         no_improvement -= 1
+            #         if no_improvement == 0:
+            #             print('break', step)
+            #             break
             step += 1
         print('step', step)
-        return loss.data.tolist()[0]
+        return loss.item()
 
     def predict(self, X):
         scores = self.decision_function(X)
         return [self._classes[scoring.index(max(scoring))] for scoring in scores]
 
-    def _hash(self,token):
-        return int(hashlib.md5(token.encode('utf8')).hexdigest(),16)
+    def _hash(self, token):
+        return int(hashlib.md5(token.encode('utf8')).hexdigest(), 16)
 
     def index(self, X):
         X = [re.sub(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+(/[\w\d]+)', r'URL', x) for x in X]
