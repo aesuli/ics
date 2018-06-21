@@ -60,7 +60,7 @@ class DatasetCollectionService(object):
     @cherrypy.tools.json_out()
     def create(self, name):
         name = name.strip()
-        if len(name)==0:
+        if len(name) == 0:
             cherrypy.response.status = 400
             return 'Must specify a dataset name'
         self._db.create_dataset(name)

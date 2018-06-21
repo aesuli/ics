@@ -547,10 +547,7 @@ class SQLAlchemyDB(object):
             return [{'dummy_yes': 1, 'dummy_no': 0} for _ in X]
         scores = clf.decision_function(X)
         labels = clf.labels()
-        if labels.shape[0] == 2:
-            return [dict(zip(labels, [-value, value])) for value in scores]
-        else:
-            return [dict(zip(labels, values)) for values in scores]
+        return [dict(zip(labels, values)) for values in scores]
 
     def get_label(self, classifier_name, content):
         with self.session_scope() as session:
