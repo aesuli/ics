@@ -35,6 +35,11 @@ class WebClient(object):
                  'tools.staticdir.dir': os.path.join(self._media_dir, 'js'),
                  'tools.icsauth.on': False,
                  },
+            '/fonts':
+                {'tools.staticdir.on': True,
+                 'tools.staticdir.dir': os.path.join(self._media_dir, 'fonts'),
+                 'tools.icsauth.on': False,
+                 },
         }
 
     def close(self):
@@ -73,10 +78,10 @@ class WebClient(object):
     @cherrypy.expose
     def browseandlabel(self, name=None):
         if name is None:
-            raise cherrypy.HTTPRedirect('/datasets')
+            raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
 
         if not self._db.dataset_exists(name):
-            raise cherrypy.HTTPRedirect('/datasets')
+            raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
 
         template = self._lookup.get_template('browseandlabel.html')
         return template.render(**{**self._template_data, **self.session_data()})
@@ -84,13 +89,36 @@ class WebClient(object):
     @cherrypy.expose
     def classify(self, name=None):
         if name is None:
-            raise cherrypy.HTTPRedirect('/datasets')
+            raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
 
         if not self._db.dataset_exists(name):
-            raise cherrypy.HTTPRedirect('/datasets')
+            raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
 
         template = self._lookup.get_template('classify.html')
         return template.render(**{**self._template_data, **self.session_data()})
+
+    @cherrypy.expose
+    def classification_view(self, datasetname=None, classification_id=None):
+        if datasetname is None or classification_id is None or not self._db.dataset_exists(datasetname):
+            raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
+
+        classification_ids = [classification.id for classification in self._db.get_classification_jobs(datasetname)]
+
+        if not int(classification_id) in classification_ids:
+            raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
+
+        template = self._lookup.get_template('classification_view.html')
+        return template.render(**{**self._template_data, **self.session_data(),
+                                  **{'datasetname': datasetname, 'classification_id': classification_id}})
+
+    @cherrypy.expose
+    def training_data_view(self, classifiername=None):
+        if classifiername is None or not self._db.classifier_exists(classifiername):
+            raise cherrypy.HTTPRedirect(self._template_data()['classifier_path'])
+
+        template = self._lookup.get_template('training_data_view.html')
+        return template.render(**{**self._template_data, **self.session_data(),
+                                  **{'classifiername': classifiername}})
 
     @cherrypy.expose
     def classifiers(self):
@@ -124,4 +152,4 @@ class WebClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.4.4"
+        return "2.1.1"

@@ -88,7 +88,7 @@
                         $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifiers available</div>');
                     }
                     else {
-                        if($('#_gotclassifiers').length==0)
+                        if($('#\\_gotclassifiers').length==0)
                             $('#classifiers\\_list').html('<div id="_gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
                             if($('#classifier\\_'+msg[i].name).length==0) {
@@ -147,7 +147,7 @@
                 item.button({icons: {primary :'ui-icon-check'}});
                 selected_classifiers[classifier_name] = true;
                 $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
-                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                 $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('not_relevant');
                 $('#assignments\\_'+classifier_name).children('.scoreline').addClass('pending');
                 text = $("#textbox").val();
@@ -161,10 +161,10 @@
                     .done(function(msg) {
                         var assigned = msg[0];
                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('pending');
-                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                         $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
                         $('#suggestion\\_'+classifier_name+'\\_'+assigned).removeClass('not_relevant');
-                        $('#suggestion\\_'+classifier_name+'\\_'+assigned).addClass('assigned');
+                        $('#suggestion\\_'+classifier_name+'\\_'+assigned).addClass('suggested');
                     }).fail(function(msg) {
                         custom_alert(msg.responseText);
                     });
@@ -187,11 +187,11 @@
                         dataType: 'json'})
                     .done(function(msg) {
                         var assigned = msg[0];
-                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('pending');
                         $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
                         $('#suggestion\\_'+classifier_name+'\\_'+assigned).removeClass('not_relevant');
-                        $('#suggestion\\_'+classifier_name+'\\_'+assigned).addClass('assigned');
+                        $('#suggestion\\_'+classifier_name+'\\_'+assigned).addClass('suggested');
                     }).fail(function(msg) {
                         custom_alert(msg.responseText);
                     });
@@ -202,7 +202,7 @@
             $("#textbox").on("input",function() {
                 $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                     var classifier_name = $(item).text();
-                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                     $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('not_relevant');
                     $('#assignments\\_'+classifier_name).children('.scoreline').addClass('pending');
                 });

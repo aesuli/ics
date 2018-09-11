@@ -142,6 +142,12 @@ div .table   {
     cursor: pointer;
 }
 
+.suggested {
+    background-color: #d7f3d6;
+    background-image: none;
+    border: 1px solid lightgreen;
+}
+
 .assigned {
     background-color: lightgreen;
     background-image: none;
@@ -169,6 +175,11 @@ div .table   {
 
 .hide {
     background-color: lightgray;
+    background-image: none;
+}
+
+.hide.assigned {
+    background-color: #88bb88;
     background-image: none;
 }
 

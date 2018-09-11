@@ -1,0 +1,41 @@
+<%inherit file="basewithmenu.html" />
+<%block name="head">
+${parent.head()}
+    <link href="${mount_dir}/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${mount_dir}/css/dataTables.bootstrap.css" rel="stylesheet">
+</%block>
+
+<div id="main" class="padded ui-widget ui-widget-content">
+    <div id="center">
+        <div id="classification" class="margined ui-widget-content suggestion-container">
+            <div class="padded ui-widget-header ui-corner-all">Training data for classifier '${classifiername}':</div>
+            <div id='table-container' class="margined">loading data</div>
+        </div>
+    </div>
+</div>
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script type="text/javascript" src="${mount_dir}/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="${mount_dir}/js/jquery.csv.min.js"></script>
+    <script type="text/javascript" src="${mount_dir}/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="${mount_dir}/js/dataTables.bootstrap.js"></script>
+    <script type="text/javascript" src="${mount_dir}/js/csv_to_html_table.js"></script>
+
+
+    <script type="text/javascript">
+      function format_link(link){
+        if (link)
+          return "<a href='" + link + "' target='_blank'>" + link + "</a>";
+        else
+          return "";
+      }
+      CsvToHtmlTable.init({
+        csv_path: '${classifier_path}/download_training_data/${classifiername}',
+        element: 'table-container',
+        allow_download: true,
+        csv_options: {separator: ',', delimiter: '"'},
+        datatables_options: {"paging": true},
+        //custom_formatting: [[4, format_link]]
+      });
+    </script>

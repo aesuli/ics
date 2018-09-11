@@ -1,15 +1,17 @@
 import datetime
+import datetime
 import os
 import secrets
 import time
 from contextlib import contextmanager
+from hashlib import md5
 from uuid import uuid4
 
-import sqlalchemy
 from passlib.hash import pbkdf2_sha256
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
-    UniqueConstraint, desc, exists, func
-from sqlalchemy.exc import OperationalError, IntegrityError
+    UniqueConstraint, exists, not_, and_
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, deferred, relationship, configure_mappers, backref
 from sqlalchemy.orm.session import sessionmaker
@@ -88,7 +90,7 @@ class Tracker(Base):
 
 class KeyTracker(Tracker):
     __tablename__ = 'key'
-    id = Column(Integer, ForeignKey('tracker.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
+    id = Column(Integer, ForeignKey('tracker.id', onupdate='CASCADE', ondelete='CASCADE'), primary_key=True)
     key = Column(String(key_length * 2), unique=True)
     name = Column(String(key_name_length), unique=True)
     __mapper_args__ = {
@@ -103,7 +105,7 @@ class KeyTracker(Tracker):
 
 class IPTracker(Tracker):
     __tablename__ = 'ip'
-    id = Column(Integer, ForeignKey('tracker.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
+    id = Column(Integer, ForeignKey('tracker.id', onupdate='CASCADE', ondelete='CASCADE'), primary_key=True)
     ip = Column(String(ipaddress_length), unique=True)
     __mapper_args__ = {
         'polymorphic_identity': 'iptracker',
@@ -116,7 +118,7 @@ class IPTracker(Tracker):
 
 class User(Tracker):
     __tablename__ = 'user'
-    id = Column(Integer, ForeignKey('tracker.id', onupdate="CASCADE", ondelete="CASCADE"), primary_key=True)
+    id = Column(Integer, ForeignKey('tracker.id', onupdate='CASCADE', ondelete='CASCADE'), primary_key=True)
     name = Column(String(user_name_length), unique=True)
     salted_password = Column(String())
     __mapper_args__ = {
@@ -134,6 +136,37 @@ class User(Tracker):
 
     def change_password(self, password):
         self.salted_password = pbkdf2_sha256.hash(password)
+
+
+class Dataset(Base):
+    __tablename__ = 'dataset'
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(dataset_name_length), unique=True)
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+    last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
+
+    def __init__(self, name):
+        self.name = name
+
+
+class DatasetDocument(Base):
+    __tablename__ = 'dataset_document'
+    id = Column(Integer(), primary_key=True, index=True)
+    external_id = Column(String(document_name_length))
+    dataset_id = Column(Integer(), ForeignKey('dataset.id', onupdate='CASCADE', ondelete='CASCADE'))
+    dataset = relationship('Dataset', backref=backref('documents',
+                                                      cascade="all, delete-orphan",
+                                                      passive_deletes=True))
+    text = Column(Text())
+    md5 = Column(Text(), index=True)
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
+    __table_args__ = (UniqueConstraint('dataset_id', 'external_id'),)
+
+    def __init__(self, text, dataset_id, external_id=None):
+        self.text = text
+        self.md5 = md5(text.encode('utf-8')).hexdigest()
+        self.dataset_id = dataset_id
+        self.external_id = external_id
 
 
 class Classifier(Base):
@@ -159,24 +192,15 @@ class Label(Base):
     HIDDEN_LABEL = '__hidden_label'
     id = Column(Integer(), primary_key=True)
     name = Column(String(label_name_length), nullable=False)
-    classifier_id = Column(Integer(), ForeignKey('classifier.id'))
-    classifier = relationship('Classifier', backref=backref('labels', cascade='all,delete'))
+    classifier_id = Column(Integer(), ForeignKey('classifier.id', onupdate='CASCADE', ondelete='CASCADE'))
+    classifier = relationship('Classifier', backref=backref('labels',
+                                                            cascade="all, delete-orphan",
+                                                            passive_deletes=True))
     __table_args__ = (UniqueConstraint('classifier_id', 'name'),)
 
     def __init__(self, name, classifier_id):
         self.name = name
         self.classifier_id = classifier_id
-
-
-class Dataset(Base):
-    __tablename__ = 'dataset'
-    id = Column(Integer(), primary_key=True)
-    name = Column(String(dataset_name_length), unique=True)
-    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
-    last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
-
-    def __init__(self, name):
-        self.name = name
 
 
 class TrainingDocument(Base):
@@ -188,38 +212,30 @@ class TrainingDocument(Base):
 
     def __init__(self, text):
         self.text = text
-        self.md5 = func.md5(text)
-
-
-class DatasetDocument(Base):
-    __tablename__ = 'dataset_document'
-    id = Column(Integer(), primary_key=True, index=True)
-    external_id = Column(String(document_name_length))
-    dataset_id = Column(Integer(), ForeignKey('dataset.id'))
-    dataset = relationship('Dataset', backref=backref('documents', cascade='all,delete'))
-    text = Column(Text())
-    md5 = Column(Text(), index=True)
-    creation = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
-    __table_args__ = (UniqueConstraint('dataset_id', 'external_id'),)
-
-    def __init__(self, text, dataset_id, external_id=None):
-        self.text = text
-        self.md5 = func.md5(text)
-        self.dataset_id = dataset_id
-        self.external_id = external_id
+        self.md5 = md5(text.encode('utf-8')).hexdigest()
 
 
 class Classification(Base):
     __tablename__ = 'classification'
     id = Column(Integer(), primary_key=True)
-    document_id = Column(Integer(), ForeignKey('training_document.id'))
-    document = relationship('TrainingDocument', backref=backref('classifications', cascade='all,delete'))
-    label_id = Column(Integer(), ForeignKey('label.id'))
-    label = relationship('Label', backref=backref('classifications', cascade='all,delete'))
+    document_id = Column(Integer(), ForeignKey('training_document.id', onupdate='CASCADE', ondelete='CASCADE'))
+    document = relationship('TrainingDocument', backref=backref('classifications',
+                                                                cascade="all, delete-orphan",
+                                                                passive_deletes=True))
+    label_id = Column(Integer(), ForeignKey('label.id', onupdate='CASCADE', ondelete='CASCADE'))
+    label = relationship('Label', backref=backref('classifications',
+                                                  cascade="all, delete-orphan",
+                                                  passive_deletes=True))
+    classifier_id = Column(Integer(), ForeignKey('classifier.id', onupdate='CASCADE', ondelete='CASCADE'))
+    classifier = relationship('Classifier', backref=backref('classifications',
+                                                            cascade="all, delete-orphan",
+                                                            passive_deletes=True))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+    __table_args__ = (UniqueConstraint('document_id', 'classifier_id'),)
 
-    def __init__(self, document_id, label_id):
+    def __init__(self, document_id, classifier_id, label_id):
         self.document_id = document_id
+        self.classifier_id = classifier_id
         self.label_id = label_id
 
 
@@ -247,10 +263,13 @@ class Job(Base):
 class ClassificationJob(Base):
     __tablename__ = 'classificationjob'
     id = Column(Integer(), primary_key=True)
-    dataset_id = Column(Integer(), ForeignKey('dataset.id'))
-    dataset = relationship('Dataset', backref=backref('classifications', cascade='all,delete'))
+    dataset_id = Column(Integer(), ForeignKey('dataset.id', onupdate='CASCADE', ondelete='CASCADE'))
+    dataset = relationship('Dataset', backref=backref('classifications',
+                                                      cascade="all, delete-orphan",
+                                                      passive_deletes=True))
     job_id = Column(Integer(), ForeignKey('job.id'))
-    job = relationship('Job', backref=backref('classification_job', cascade='all,delete'))
+    job = relationship('Job', backref=backref('classification_job'))
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     classifiers = Column(Text())
     filename = Column(Text())
 
@@ -420,8 +439,10 @@ class SQLAlchemyDB(object):
             classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
             if classifier.model is None:
                 labels = self._flatten_list(
-                    session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
-                        Classifier.name == name))
+                    session.query(Label.name)
+                        .join(Label.classifier)
+                        .filter(Classifier.name == name)
+                        .order_by(Label.name))
                 labels.remove(Label.HIDDEN_LABEL)
                 classifier.model = get_classifier_model(classifier.classifier_type, name, labels)
             return classifier.model
@@ -432,8 +453,11 @@ class SQLAlchemyDB(object):
 
     def get_classifier_labels(self, name):
         with self.session_scope() as session:
-            labels = self._flatten_list(session.query(Label.name).order_by(Label.name).join(Label.classifier).filter(
-                Classifier.name == name))
+            labels = self._flatten_list(session.query(Label.name).
+                                        join(Label.classifier).
+                                        filter(Classifier.name == name).
+                                        order_by(Label.name)
+                                        )
             labels.remove(Label.HIDDEN_LABEL)
             return labels
 
@@ -455,7 +479,7 @@ class SQLAlchemyDB(object):
                 if old_classifier is not None:
                     session.delete(old_classifier)
                     session.flush()
-            classifier.rename(newname)
+            classifier.name = newname
 
     def get_classifier_description(self, name):
         with self.session_scope() as session:
@@ -484,47 +508,83 @@ class SQLAlchemyDB(object):
                 session.rollback()
                 raise e
 
-    def create_training_example(self, classifier_name, content, label):
+    def create_training_examples(self, classifier_name, text_and_labels):
         with self.session_scope() as session:
             try:
-                training_document = TrainingDocument(content)
-                session.add(training_document)
-                session.flush()
-            except sqlalchemy.exc.IntegrityError:
+                text_set = list(set((text for text, _ in text_and_labels)))
+                stmt = insert(TrainingDocument.__table__).values(
+                    [{'text': text,
+                      'md5': md5(text.encode('utf-8')).hexdigest()} for text in text_set])
+                stmt = stmt.on_conflict_do_update(index_elements=['md5'],
+                                                  set_={'creation': datetime.datetime.now()})
+                stmt = stmt.returning(TrainingDocument.id)
+                with self._lock_training_documents():
+                    text_set_ids = [id[0] for id in session.execute(stmt)]
+
+                text_id_map = dict()
+                for text, text_set_id in zip(text_set, text_set_ids):
+                    text_id_map[text] = text_set_id
+
+                classifier_id = session.query(Classifier.id).filter(Classifier.name == classifier_name).scalar()
+
+                label_set = set((label for _, label in text_and_labels))
+                label_set.add(Label.HIDDEN_LABEL)
+
+                label_id_map = dict()
+
+                for label in label_set:
+                    label_id = (session.query(Label.id)
+                                .filter(Label.classifier_id == classifier_id)
+                                .filter(Label.name == label)
+                                .scalar()
+                                )
+                    label_id_map[label] = label_id
+
+                text_id_and_label_ids = dict()
+                for text, label in text_and_labels:
+                    text_id_and_label_ids[text_id_map[text]] = label_id_map[label]
+
+                text_id_and_label_ids = text_id_and_label_ids.items()
+
+                values = [{'document_id': document_id,
+                           'classifier_id': classifier_id,
+                           'label_id': label_id} for document_id, label_id in text_id_and_label_ids]
+
+                stmt = insert(Classification.__table__).values(
+                    values)
+                stmt = stmt.on_conflict_do_update(index_elements=['document_id', 'classifier_id'],
+                                                  set_=dict(stmt.excluded._data))
+
+                session.execute(stmt)
+
+            except (OperationalError, MemoryError) as e:
                 session.rollback()
-                training_document = session.query(TrainingDocument).filter(
-                    TrainingDocument.md5 == training_document.md5).scalar()
+                raise e
 
-            label_id = session.query(Label.id).filter(Classifier.name == classifier_name).filter(
-                Label.classifier_id == Classifier.id).filter(
-                Label.name == label).scalar()
-
-            classification = session.query(Classification).filter(
-                Classification.document_id == training_document.id).join(
-                Classification.label).filter(Classifier.name == classifier_name).filter(
-                Label.classifier_id == Classifier.id).scalar()
-
-            if classification is None:
-                classification = Classification(training_document.id, label_id)
-                session.add(classification)
-            else:
-                classification.label_id = label_id
-
-    def mark_classifier_text_as_hidden(self, classifier_name, content):
-        self.create_training_example(classifier_name, content, Label.HIDDEN_LABEL)
+    def mark_classifier_text_as_hidden(self, classifier_name, text):
+        self.create_training_examples(classifier_name, [(text, Label.HIDDEN_LABEL)])
 
     def classifier_has_example(self, classifier_name, text, include_hidden):
         if include_hidden:
             with self.session_scope() as session:
-                return session.query(TrainingDocument).filter(TrainingDocument.md5 == func.md5(text)).filter(
-                    Classification.document_id == TrainingDocument.id).filter(
-                    Classifier.name == classifier_name).scalar()
+                return (session.query(TrainingDocument)
+                        .filter(TrainingDocument.md5 == md5(text.encode('utf-8')).hexdigest())
+                        .filter(Classification.document_id == TrainingDocument.id)
+                        .join(Classification.classifier)
+                        .filter(Classifier.name == classifier_name)
+                        .scalar()
+                        )
         else:
             with self.session_scope() as session:
-                return session.query(TrainingDocument).filter(TrainingDocument.md5 == func.md5(text)).filter(
-                    Classification.document_id == TrainingDocument.id).filter(
-                    Classifier.name == classifier_name).filter(Label.classifier_id == Classifier.id).filter(
-                    Label.name != Label.HIDDEN_LABEL).scalar()
+                return (session.query(TrainingDocument)
+                        .filter(TrainingDocument.md5 == md5(text.encode('utf-8')).hexdigest())
+                        .join(Classification.document)
+                        .join(Classification.classifier)
+                        .join(Classification.label)
+                        .filter(Classifier.name == classifier_name)
+                        .filter(Label.name != Label.HIDDEN_LABEL)
+                        .scalar()
+                        )
 
     def classify(self, classifier_name, X):
         clf = self.get_classifier_model(classifier_name)
@@ -549,17 +609,25 @@ class SQLAlchemyDB(object):
         labels = clf.labels()
         return [dict(zip(labels, values)) for values in scores]
 
-    def get_label(self, classifier_name, content):
+    def get_label(self, classifier_name, text):
         with self.session_scope() as session:
-            return session.query(Label.name).filter(TrainingDocument.md5 == func.md5(content)).filter(
-                Classification.document_id == TrainingDocument.id).filter(Classifier.name == classifier_name).filter(
-                Label.classifier_id == Classifier.id).filter(Label.id == Classification.label_id).order_by(
-                desc(Classification.creation)).scalar()
+            return (session.query(Label.name)
+                    .filter(TrainingDocument.md5 == md5(text.encode('utf-8')).hexdigest())
+                    .join(Classification.document)
+                    .join(Classification.classifier)
+                    .join(Classification.label)
+                    .filter(Classifier.name == classifier_name)
+                    .scalar()
+                    )
 
     def rename_classifier_label(self, classifier_name, label_name, new_name):
         with self.session_scope() as session:
-            label = session.query(Label).filter(Label.name == label_name).join(Label.classifier).filter(
-                Classifier.name == classifier_name).scalar()
+            label = (session.query(Label)
+                     .filter(Label.name == label_name)
+                     .join(Label.classifier)
+                     .filter(Classifier.name == classifier_name)
+                     .scalar()
+                     )
             if label is None:
                 return
             label.name = new_name
@@ -607,114 +675,187 @@ class SQLAlchemyDB(object):
             return session.query(Dataset.documents).filter(Dataset.name == name).filter(
                 DatasetDocument.dataset_id == Dataset.id).count()
 
-    def create_dataset_document(self, dataset_name, external_id, content):
+    def create_dataset_documents(self, dataset_name, external_ids_and_contents):
         with self.session_scope() as session:
             dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
-            try:
-                document = DatasetDocument(content, dataset.id, external_id)
-                session.add(document)
-                session.flush()
-            except IntegrityError:
-                session.rollback()
-                document = session.query(DatasetDocument).filter(DatasetDocument.dataset_id == dataset.id).filter(
-                    DatasetDocument.external_id == external_id).scalar()
-                document.text = content
+            values = dict()
+            for external_id, content in external_ids_and_contents:
+                values[external_id] = {'text': content,
+                                       'md5': md5(content.encode('utf-8')).hexdigest(),
+                                       'dataset_id': dataset.id,
+                                       'external_id': external_id}
+            stmt = insert(DatasetDocument.__table__).values(list(values.values()))
+            stmt = stmt.on_conflict_do_update(index_elements=['dataset_id', 'external_id'],
+                                              set_=dict(stmt.excluded._data))
+            ret = session.execute(stmt)
             dataset.last_updated = datetime.datetime.now()
 
     def delete_dataset_document(self, dataset_name, external_id):
         with self.session_scope() as session:
             dataset = session.query(Dataset).filter(Dataset.name == dataset_name).one()
-            document = session.query(DatasetDocument).filter(DatasetDocument.dataset_id == dataset.id).filter(
-                DatasetDocument.external_id == external_id).scalar()
+            document = (session.query(DatasetDocument)
+                        .filter(DatasetDocument.dataset_id == dataset.id)
+                        .filter(DatasetDocument.external_id == external_id)
+                        .scalar()
+                        )
             if document is not None:
                 session.delete(document)
             dataset.last_updated = datetime.datetime.now()
 
-    def get_classifier_examples_count(self, name, include_hidden=False):
+    def get_classifier_examples_count(self, name, include_hidden):
         if include_hidden:
             with self.session_scope() as session:
-                return session.query(Classification.id).filter(Classifier.name == name).filter(
-                    Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).count()
+                return (session.query(Classification.id)
+                        .filter(Classifier.name == name)
+                        .join(Classification.classifier)
+                        .count()
+                        )
         else:
             with self.session_scope() as session:
-                return session.query(Classification.id).filter(Classifier.name == name).filter(
-                    Label.classifier_id == Classifier.id).filter(Label.name != Label.HIDDEN_LABEL).filter(
-                    Classification.label_id == Label.id).count()
+                return (session.query(Classification.id)
+                        .filter(Classifier.name == name)
+                        .join(Classification.classifier)
+                        .join(Classification.label)
+                        .filter(Label.name != Label.HIDDEN_LABEL)
+                        .count())
 
     def get_classifier_examples_with_label_count(self, name, label):
         with self.session_scope() as session:
-            return session.query(Classification.id).filter(Classifier.name == name).filter(
-                Label.classifier_id == Classifier.id).filter(Classification.label_id == Label.id).filter(
-                Label.name == label).count()
+            return (session.query(Classification.id)
+                    .filter(Classifier.name == name)
+                    .join(Classification.classifier)
+                    .join(Classification.label)
+                    .filter(Label.name == label)
+                    .count())
 
-    def get_classifier_examples(self, name, offset=0, limit=None, include_hidden=False):
+    def get_classifier_examples(self, name, include_hidden, offset=0, limit=None):
         if include_hidden:
             with self.session_scope() as session:
-                return session.query(Classification).order_by(Classification.creation).filter(
-                    Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
-                    Classification.label_id == Label.id).offset(offset).limit(limit)
+                return (session.query(Classification)
+                        .filter(Classifier.name == name)
+                        .join(Classification.classifier)
+                        .order_by(Classification.id)
+                        .offset(offset)
+                        .limit(limit)
+                        )
         else:
             with self.session_scope() as session:
-                return session.query(Classification).order_by(Classification.creation).filter(
-                    Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
-                    Label.name != Label.HIDDEN_LABEL).filter(Classification.label_id == Label.id).offset(offset).limit(
-                    limit)
+                return (session.query(Classification)
+                        .filter(Classifier.name == name)
+                        .join(Classification.classifier)
+                        .filter(Label.name != Label.HIDDEN_LABEL)
+                        .join(Classification.label)
+                        .order_by(Classification.id)
+                        .offset(offset)
+                        .limit(limit)
+                        )
 
     def get_classifier_examples_with_label(self, name, label, offset=0, limit=None):
         with self.session_scope() as session:
-            return session.query(Classification).order_by(Classification.creation).filter(
-                Classifier.name == name).filter(Label.classifier_id == Classifier.id).filter(
-                Classification.label_id == Label.id).filter(Label.name == label).offset(offset).limit(limit)
+            return (session.query(Classification)
+                    .filter(Classifier.name == name)
+                    .join(Classification.classifier)
+                    .join(Classification.label)
+                    .filter(Label.name == label)
+                    .order_by(Classification.id)
+                    .offset(offset)
+                    .limit(limit)
+                    )
 
     def get_dataset_documents_with_label(self, dataset_name, classifier_name, label, offset=0, limit=None):
         with self.session_scope() as session:
-            return session.query(DatasetDocument.id).order_by(DatasetDocument.id).filter(
-                DatasetDocument.dataset_id == Dataset.id).filter(Dataset.name == dataset_name).filter(
-                DatasetDocument.md5 == TrainingDocument.md5).filter(
-                TrainingDocument.id == Classification.document_id).filter(
-                Classifier.name == classifier_name).filter(Label.classifier_id == Classifier.id).filter(
-                Classification.label_id == Label.id).filter(Label.name == label).offset(offset).limit(limit)
+            return (session.query(DatasetDocument)
+                    .join(DatasetDocument.dataset)
+                    .filter(Dataset.name == dataset_name)
+                    .filter(DatasetDocument.md5 == TrainingDocument.md5)
+                    .filter(Classifier.name == classifier_name)
+                    .join(Classification.document)
+                    .join(Classification.classifier)
+                    .join(Classification.label)
+                    .filter(Label.name == label)
+                    .order_by(DatasetDocument.id)
+                    .offset(offset)
+                    .limit(limit)
+                    )
 
-    def get_dataset_documents_by_name(self, name):
+    def get_dataset_documents_without_labels(self, dataset_name, classifier_name, offset=0, limit=None):
         with self.session_scope() as session:
-            return session.query(DatasetDocument).order_by(DatasetDocument.external_id).filter(
-                Dataset.name == name).filter(
-                DatasetDocument.dataset_id == Dataset.id)
+            return (session.query(DatasetDocument)
+                    .join(DatasetDocument.dataset)
+                    .filter(Dataset.name == dataset_name)
+                    .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
+                                                     Classification.classifier_id == Classifier.id,
+                                                     Classifier.name == classifier_name,
+                                                     TrainingDocument.id == Classification.document_id))))
+                    .order_by(DatasetDocument.id)
+                    .offset(offset)
+                    .limit(limit)
+                    )
+
+    def get_dataset_documents_by_name(self, name, offset=0, limit=None):
+        with self.session_scope() as session:
+            return (session.query(DatasetDocument)
+                    .filter(Dataset.name == name)
+                    .join(DatasetDocument.dataset)
+                    .order_by(DatasetDocument.external_id)
+                    .offset(offset)
+                    .limit(limit)
+                    )
 
     def get_dataset_documents_by_position(self, name, offset=0, limit=None):
         with self.session_scope() as session:
-            return session.query(DatasetDocument).order_by(DatasetDocument.id).filter(
-                Dataset.name == name).filter(
-                DatasetDocument.dataset_id == Dataset.id).offset(offset).limit(limit)
+            return (session.query(DatasetDocument)
+                    .filter(Dataset.name == name)
+                    .join(DatasetDocument.dataset)
+                    .order_by(DatasetDocument.id)
+                    .offset(offset)
+                    .limit(limit)
+                    )
 
     def get_dataset_document_by_name(self, datasetname, documentname):
         with self.session_scope() as session:
-            document = session.query(DatasetDocument).filter(Dataset.name == datasetname).filter(
-                DatasetDocument.dataset_id == Dataset.id).filter(DatasetDocument.external_id == documentname).first()
+            document = (session.query(DatasetDocument)
+                        .filter(Dataset.name == datasetname)
+                        .join(DatasetDocument.dataset)
+                        .filter(DatasetDocument.external_id == documentname)
+                        .first()
+                        )
             if document is not None:
                 session.expunge(document)
             return document
 
     def get_dataset_document_by_position(self, name, position):
         with self.session_scope() as session:
-            document = session.query(DatasetDocument).filter(Dataset.name == name).filter(
-                DatasetDocument.dataset_id == Dataset.id).order_by(DatasetDocument.id).offset(position).limit(
-                1).scalar()
+            document = (session.query(DatasetDocument)
+                        .filter(Dataset.name == name)
+                        .join(DatasetDocument.dataset)
+                        .order_by(DatasetDocument.id)
+                        .offset(position)
+                        .limit(1)
+                        .scalar()
+                        )
             if document is not None:
                 session.expunge(document)
             return document
 
     def get_dataset_document_position_by_id(self, name, document_id):
         with self.session_scope() as session:
-            return session.query(DatasetDocument).order_by(DatasetDocument.id).filter(
-                Dataset.name == name).filter(
-                DatasetDocument.dataset_id == Dataset.id).filter(DatasetDocument.id < document_id).count()
+            return (session.query(DatasetDocument)
+                    .filter(Dataset.name == name)
+                    .join(DatasetDocument.dataset)
+                    .filter(DatasetDocument.id < document_id)
+                    .order_by(DatasetDocument.id)
+                    .count()
+                    )
 
     def get_jobs(self, starttime=None):
         if starttime is None:
             starttime = datetime.datetime.now() - datetime.timedelta(days=1)
         with self.session_scope() as session:
-            return session.query(Job).order_by(Job.creation.desc()).filter(Job.creation > starttime)
+            return (session.query(Job)
+                    .filter(Job.creation > starttime)
+                    .order_by(Job.creation.desc())
+                    )
 
     def get_locks(self):
         with self.session_scope() as session:
@@ -733,7 +874,11 @@ class SQLAlchemyDB(object):
 
     def get_next_pending_job(self):
         with self.session_scope() as session:
-            job = session.query(Job).order_by(Job.creation.asc()).filter(Job.status == Job.status_pending).first()
+            job = (session.query(Job)
+                   .filter(Job.status == Job.status_pending)
+                   .order_by(Job.creation.asc())
+                   .first()
+                   )
             if job is None:
                 return None
             job.action
@@ -768,8 +913,11 @@ class SQLAlchemyDB(object):
 
     def get_most_recent_classifier_update_time(self, classifiers):
         with self.session_scope() as session:
-            return session.query(Classifier.last_updated).filter(Classifier.name.in_(classifiers)).order_by(
-                Classifier.last_updated.desc()).first()[0]
+            return (session.query(Classifier.last_updated)
+                    .filter(Classifier.name.in_(classifiers))
+                    .order_by(Classifier.last_updated.desc())
+                    .first()
+                    )[0]
 
     def create_classification_job(self, datasetname, classifiers, job_id, fullpath):
         with self.session_scope() as session:
@@ -779,19 +927,24 @@ class SQLAlchemyDB(object):
 
     def get_classification_jobs(self, name):
         with self.session_scope() as session:
-            return session.query(ClassificationJob).filter(ClassificationJob.dataset_id == Dataset.id).filter(
-                Dataset.name == name).join(Job).order_by(Job.creation.desc())
+            return (session.query(ClassificationJob)
+                    .join(ClassificationJob.dataset)
+                    .filter(Dataset.name == name)
+                    .order_by(ClassificationJob.creation)
+                    )
 
     def get_classification_job_filename(self, id):
         with self.session_scope() as session:
-            return session.query(ClassificationJob.filename).filter(ClassificationJob.id == id).scalar()
+            return (session.query(ClassificationJob.filename)
+                    .filter(ClassificationJob.id == id)
+                    .scalar()
+                    )
 
     def delete_classification_job(self, id):
         with self.session_scope() as session:
             classification_job = session.query(ClassificationJob).filter(
                 ClassificationJob.id == id).scalar()
             if os.path.exists(classification_job.filename):
-                # TODO handle the eventual failure in removing the file
                 os.remove(classification_job.filename)
             if classification_job is not None:
                 session.delete(classification_job)
@@ -967,9 +1120,12 @@ class SQLAlchemyDB(object):
     def _flatten_list(self, list_of_list):
         return [item for sublist in list_of_list for item in sublist]
 
+    def _lock_training_documents(self):
+        return DBLock(self, 'training documents')
+
     @staticmethod
     def version():
-        return "2.3.1"
+        return "3.4.1"
 
 
 class DBLock(object):

@@ -93,8 +93,7 @@ class JobsService(object):
         to_remove = set()
         for job in self._db.get_jobs():
             if job.status == Job.status_done:
-                if len(job.classification_job) == 0:
-                    to_remove.add(job.id)
+                to_remove.add(job.id)
         for id in to_remove:
             self._db.delete_job(id)
         return 'Ok'

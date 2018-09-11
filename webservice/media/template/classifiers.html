@@ -94,8 +94,9 @@ ${parent.head()}
                             <div id="rename_label_button_'+name_string+'">Rename label</div>\
                             <div id="description_button_'+name_string+'">Description</div>\
                             <div id="extract_button_'+name_string+'">Extract</div>\
-                            <div id="select_button_'+name_string+'">Select</div>\
+                            <div id="select_button_'+name_string+'">Select to combine</div>\
                             <div id="duplicate_button_'+name_string+'">Duplicate</div>\
+                            <div id="view_button_'+name_string+'">View training data</div>\
                             <div id="download_button_'+name_string+'">Download training data</div>\
                             <div id="download_model_button_'+name_string+'">Download classification model</div>\
                             <div id="del_button_'+name_string+'">Delete</div>\
@@ -107,6 +108,8 @@ ${parent.head()}
                         }
                         else
                             $('#data').append(item);
+                        $('#view\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-search'} });
+                        $('#view\\_button\\_'+name_string).click(view_training_data);
                         $('#download\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
                         $('#download\\_button\\_'+name_string).click(download_training_data);
                         $('#download\\_model\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
@@ -518,6 +521,11 @@ ${parent.head()}
                                                 }
                                             },
                                           });
+        };
+
+        function view_training_data() {
+            var classifier_name = $(this).parent().siblings('.id').text();
+            window.location = '${mount_dir}/training_data_view/'+classifier_name;
         };
 
         function download_training_data() {

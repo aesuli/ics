@@ -66,7 +66,8 @@ ${parent.head()}
                         <div>'+msg[i].creation+'</div>\
                         <div>'+msg[i].completion+'</div>\
                         <div>'+msg[i].status+'</div>\
-                        <div><div id="download_'+msg[i].id+'">Download</div>\
+                        <div><div id="view_'+msg[i].id+'">View</div>\
+                        <div id="download_'+msg[i].id+'">Download</div>\
                         <div id="delete_'+msg[i].id+'">Delete</div></div>\
                         </div>');
                         if ($('#job\\_'+msg[i].id).length!=0) {
@@ -79,6 +80,8 @@ ${parent.head()}
                         $('#delete\\_'+msg[i].id).click(delete_classification);
                         $('#download\\_'+msg[i].id).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
                         $('#download\\_'+msg[i].id).click(download_classification);
+                        $('#view\\_'+msg[i].id).button({ icons: {primary:'ui-icon-search'} });
+                        $('#view\\_'+msg[i].id).click(view_classification);
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
@@ -168,8 +171,13 @@ ${parent.head()}
 
         function download_classification() {
             var classification_id = $(this).parent().siblings('.id').text();
-            var form = $('<form></form>').attr('action', '${dataset_path}/download_classification/'+classification_id).attr('method', 'post');
+            var form = $('<form></form>').attr('action', '${dataset_path}/classification_download/'+classification_id).attr('method', 'post');
             form.appendTo('body').submit().remove();
+        };
+
+        function view_classification() {
+            var classification_id = $(this).parent().siblings('.id').text();
+            window.location = '${mount_dir}/classification_view/'+datasetname+'/'+classification_id;
         };
 
         function classify() {
