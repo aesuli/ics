@@ -56,9 +56,9 @@ class BackgroundProcessor(Thread):
         self.close()
         return False
 
-    def _release(self, job_id, status, msg):
+    def _release(self, job_id, status, msg=None):
         try:
-            cherrypy.log('Completed ' + str(job_id) + ' ' + str(status))
+            cherrypy.log('Completed ' + str(job_id) + ' ' + str(status)+ ' Message: '+str(msg), severity=logging.INFO)
             self._db.set_job_completion_time(job_id)
             self._db.set_job_status(job_id, status)
         finally:
@@ -68,4 +68,4 @@ class BackgroundProcessor(Thread):
         self._running = False
 
     def version(self):
-        return "0.3.1 (db: %s)" % self._db.version()
+        return "0.3.2 (db: %s)" % self._db.version()

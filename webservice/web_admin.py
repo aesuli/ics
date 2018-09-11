@@ -101,4 +101,4 @@ class WebAdmin(object):
 
     @cherrypy.expose
     def version(self):
-        return "0.2.2"
+        return "1.1.1"

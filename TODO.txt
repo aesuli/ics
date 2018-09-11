@@ -1,12 +1,8 @@
 TODO
+- labeling from table views
 - automatic DB creation
-- dataset documents as table view
-- classified dataset documents as table view
 - use ids rather than names in batch jobs
-- duplicate training sets on db, without reinserting text
 - user authorization profiles
-- file import
-    * skip comment lines, i.e., those starting with #
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
@@ -19,13 +15,24 @@ TODO
 - richer classifier info
     * estimated accuracy
 - templates (mako)
-    * version
 - store source of classification (which user?)
 
 TOMONITOR
 - strip input strings
 
 DONE
+- update demo labeling interface following the browse and label one
+- dataset documents as table view
+- classified dataset documents as table view
+- fix classification jobs
+- option to disable classifier's automatic labeling in UI
+- changed the labeling process in UI:
+    * optional visualization of suggestions
+    * removed "skip"
+    * changed "hide" to "non-relevant"
+- bulk copy of training set on DB
+- bulk insert of training set into DB
+- bulk insert of dataset into DB
 - description of classifier
 - demo API page
 - cost of batch classification
@@ -71,6 +78,7 @@ DONE
 - compose classifiers into a multilabel classifier
 - bug in picking of models: move partial into get_TEXT_analyzer (resolved after package update?)
 - file import
+    * skip comment lines, i.e., those starting with #
     * no header example import (two passes)
     * automatic encoding management
 - bug in autoadvance on skip
@@ -109,6 +117,7 @@ DONE
     * remove text duplication
     * use ids not string for classifiers and classes
 - templates (mako)
+    * version
     * header
     * footer
     * user info

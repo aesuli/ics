@@ -17,7 +17,7 @@ __author__ = 'Andrea Esuli'
 MAX_BATCH_SIZE = 1000
 CSV_LARGE_FIELD = 1024 * 1024 * 10
 
-QUICK_CLASSIFICATION_BATCH_SIZE = 1000
+QUICK_CLASSIFICATION_BATCH_SIZE = 100
 
 
 class DatasetCollectionService(object):
@@ -71,7 +71,7 @@ class DatasetCollectionService(object):
     def add_document(self, name, document_name, document_content):
         if not self._db.dataset_exists(name):
             self._db.create_dataset(name)
-        self._db.create_dataset_document(name, document_name, document_content)
+        self._db.create_dataset_documents(name, (document_name, document_content))
         return 'Ok'
 
     @cherrypy.expose
@@ -128,13 +128,10 @@ class DatasetCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def delete(self, name):
-        try:
-            self._db.delete_dataset(name)
-        except KeyError:
-            cherrypy.response.status = 404
-            return '%s does not exits' % name
-        else:
-            return 'Ok'
+        job_id = self._db.create_job(_delete_dataset,
+                                     (self._db_connection_string, name),
+                                     description='delete dataset \'%s\'' % name)
+        return [job_id]
 
     @cherrypy.expose
     def download(self, name):
@@ -146,7 +143,7 @@ class DatasetCollectionService(object):
         fullpath = os.path.join(self._download_dir, filename)
         if not os.path.isfile(fullpath):
             try:
-                with open(fullpath, 'w') as file:
+                with open(fullpath, 'w', encoding='utf-8', newline='') as file:
                     writer = csv.writer(file, lineterminator='\n')
                     for document in self._db.get_dataset_documents_by_name(name):
                         writer.writerow([document.external_id, document.text])
@@ -205,10 +202,17 @@ class DatasetCollectionService(object):
     @cherrypy.tools.json_out()
     def most_uncertain_document_id(self, name, classifier_name):
         dataset_size = self._db.get_dataset_size(name)
-        offset = random.randint(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE)
+        offset = random.randint(0, max(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE))
         X = list()
-        for doc in self._db.get_dataset_documents_by_position(name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
+        doc_ids = list()
+        for doc in self._db.get_dataset_documents_without_labels(name, classifier_name, offset,
+                                                                 QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
+            doc_ids.append(doc.id)
+
+        if len(X) == 0:
+            return random.randint(0, dataset_size - 1)
+
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
         for i, dict_ in enumerate(scores):
@@ -217,20 +221,23 @@ class DatasetCollectionService(object):
             diff = probs[-1] - probs[-2]
             positions_scores.append((i, diff))
         positions_scores.sort(key=lambda x: x[1])
-        for position, score in positions_scores:
-            text = X[position]
-            if not self._db.classifier_has_example(classifier_name, text, True):
-                return offset + position
-        return random.randint(0, dataset_size - 1)
+        return self._db.get_dataset_document_position_by_id(name, doc_ids[positions_scores[0][0]])
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def most_certain_document_id(self, name, classifier_name):
         dataset_size = self._db.get_dataset_size(name)
-        offset = random.randint(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE)
+        offset = random.randint(0, max(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE))
         X = list()
-        for doc in self._db.get_dataset_documents_by_position(name, offset, QUICK_CLASSIFICATION_BATCH_SIZE):
+        doc_ids = list()
+        for doc in self._db.get_dataset_documents_without_labels(name, classifier_name, offset,
+                                                                 QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
+            doc_ids.append(doc.id)
+
+        if len(X) == 0:
+            return random.randint(0, dataset_size - 1)
+
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
         for i, dict_ in enumerate(scores):
@@ -239,16 +246,12 @@ class DatasetCollectionService(object):
             diff = probs[-1] - probs[-2]
             positions_scores.append((i, diff))
         positions_scores.sort(key=lambda x: -x[1])
-        for position, score in positions_scores:
-            text = X[position]
-            if not self._db.classifier_has_example(classifier_name, text, True):
-                return offset + position
-        return random.randint(0, dataset_size - 1)
+        return self._db.get_dataset_document_position_by_id(name, doc_ids[positions_scores[0][0]])
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def random_hidden_document_id(self, name, classifier_name):
-        document_ids = [document_id for document_id in
+        document_ids = [document.id for document in
                         self._db.get_dataset_documents_with_label(name, classifier_name, Label.HIDDEN_LABEL)]
         if document_ids:
             document_id = random.choice(document_ids)
@@ -314,15 +317,19 @@ class DatasetCollectionService(object):
                 classification_job_info = dict()
                 classification_job_info['id'] = classification_job.id
                 if (classification_job.filename is None or not os.path.exists(
-                        classification_job.filename)) and classification_job.job.status == Job.status_done:
+                        classification_job.filename)) and classification_job.job is None:
                     to_delete.append(classification_job.id)
                     got_deleted = True
                     continue
                 classification_job_info['dataset'] = name
                 classification_job_info['classifiers'] = classification_job.classifiers
-                classification_job_info['status'] = classification_job.job.status
-                classification_job_info['creation'] = str(classification_job.job.creation)
-                classification_job_info['completion'] = str(classification_job.job.completion)
+                classification_job_info['creation'] = str(classification_job.creation)
+                if classification_job.job:
+                    classification_job_info['status'] = classification_job.job.status
+                    classification_job_info['completion'] = str(classification_job.job.completion)
+                else:
+                    classification_job_info['status'] = Job.status_done
+                    classification_job_info['completion'] = str(os.path.getmtime(classification_job.filename))
                 result.append(classification_job_info)
 
             for id in to_delete:
@@ -345,8 +352,8 @@ class DatasetCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def classification_delete(self, id):
-        filename = self._db.get_classification_job_filename(id)
         try:
+            filename = self._db.get_classification_job_filename(id)
             os.unlink(filename)
         except FileNotFoundError:
             pass
@@ -356,7 +363,7 @@ class DatasetCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "2.2.1 (db: %s)" % self._db.version()
+        return "3.1.3 (db: %s)" % self._db.version()
 
 
 def _classify(db_connection_string, datasetname, classifiers, fullpath):
@@ -365,34 +372,42 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
     with SQLAlchemyDB(db_connection_string) as db:
         tempfile = fullpath + '.tmp'
         try:
-            with open(tempfile, 'w') as file:
+            with open(tempfile, 'w', encoding='utf-8', newline='') as file:
                 writer = csv.writer(file, lineterminator='\n')
                 header = list()
+                header.append('#id')
+                header.append('text')
                 for classifier in classifiers:
                     if db.classifier_exists(classifier):
-                        classifiers_header = dict()
-                        classifiers_header['name'] = classifier
-                        classifiers_header['labels'] = db.get_classifier_labels(classifier)
-                        header.append(classifiers_header)
-                writer.writerow(['# ' + json.dumps({'classifiers': header})])
+                        header.append(
+                            classifier + ' = (' + ', '.join(db.get_classifier_labels(classifier)) + ')')
+                writer.writerow(header)
 
-                X = list()
-                id = list()
-                for document in db.get_dataset_documents_by_name(datasetname):
-                    id.append(document.external_id)
-                    X.append(document.text)
-                    if len(X) >= MAX_BATCH_SIZE:
-                        _classify_and_write(db, id, X, classifiers, writer)
-                        X = list()
-                        id = list()
-                if len(X) > 0:
-                    _classify_and_write(db, id, X, classifiers, writer)
+                batch_count = 0
+                found = True
+                while found:
+                    found = False
+                    X = list()
+                    id = list()
+                    for document in db.get_dataset_documents_by_name(datasetname,batch_count*MAX_BATCH_SIZE,MAX_BATCH_SIZE):
+                        id.append(document.external_id)
+                        X.append(document.text)
+                    if len(X) > 0:
+                        cols = list()
+                        cols.append(id)
+                        cols.append(X)
+                        for classifier in classifiers:
+                            cols.append(['%s:%s' % (classifier, y) for y in db.classify(classifier, X)])
+                        for row in zip(*cols):
+                            writer.writerow(row)
+                        found = True
+                    batch_count += 1
             try:
                 os.unlink(fullpath)
             except FileNotFoundError:
                 pass
             os.rename(tempfile, fullpath)
-        except:
+        except Exception as e:
             try:
                 os.unlink(tempfile)
             except FileNotFoundError:
@@ -401,21 +416,12 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                 os.unlink(fullpath)
             except FileNotFoundError:
                 pass
-
-
-def _classify_and_write(db, id, X, classifiers, writer):
-    cols = list()
-    cols.append(id)
-    cols.append(X)
-    for classifier in classifiers:
-        cols.append(['%s:%s' % (classifier, y) for y in db.classify(classifier, X)])
-    for row in zip(*cols):
-        writer.writerow(row)
+            raise
 
 
 def _create_dataset_documents(db_connection_string, dataset_name, filename):
     cherrypy.log(
-        '_create_dataset_documents._duplicate_trainingset(dataset_name="' + dataset_name + '", filename="' + filename + '")')
+        'DatasetCollectionService._create_dataset_documents(dataset_name="' + dataset_name + '", filename="' + filename + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         if not db.dataset_exists(dataset_name):
             db.create_dataset(dataset_name)
@@ -423,8 +429,22 @@ def _create_dataset_documents(db_connection_string, dataset_name, filename):
             csv.field_size_limit(CSV_LARGE_FIELD)
         with open(filename, 'r', encoding='utf-8', errors='ignore') as file:
             reader = csv.reader(file)
+            external_ids_and_contents = list()
             for row in reader:
                 if len(row) > 1:
-                    document_name = row[0]
+                    document_name = row[0].strip()
+                    if len(document_name)==0 or document_name[0]=='#':
+                        continue
                     content = row[1]
-                    db.create_dataset_document(dataset_name, document_name, content)
+                    external_ids_and_contents.append((document_name, content))
+                if len(external_ids_and_contents) >= MAX_BATCH_SIZE:
+                    db.create_dataset_documents(dataset_name, external_ids_and_contents)
+                    external_ids_and_contents = list()
+            if len(external_ids_and_contents) > 0:
+                db.create_dataset_documents(dataset_name, external_ids_and_contents)
+
+
+def _delete_dataset(db_connection_string, name):
+    cherrypy.log('DatasetCollectionService._delete_dataset(dname="' + name + '")')
+    with SQLAlchemyDB(db_connection_string) as db:
+        db.delete_dataset(name)

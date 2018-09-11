@@ -82,11 +82,10 @@ if __name__ == '__main__':
 
                 with open(args.output, mode=mode, encoding='utf-8', newline='') as outputfile:
                     if first_batch:
-                        header_start = '"# {""classifiers"": ['
-                        header_end = ']}"\n'
-                        header_list = ','.join(
-                            ['{""name"": ""' + label + '"", ""labels"": [""yes"", ""no""]}' for label in labels])
-                        outputfile.write(header_start + header_list + header_end)
+                        header = '#id, text'
+                        for label in labels:
+                            header += ', '+ label + ' = (' + ', '.join('yes','no') + ')'
+                        outputfile.write(header)
                         first_batch = False
                     writer = csv.writer(outputfile, lineterminator='\n')
                     for id_, text, example_label in zip(ids, X, y):

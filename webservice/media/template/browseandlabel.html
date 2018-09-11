@@ -2,8 +2,8 @@
 <%block name="head">
 ${parent.head()}
     <script type="text/javascript">
-       update_interval=5000
-       delay_interval=500
+        update_interval=5000
+        delay_interval=500
         last_update = 0
         function timed_update() {
             now = Date.now();
@@ -17,25 +17,24 @@ ${parent.head()}
         single = 'single';
         multi = 'multi';
 
-        browse_next = 'move to next';
-        browse_prev = 'move to previous';
-        browse_diff = 'active on difficult decisions';
-        browse_easy = 'active on easy decisions';
-        browse_hidden = 'cycle on hidden ones';
+        browse_next = 'next in order';
+        browse_prev = 'previous in order';
+        browse_diff = 'difficult decisions';
+        browse_easy = 'easy decisions';
+        browse_hidden = 'reevaluate non-relevant';
         browse_random = 'random';
-        browse_off = 'off';
 
         autobrowsevalues = [
             [browse_next,multi],
+            [browse_prev,multi],
+            [browse_random,multi],
             [browse_diff,single],
             [browse_easy,single],
-            [browse_hidden,single],
-            [browse_random,multi],
-            [browse_prev,multi],
-            [browse_off,multi]
+            [browse_hidden,single]
         ];
 
         autobrowse = 0;
+
         dataset_name = 'NULL';
         selected_classifiers = {};
 
@@ -74,7 +73,7 @@ ${parent.head()}
                         $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifiers available</div>');
                     }
                     else {
-                        if($('#_gotclassifiers').length==0)
+                        if($('#\\_gotclassifiers').length==0)
                             $('#classifiers\\_list').html('<div id="_gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
                             if($('#classifier\\_'+msg[i].name).length==0) {
@@ -97,48 +96,42 @@ ${parent.head()}
                                         var label = ''+msg[i].labels[j];
                                         var classifier_name = ''+msg[i].name;
                                         scoreline.click(function(){
-                                            if($('#suggestion_'+classifier_name+'_'+label).hasClass('assigned')) {
-                                                $('#history').prepend('<span class="agreement" style="color:lightgreen;">✓</span>');
-                                            }
-                                            else {
-                                                $('#history').prepend('<span class="agreement" style="color:red;">✗</span>');
-                                            }
-                                            var histsize = parseInt($("#histsize").val());
-                                            $('#history').children().slice(histsize).remove();
-                                            $('#suggestions\\_'+classifier_name).hide();
-                                            $.ajax({
-                                                type:'POST',
-                                                url:'${classifier_path}/update',
-                                                data: { name: classifier_name, X: [last_text], y: [label]/*, synchro: autobrowsevalues[autobrowse][1]==single*/ }})
-                                            .done(function() {
-                                                    $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
-                                                    check_autobrowse();
-                                                })
-                                            .fail(function(msg) {
+                                            if(!$('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('assigned')) {
+                                                if($('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('suggested')) {
+                                                    $('#history').prepend('<span class="agreement" style="color:lightgreen;">✓</span>');
+                                                }
+                                                else {
+                                                    $('#history').prepend('<span class="agreement" style="color:red;">✗</span>');
+                                                }
+                                                var histsize = parseInt($("#histsize").val());
+                                                $('#history').children().slice(histsize).remove();
+                                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                                                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                                                $('#suggestion\\_'+classifier_name+'\\_'+label).removeClass('not_relevant')
+                                                $('#suggestion\\_'+classifier_name+'\\_'+label).addClass('assigned')
+                                                $.ajax({
+                                                    type:'POST',
+                                                    url:'${classifier_path}/update',
+                                                    data: { name: classifier_name, X: [last_text], y: [label]}})
+                                                .fail(function(msg) {
                                                     custom_alert(msg);
-                                                    $('#suggestions\\_'+classifier_name).show();
                                                 });
+                                            }
                                         });
                                     }());
                                     $('#assignments\\_'+msg[i].name).append(scoreline);
                                 }
-                                var skipline = jQuery('<div class="pointer skip ui-corner-all margined morepadded">skip</div>');
-                                skipline.click((function () {
-                                    var classifier_name = ''+msg[i].name;
-                                    return function() {
-                                        $('#history').prepend('<span class="agreement" style="color:blue;">⬅</span>');
-                                        var histsize = parseInt($("#histsize").val());
-                                        $('#history').children().slice(histsize).remove();
-                                        $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
-                                        check_autobrowse(true);
-                                    };
-                                })());
-                                $('#assignments\\_'+msg[i].name).append(skipline);
 
-                                var hideline = jQuery('<div class="pointer hide ui-corner-all margined morepadded">hide</div>');
+                                var hideline = jQuery('<div id="'+msg[i].name+'_nonrel" class="scoreline pointer hide ui-corner-all margined morepadded">non-relevant</div>');
                                 hideline.click((function () {
                                     var classifier_name = ''+msg[i].name;
                                     return function() {
+                                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                                        $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                                        $('#'+classifier_name+'\\_nonrel').removeClass('not_relevant')
+                                        $('#'+classifier_name+'\\_nonrel').addClass('assigned')
                                         $('#history').prepend('<span class="agreement">🗑</span>');
                                         var histsize = parseInt($("#histsize").val());
                                         $('#history').children().slice(histsize).remove();
@@ -146,14 +139,9 @@ ${parent.head()}
                                             type:'POST',
                                             url:'${classifier_path}/hide',
                                             data: { name: classifier_name, X: [last_text]}})
-                                        .done(function() {
-                                                $('#suggestions\\_'+classifier_name).detach().appendTo('#pool').show();
-                                                check_autobrowse();
-                                            })
                                         .fail(function(msg) {
-                                                custom_alert(msg);
-                                                $('#suggestions\\_'+classifier_name).show();
-                                            });
+                                            custom_alert(msg);
+                                        });
                                     };
                                 })());
                                 $('#assignments\\_'+msg[i].name).append(hideline);
@@ -162,54 +150,46 @@ ${parent.head()}
                         $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
                             return $(a)[0].id.localeCompare($(b)[0].id);
                         }));
-                        if($('#skip\\_all').length==0) {
-                            skip_all = jQuery('<div id="skip_all" class="right">Skip all</div>');
-                            skip_all.button({ icons: {primary:'ui-icon-minus'} });
-                            skip_all.click(function() {
-                                $('#suggestions div div .skip').each(function(i,item) {
-                                    item.click();
-                                });
-                            });
-                            $('#suggestions').append(skip_all);
-                        }
                         if($('#all\\_correct').length==0) {
-                            all_correct = jQuery('<div id="all_correct" class="right">All correct</div>');
+                            var all_correct = jQuery('<div id="all_correct" class="right">Apply suggestions</div>');
                             all_correct.button({ icons: {primary:'ui-icon-check'} });
                             all_correct.click(function() {
-                                $('#suggestions div div .assigned').each(function(i,item) {
+                                $('#suggestions div div .suggested').each(function(i,item) {
                                     item.click();
                                 });
                             });
+                            if(!$('#showsugg').is(':checked')) {
+                                all_correct.hide();
+                                $('#historybox').hide();
+                            }
                             $('#suggestions').append(all_correct);
+                            var next_button = jQuery('<div id="next" class="right">Next</div>');
+                            next_button.button({ icons: {primary:'ui-icon-arrow-1-e'} });
+                            next_button.click(next_doc);
+                            $('#suggestions').append(next_button);
                         }
                     }
             });
         }
 
         function use() {
-            if(autobrowsevalues[autobrowse][1]==single) {
-                custom_alert("The selected classifier cannot be changed when using an active auto browsing function.");
+            var classifier_item = $(this).siblings('.classifier\\_name');
+            var classifier_name = classifier_item.text();
+            var item = $('#use\\_button\\_'+classifier_name);
+            if(item.hasClass('ui-state-focus')) {
+                classifier_item.removeClass('ui-state-highlight');
+                item.removeClass('ui-state-focus');
+                item.button({icons: {primary :'ui-icon-plus'}});
+                delete selected_classifiers[classifier_name];
+                $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
             }
             else {
-                var classifier_item = $(this).siblings('.classifier\\_name');
-                var classifier_name = classifier_item.text();
-                var item = $('#use\\_button\\_'+classifier_name);
-                if(item.hasClass('ui-state-focus')) {
-                    classifier_item.removeClass('ui-state-highlight');
-                    item.removeClass('ui-state-focus');
-                    item.button({icons: {primary :'ui-icon-plus'}});
-                    delete selected_classifiers[classifier_name];
-                    $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
-                    check_autobrowse();
-                }
-                else {
-                    classifier_item.addClass('ui-state-highlight');
-                    item.addClass('ui-state-focus');
-                    item.button({icons: {primary :'ui-icon-check'}});
-                    selected_classifiers[classifier_name] = true;
-                    $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
-                    classify(true);
-                }
+                classifier_item.addClass('ui-state-highlight');
+                item.addClass('ui-state-focus');
+                item.button({icons: {primary :'ui-icon-check'}});
+                selected_classifiers[classifier_name] = true;
+                $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
+                classify();
             }
         }
 
@@ -239,24 +219,35 @@ ${parent.head()}
         };
 
         last_text = ""
-        function classify(force) {
-            text = $("#textbox").val();
-            if(text!=last_text || force) {
+        function classify() {
+            if($('#showsugg').is(':checked')) {
+                var text = $("#textbox").val();
+                var force = text!=last_text;
+                if(force) {
+                    reset_labels();
+                }
                 last_text = text;
                 $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                     var classifier_name = $(item).text();
-                    $.ajax({
-                        type:'POST',
-                        url:'${classifier_path}/classify',
-                        data: { name: classifier_name, X: [text] },
-                        dataType: 'json'})
-                    .done(function(msg) {
-                        var assigned = msg[0];
-                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned')
-                        $('#assignments_'+classifier_name).children('.scoreline').addClass('not_relevant')
-                        $('#suggestion\\_'+classifier_name+'\\_'+assigned).removeClass('not_relevant')
-                        $('#suggestion\\_'+classifier_name+'\\_'+assigned).addClass('assigned')
-                    });
+                    var assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
+                    if(!assigned||force) {
+                        $.ajax({
+                            type:'POST',
+                            url:'${classifier_path}/classify',
+                            data: { name: classifier_name, X: [text] },
+                            dataType: 'json'})
+                        .done(function(msg) {
+                            var suggested = msg[0];
+                            assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
+                            if(!assigned || force) {
+                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                                $('#suggestion\\_'+classifier_name+'\\_'+suggested).removeClass('not_relevant');
+                                $('#suggestion\\_'+classifier_name+'\\_'+suggested).addClass('suggested');
+                            }
+                        });
+                    }
                 });
             }
         }
@@ -295,76 +286,90 @@ ${parent.head()}
             autobrowse += 1;
             if(autobrowse>= autobrowsevalues.length)
                 autobrowse = 0;
-            if(autobrowsevalues[autobrowse][1]==single) {
-                if($('#suggestions .suggestion').length!=1) {
-                    custom_alert("Active auto browse can be used only when exactly one classifier is selected");
-                    autobrowse = 0;
-                }
-            }
             $('#direction').text(autobrowsevalues[autobrowse][0]);
         }
 
-        function check_autobrowse() {
-            check_autobrowse(false);
+        function reset_labels() {
+            $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
+                var classifier_name = $(item).text();
+                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+            });
+            $('#pool div[id^=suggestions] .ui-widget-header').each(function(i,item) {
+                var classifier_name = $(item).text();
+                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+            });
         }
 
-
-        function check_autobrowse(fromSkip) {
-            if($('#suggestions .suggestion').length==0 && $('#classifiers\\_list div div.ui-state-focus').length>0) {
-                var classifier_name = $('#classifiers\\_list div div.ui-state-focus').siblings('.classifier\\_name').text();
-                if(autobrowsevalues[autobrowse][0]==browse_next) {
-                    var newposition = parseInt($("#position").val())+1;
-                    if(newposition<=datasetsize)
-                        $('#position').val(newposition).change();
+        function next_doc() {
+            var classifier_name = null;
+            var class_count = $('#classifiers\\_list div div.ui-state-focus').siblings('.classifier\\_name').length
+            if(class_count>0)
+                classifier_name = $('#classifiers\\_list div div.ui-state-focus').siblings('.classifier\\_name')[Math.floor(Math.random() * class_count)].textContent;
+            if(autobrowsevalues[autobrowse][0]==browse_next) {
+                var newposition = parseInt($("#position").val())+1;
+                if(newposition<=datasetsize) {
+                    $('#position').val(newposition).change();
                 }
-                else if(autobrowsevalues[autobrowse][0]==browse_prev) {
-                    var newposition = parseInt($("#position").val())-1;
-                    if(newposition>0)
-                        $('#position').val(newposition).change();
-                }
-                else if(autobrowsevalues[autobrowse][0]==browse_random) {
+            }
+            else if(autobrowsevalues[autobrowse][0]==browse_prev) {
+                var newposition = parseInt($("#position").val())-1;
+                if(newposition>0) {
+                    $('#position').val(newposition).change();
+                }            }
+            else if(autobrowsevalues[autobrowse][0]==browse_random) {
+                var newposition = Math.floor(Math.random() * datasetsize);
+                $('#position').val(newposition).change();
+            }
+            else if(autobrowsevalues[autobrowse][0]==browse_diff) {
+                if(classifier_name==null) {
                     var newposition = Math.floor(Math.random() * datasetsize);
                     $('#position').val(newposition).change();
                 }
-                else if(autobrowsevalues[autobrowse][0]==browse_diff) {
-                    if(fromSkip) {
-                        var newposition = Math.floor(Math.random() * datasetsize);
+                else {
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/most_uncertain_document_id',
+                        data: { name: dataset_name , classifier_name: classifier_name },
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
                         $('#position').val(newposition).change();
-                    }
-                    else {
-                        $.ajax({
-                            type:'POST',
-                            url:'${dataset_path}/most_uncertain_document_id',
-                            data: { name: dataset_name , classifier_name: classifier_name },
-                            dataType: 'json'})
-                        .done(function(msg) {
-                            var newposition = parseInt(msg);
-                            $('#position').val(newposition).change();
-                        })            .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
-            });;
-                    }
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
                 }
-                else if(autobrowsevalues[autobrowse][0]==browse_easy) {
-                    if(fromSkip) {
-                        var newposition = Math.floor(Math.random() * datasetsize);
+            }
+            else if(autobrowsevalues[autobrowse][0]==browse_easy) {
+                if(classifier_name==null) {
+                    var newposition = Math.floor(Math.random() * datasetsize);
+                    $('#position').val(newposition).change();
+                }
+                else {
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/most_certain_document_id',
+                        data: { name: dataset_name , classifier_name: classifier_name },
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
                         $('#position').val(newposition).change();
-                    }
-                    else {
-                        $.ajax({
-                            type:'POST',
-                            url:'${dataset_path}/most_certain_document_id',
-                            data: { name: dataset_name , classifier_name: classifier_name },
-                            dataType: 'json'})
-                        .done(function(msg) {
-                            var newposition = parseInt(msg);
-                            $('#position').val(newposition).change();
-                        })            .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
-            });;
-                    }
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
                 }
-                else if(autobrowsevalues[autobrowse][0]==browse_hidden) {
+            }
+            else if(autobrowsevalues[autobrowse][0]==browse_hidden) {
+                if(classifier_name==null) {
+                    var newposition = Math.floor(Math.random() * datasetsize);
+                    $('#position').val(newposition).change();
+                }
+                else {
                     $.ajax({
                         type:'POST',
                         url:'${dataset_path}/random_hidden_document_id',
@@ -373,10 +378,32 @@ ${parent.head()}
                     .done(function(msg) {
                         var newposition = parseInt(msg);
                         $('#position').val(newposition).change();
-                    })            .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
-            });;
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
                 }
+            }
+        }
+
+        function show_suggestions() {
+            if($('#showsugg').is(':checked')) {
+                $('#all\\_correct').show();
+                $('#historybox').show();
+                classify();
+            }
+            else {
+                $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
+                    var classifier_name = $(item).text();
+                    $('#assignments\\_'+classifier_name).children('.scoreline').each(function(i,item) {
+                        if($(item).hasClass('suggested')) {
+                            $(item).removeClass('suggested');
+                            $(item).addClass('not_relevant');
+                        }
+                    });
+                });
+                $('#all\\_correct').hide();
+                $('#historybox').hide();
             }
         }
 
@@ -397,7 +424,8 @@ ${parent.head()}
             $("#textbox").on("input",function() {
                 delay(function() {
                 $('#classifiers\\_list div div.ui-state-focus').each(function(){$('#suggestions\\_'+$(this).siblings('.classifier\\_name').text()).detach().appendTo('#suggestions').show();});
-                classify(false);
+                reset_labels();
+                classify();
             },delay_interval);});
 
             $("#create\\_classifier").submit(create_classifier);
@@ -412,10 +440,11 @@ ${parent.head()}
             $('#browse\\_last').click(goto_last);
             $('#browse\\_autobrowse').click(change_autobrowse);
 
+            $('#showsugg').change(show_suggestions);
 
             timed_update();
-
             goto_first();
+
         });
     </script>
 </%block>
@@ -453,10 +482,12 @@ ${parent.head()}
         <div class="margined ui-corner-all ui-widget ui-widget-content" >
             <div class="padded ui-widget-header ui-corner-all">Browse dataset '<span id="datasetname">NULL</span>':</div>
             <div class="padded">
-                <div class="right" id="browse_autobrowse">Auto browse: <span id='direction'>NULL</span></div>
-                <div class="right" id="browse_last">Last</div>
-                <div class="right" id="browse_first">First</div>
+                <label class="ui-button right" for="showsugg">Show labeling suggestions <input type="checkbox" id="showsugg" ></label>
+
                 <div class="ui-button">Current: <input id='position' type="number" min=0 max=0 value=0>/<span id="size">NULL</span></div>
+                <div id="browse_first">First</div>
+                <div id="browse_last">Last</div>
+                <div id="browse_autobrowse">Next document: <span id='direction'>NULL</span></div>
                 <div class="margined">ID: <span id="external-id">NULL</span></div>
                 <div class="margined">Uploaded: <span id="uploaded">NULL</span></div>
             </div>

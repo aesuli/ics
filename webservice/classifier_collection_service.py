@@ -56,7 +56,7 @@ class ClassifierCollectionService(object):
             classifier_info['description'] = self._db.get_classifier_description(name)
             classifier_info['created'] = str(self._db.get_classifier_creation_time(name))
             classifier_info['updated'] = str(self._db.get_classifier_last_update_time(name))
-            classifier_info['size'] = self._db.get_classifier_examples_count(name)
+            classifier_info['size'] = self._db.get_classifier_examples_count(name, True)
             result.append(classifier_info)
         return result
 
@@ -324,13 +324,15 @@ class ClassifierCollectionService(object):
         filename = get_fully_portable_file_name(filename)
         fullpath = os.path.join(self._download_dir, filename)
         if not os.path.isfile(fullpath):
-            header = dict()
-            header['classifiers'] = [{'name': name, 'labels': self._db.get_classifier_labels(name)}]
+            header = list()
+            header.append('#id')
+            header.append('text')
+            header.append(name + ' = (' + ', '.join(self._db.get_classifier_labels(name)) + ')')
             try:
-                with open(fullpath, 'w', encoding='utf-8') as file:
+                with open(fullpath, 'w', encoding='utf-8', newline='') as file:
                     writer = csv.writer(file, lineterminator='\n')
-                    writer.writerow(['# ' + json.dumps(header)])
-                    for i, classification in enumerate(self._db.get_classifier_examples(name)):
+                    writer.writerow(header)
+                    for i, classification in enumerate(self._db.get_classifier_examples(name, False)):
                         writer.writerow([i, classification.document.text,
                                          '%s:%s' % (name, classification.label.name)])
             except:
@@ -381,21 +383,8 @@ class ClassifierCollectionService(object):
 
         if csv.field_size_limit() < CSV_LARGE_FIELD:
             csv.field_size_limit(CSV_LARGE_FIELD)
+
         classifiers_definition = defaultdict(set)
-        with open(fullpath, 'r', encoding='utf-8', errors='ignore') as file:
-            try:
-                reader = csv.reader(file)
-                line = next(reader)[0].strip()
-                if len(line) > 0 and line[0] == '#':
-                    line = line[1:].strip()
-                header = json.loads(line)
-                for classifier_definition in header['classifiers']:
-                    classifier_name = classifier_definition['name']
-                    classifiers_definition[classifier_name].update(classifier_definition['labels'])
-            except Exception as e:
-                cherrypy.log(
-                    'No JSON header in uploaded file, scanning labels from the whole file. Exception:' + repr(e),
-                    severity=logging.INFO)
 
         with open(fullpath, 'r', encoding='utf-8', errors='ignore') as file:
             reader = csv.reader(file)
@@ -652,7 +641,7 @@ class ClassifierCollectionService(object):
 
         labels = set()
         for source_name in sources:
-            if set(self._db.get_classifier_labels(source_name)) == BINARY_LABELS:
+            if set(self._db.get_classifier_labels(source_name)) == set(BINARY_LABELS):
                 labels.add(source_name)
             else:
                 labels.update(self._db.get_classifier_labels(source_name))
@@ -676,15 +665,14 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "2.1.1 (db: %s)" % self._db.version()
+        return "3.1.1 (db: %s)" % self._db.version()
 
 
 def _update_trainingset(db_connection_string, name, X, y):
     cherrypy.log('ClassifierCollectionService._update_trainingset(name="' + name + '", len(X)="' + str(len(X)) + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_trainingset(db, name):
-            for (content, label) in zip(X, y):
-                db.create_training_example(name, content, label)
+            db.create_training_examples(name, list(zip(X, y)))
 
 
 def _update_model(db_connection_string, name, X, y):
@@ -743,20 +731,20 @@ def _duplicate_model(db_connection_string, name, new_name):
                 model.rename(new_name)
                 db.update_classifier_model(new_name, model)
         else:
-            padding = 0
-
+            block = 0
             batchsize = MAX_BATCH_SIZE
+
             batchX = list()
             batchy = list()
-            added = 1
-            while added > 0:
-                added = 0
-                example_numerator = db.get_classifier_examples(name, padding, batchsize)
+            added = True
+            while added:
+                added = False
+                example_numerator = db.get_classifier_examples(name, False, block * batchsize, batchsize)
                 for example in example_numerator:
                     batchX.append(example.document.text)
                     batchy.append(example.label.name)
-                    added += 1
-                padding += batchsize
+                    added = True
+                block += 1
                 r = random.random()
                 random.shuffle(batchX, lambda: r)
                 random.shuffle(batchy, lambda: r)
@@ -766,41 +754,44 @@ def _duplicate_model(db_connection_string, name, new_name):
 def _duplicate_trainingset(db_connection_string, name, new_name):
     cherrypy.log('ClassifierCollectionService._duplicate_trainingset(name="' + name + '", new_name="' + new_name + '")')
     with SQLAlchemyDB(db_connection_string) as db:
-        with _lock_trainingset(db, new_name):
-            batchsize = MAX_BATCH_SIZE
-            block = 0
+        batchsize = MAX_BATCH_SIZE
+        block = 0
+        added = True
+        while added:
             batch = list()
-            added = 1
-            while added > 0:
-                added = 0
-                for example in db.get_classifier_examples(name, block * batchsize, batchsize):
-                    batch.append((example.document.text, example.label.name))
-                    added += 1
-                for text, label in batch:
-                    db.create_training_example(new_name, text, label)
-                block += 1
+            added = False
+            for example in db.get_classifier_examples(name, True, block * batchsize, batchsize):
+                batch.append((example.document.text, example.label.name))
+                added = True
+            if len(batch) > 0:
+                with _lock_trainingset(db, new_name):
+                    db.create_training_examples(new_name, batch)
+            block += 1
 
 
-def _extract_binary_trainingset(db_connection_string, classifier, label):
+def _extract_binary_trainingset(db_connection_string, classifier, label_to_extract):
     cherrypy.log(
-        'ClassifierCollectionService._extract_binary_trainingset(classifier="' + classifier + '", label="' + label + '")')
+        'ClassifierCollectionService._extract_binary_trainingset(classifier="' + classifier + '", label="' + label_to_extract + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         batchsize = MAX_BATCH_SIZE
         block = 0
-        batchX = list()
-        batchy = list()
-        added = 1
-        while added > 0:
-            added = 0
-            for example in db.get_classifier_examples(classifier, block * batchsize, batchsize):
-                batchX.append(example.document.text)
-                if example.label.name == label:
-                    batchy.append(YES_LABEL)
+        added = True
+        while added:
+            batch = list()
+            added = False
+            for example in db.get_classifier_examples(classifier, False, block * batchsize, batchsize):
+                if example.label.name == label_to_extract:
+                    label = YES_LABEL
                 else:
-                    batchy.append(NO_LABEL)
-                added += 1
-            _update_trainingset(db_connection_string, label, batchX, batchy)
-            _update_model(db_connection_string, label, batchX, batchy)
+                    label = NO_LABEL
+                batch.append((example.document.text, label))
+
+                added = True
+            if len(batch) > 0:
+                with _lock_trainingset(db, label_to_extract):
+                    db.create_training_examples(label_to_extract, batch)
+                batchX, batchy = list(zip(*batch))
+                _update_model(db_connection_string, label_to_extract, batchX, batchy)
             block += 1
 
 
@@ -810,25 +801,25 @@ def _combine_classifiers(db_connection_string, name, sources):
     with SQLAlchemyDB(db_connection_string) as db:
         binary_sources = set()
         for source_name in sources:
-            if set(db.get_classifier_labels(source_name)) == BINARY_LABELS:
+            if set(db.get_classifier_labels(source_name)) == set(BINARY_LABELS):
                 binary_sources.add(source_name)
         sizes = list()
         for source in sources:
             if source in binary_sources:
                 sizes.append(db.get_classifier_examples_with_label_count(source, YES_LABEL))
             else:
-                sizes.append(db.get_classifier_examples_count(source))
+                sizes.append(db.get_classifier_examples_count(source, False))
         max_size = max(sizes)
         paddings = list()
         for size in sizes:
             paddings.append(size - max_size)
 
-        batchsize = MAX_BATCH_SIZE / len(sources)
+        batchsize = MAX_BATCH_SIZE // len(sources)
         batchX = list()
         batchy = list()
-        added = 1
-        while added > 0:
-            added = 0
+        added = True
+        while added:
+            added = False
             for i, source in enumerate(sources):
                 if paddings[i] < 0:
                     paddings[i] += batchsize
@@ -839,19 +830,23 @@ def _combine_classifiers(db_connection_string, name, sources):
                     for example in example_numerator:
                         batchX.append(example.document.text)
                         batchy.append(source)
-                        added += 1
+                        added = True
                 else:
-                    example_numerator = db.get_classifier_examples(source, paddings[i], batchsize)
+                    example_numerator = db.get_classifier_examples(source, False, paddings[i], batchsize)
                     for example in example_numerator:
                         batchX.append(example.document.text)
                         batchy.append(example.label.name)
-                        added += 1
+                        added = True
                 paddings[i] += batchsize
-            r = random.random()
-            random.shuffle(batchX, lambda: r)
-            random.shuffle(batchy, lambda: r)
-            _update_trainingset(db_connection_string, name, batchX, batchy)
-            _update_model(db_connection_string, name, batchX, batchy)
+            if len(batchX)>0:
+                pairs = list(zip(batchX,batchy))
+                random.shuffle(pairs)
+                batchX, batchy = zip(*pairs)
+
+                _update_trainingset(db_connection_string, name, batchX, batchy)
+                _update_model(db_connection_string, name, batchX, batchy)
+                batchX = list()
+                batchy = list()
 
 
 def _lock_model(db, name):
