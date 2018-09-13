@@ -734,10 +734,10 @@ def _duplicate_model(db_connection_string, name, new_name):
             block = 0
             batchsize = MAX_BATCH_SIZE
 
-            batchX = list()
-            batchy = list()
             added = True
             while added:
+                batchX = list()
+                batchy = list()
                 added = False
                 example_numerator = db.get_classifier_examples(name, False, block * batchsize, batchsize)
                 for example in example_numerator:
@@ -745,10 +745,11 @@ def _duplicate_model(db_connection_string, name, new_name):
                     batchy.append(example.label.name)
                     added = True
                 block += 1
-                r = random.random()
-                random.shuffle(batchX, lambda: r)
-                random.shuffle(batchy, lambda: r)
-                _update_model(db_connection_string, new_name, batchX, batchy)
+                if len(batchX) > 0:
+                    pairs = list(zip(batchX, batchy))
+                    random.shuffle(pairs)
+                    batchX, batchy = zip(*pairs)
+                    _update_model(db_connection_string, new_name, batchX, batchy)
 
 
 def _duplicate_trainingset(db_connection_string, name, new_name):
@@ -815,11 +816,11 @@ def _combine_classifiers(db_connection_string, name, sources):
             paddings.append(size - max_size)
 
         batchsize = MAX_BATCH_SIZE // len(sources)
-        batchX = list()
-        batchy = list()
         added = True
         while added:
             added = False
+            batchX = list()
+            batchy = list()
             for i, source in enumerate(sources):
                 if paddings[i] < 0:
                     paddings[i] += batchsize
@@ -845,8 +846,6 @@ def _combine_classifiers(db_connection_string, name, sources):
 
                 _update_trainingset(db_connection_string, name, batchX, batchy)
                 _update_model(db_connection_string, name, batchX, batchy)
-                batchX = list()
-                batchy = list()
 
 
 def _lock_model(db, name):

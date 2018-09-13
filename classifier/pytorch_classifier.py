@@ -1,6 +1,8 @@
 import hashlib
+import logging
 import re
 
+import cherrypy
 import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -58,7 +60,7 @@ class LSTMClassifier(Classifier):
                  class_lstm_layers=1, class_lin_layers_sizes=[128, 128, 128], dropout=0.1):
         lr = 0.01
         self.max_steps = 100
-        self.no_improvement_reset = 10
+        self.no_improvement_reset = 20
         self._name = name
         self.n_features = n_features
         self.min_accuracy = 0.9
@@ -82,36 +84,39 @@ class LSTMClassifier(Classifier):
         while step < self.max_steps:
             batch_size = 250
             batch_steps = X.shape[1] // batch_size
-            epochs = 1
-            for epoch in range(epochs):
-                for batch_step in range(batch_steps):
-                    batch_X = X[:, batch_step * batch_size:(batch_step + 1) * batch_size]
-                    batch_y = y[batch_step * batch_size:(batch_step + 1) * batch_size]
-                    self._net.train()
-                    self._optimizer.zero_grad()
-                    yhat = self._net(batch_X)
-                    loss = self._loss(yhat, batch_y)
-                    print('epoch', epoch, 'batch', batch_step, '/', batch_steps, 'loss', loss.item())
-                    loss.backward()
-                    self._optimizer.step()
+            for batch_step in range(batch_steps):
+                batch_X = X[:, batch_step * batch_size:(batch_step + 1) * batch_size]
+                batch_y = y[batch_step * batch_size:(batch_step + 1) * batch_size]
+                self._net.train()
+                self._optimizer.zero_grad()
+                yhat = self._net(batch_X)
+                loss = self._loss(yhat, batch_y)
+                loss.backward()
+                self._optimizer.step()
             self._net.eval()
             yhat = [scoring.index(max(scoring)) for scoring in self._net(X).exp().data.tolist()]
             accuracy = len([1 for pred, real in zip(yhat, y) if pred == real.item()]) / len(y)
-            print('accuracy', accuracy)
-            # if accuracy > self.min_accuracy:
-            #     print('accuracy break', accuracy)
-            #     break
-            # else:
-            #     if loss.item() < last_loss:
-            #         last_loss = loss.item()
-            #         no_improvement = self.no_improvement_reset
-            #     else:
-            #         no_improvement -= 1
-            #         if no_improvement == 0:
-            #             print('break', step)
-            #             break
+            if accuracy > self.min_accuracy:
+                cherrypy.log(
+                    'Classifier ' + self.name() + ': accuracy break (accuracy = ' + str(accuracy) + ', step = ' + str(
+                        step), severity=logging.INFO)
+                break
+            else:
+                if loss.item() < last_loss:
+                    last_loss = loss.item()
+                    no_improvement = self.no_improvement_reset
+                else:
+                    no_improvement -= 1
+                    if no_improvement == 0:
+                        cherrypy.log('Classifier ' + self.name() + ': no improvement break (accuracy = ' + str(
+                            accuracy) + ', step = ' + str(step), severity=logging.INFO)
+                        break
             step += 1
-        print('step', step)
+        if step == self.max_steps:
+            cherrypy.log(
+                'Classifier ' + self.name() + ': all steps break (accuracy = ' + str(accuracy) + ', step = ' + str(
+                    step),
+                severity=logging.INFO)
         return loss.item()
 
     def predict(self, X):
