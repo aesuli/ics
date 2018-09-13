@@ -319,8 +319,7 @@ ${parent.head()}
                         extract_dialog.append(labeldiv);
                     }
                     var typediv = jQuery('<div><p>\
-                                        <select id="extracttype">\
-                    <option value="Not specified">Not specified</option>\<%! from db import sqlalchemydb %>
+                                        <select id="extracttype">\<%! from db import sqlalchemydb %>
 % for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
                     <option value="${classifier_type}">${classifier_type}</option>\
 % endfor
@@ -486,8 +485,7 @@ ${parent.head()}
 			var duplicate_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' 	id=\'duplicate_classifier_'+classifier_name+'\'></div>');
 			var typediv = jQuery('<div><p><label for="new_name">Name:</label><input type="text" id="new_name"/></p>\
                  <p><label for="duplicatetype">Type:</label>\
-				<select id="duplicatetype">\
-                    <option value="Not specified">Not specified</option>\<%! from db import sqlalchemydb %>
+				<select id="duplicatetype">\<%! from db import sqlalchemydb %>
 % for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
                     <option value="${classifier_type}">${classifier_type}</option>\
 % endfor
