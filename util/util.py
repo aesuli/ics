@@ -1,3 +1,4 @@
+import argparse
 import re
 
 __author__ = 'Andrea Esuli'
@@ -11,3 +12,11 @@ def get_fully_portable_file_name(name):
     if badnames.match(name):
         name = '_' + name
     return name
+
+def str_to_bool(value):
+    if value.strip().lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif value.strip().lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Not a boolean value: '+value)

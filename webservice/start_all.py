@@ -8,6 +8,7 @@ import cherrypy
 from configargparse import ArgParser
 
 from db.sqlalchemydb import SQLAlchemyDB
+from util.util import str_to_bool
 from webservice.auth_controller_service import enable_controller_service, fail_with_error_message, redirect, any_of, \
     arg_len_cost_function
 from webservice.background_processor_service import BackgroundProcessor
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     parser.add_argument('--demo_path', help='server path of the web demo app', type=str, required=True)
     parser.add_argument('--ip_hourly_limit', help='ip hourly request limit', type=int, required=True)
     parser.add_argument('--ip_request_limit', help='ip total request limit', type=int, required=True)
-    parser.add_argument('--allow_unknown_ips', help='allow unknown IPs with rate limit', type=bool, required=True)
+    parser.add_argument('--allow_unknown_ips', help='allow unknown IPs with rate limit', type=str_to_bool, required=True)
     parser.add_argument('--user_auth_path', help='server path of the user auth web service', type=str, required=True)
     parser.add_argument('--ip_auth_path', help='server path of the ip auth web service', type=str, required=True)
     parser.add_argument('--key_auth_path', help='server path of the key auth web service', type=str, required=True)
