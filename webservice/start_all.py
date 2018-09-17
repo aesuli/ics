@@ -126,7 +126,7 @@ if __name__ == "__main__":
             '/': {
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
-                'tools.icsauth.require': [any_of(logged_in(), redirect(args.client_path + '/login'))],
+                'tools.icsauth.require': [any_of(logged_in(), redirect(args.client_path + 'login'))],
             },
             '/login': {
                 'tools.icsauth.require': [],
@@ -138,7 +138,7 @@ if __name__ == "__main__":
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
                 'tools.icsauth.require': [any_of(name_is(SQLAlchemyDB.admin_name()),
-                                                 redirect(args.admin_path + '/login'))],
+                                                 redirect(args.admin_path + 'login'))],
             },
             '/login': {
                 'tools.icsauth.require': [],
