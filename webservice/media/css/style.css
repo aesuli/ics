@@ -143,9 +143,9 @@ div .table   {
 }
 
 .suggested {
-    background-color: #d7f3d6;
+    background-color: lightcyan;
     background-image: none;
-    border: 1px solid lightgreen;
+    border: 1px solid cyan;
 }
 
 .assigned {
