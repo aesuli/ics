@@ -77,6 +77,7 @@ ${parent.head()}
                             $('#classifiers\\_list').html('<div id="_gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
                         for(var i = 0;i<msg.length;++i) {
                             if($('#classifier\\_'+msg[i].name).length==0) {
+                                $('#dup\\_from').append($('<option />').val(msg[i].name).text(msg[i].name));
                                 $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\' title="'+msg[i].description+'">\
                                 <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all left classifier_name\'>'+msg[i].name+'</div>\
                                 <div id=\'use_button_'+msg[i].name+'\' class=\'right\'>Use</div></div>');
@@ -213,6 +214,26 @@ ${parent.head()}
             $.ajax({
                 type: "POST",
                 url: "${classifier_path}/create",
+                data: data})
+            .done(update)
+            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
+            });
+            return false ;
+        };
+
+        function duplicate_classifier() {
+            name = $("#dup\\_name").val();
+            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            dup_from = $("#dup\\_from").val();
+            var duplicatetype = $("#dup\\_type").val();
+            var data = {name: dup_from, new_name: name, type: duplicatetype};
+            $.ajax({
+                type: "POST",
+                url: "${classifier_path}/duplicate",
                 data: data})
             .done(update)
             .fail(function(errMsg) {
@@ -449,6 +470,7 @@ ${parent.head()}
             },delay_interval);});
 
             $("#create\\_classifier").submit(create_classifier);
+            $("#duplicate\\_classifier").submit(duplicate_classifier);
 
             //$('#force\\_update').button().click(update);
             $( "input[type=submit]" ).button();
@@ -476,7 +498,7 @@ ${parent.head()}
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
-            <div class="padded ui-widget-header ui-corner-all">Create a classifier:</div>
+            <div class="padded ui-widget-header ui-corner-all">Create a classifier from scratch:</div>
             <form id="create_classifier" class="margined" action="#" method="post">
                 <p>
                 <label for="name">Name:</label>
@@ -487,6 +509,29 @@ ${parent.head()}
                  <p>
                     <label for="type">Type:</label>
                     <select id="type">
+<%! from db import sqlalchemydb %>
+% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+                        <option value="${classifier_type}">${classifier_type}</option>
+% endfor
+                    </select></p>
+                <p><label></label>
+                <input type="submit" value="Create" />
+                </p>
+            </form>
+        </div>
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_duplicate">
+            <div class="padded ui-widget-header ui-corner-all">Create a classifier from another one:</div>
+            <form id="duplicate_classifier" class="margined" action="#" method="post">
+                <p>
+                <label for="name">Name:</label>
+                <input type="text" id="dup_name" /> </p>
+                 <p>
+                    <label for="dup_from">From:</label>
+                    <select id="dup_from">
+                    </select></p>
+                 <p>
+                    <label for="dup_type">Type:</label>
+                    <select id="dup_type">
 <%! from db import sqlalchemydb %>
 % for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
                         <option value="${classifier_type}">${classifier_type}</option>
