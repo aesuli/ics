@@ -10,7 +10,7 @@
                 type: "POST",
                 url: "${user_auth_path}/login",
                 data: data})
-            .done(function(){window.location.href = '${mount_dir}';})
+            .done(function(){window.location.href = '${mount_dir}/';})
             .fail(function(errMsg) {
                 $('#msg').text(errMsg.responseText);
             });
