@@ -98,13 +98,16 @@ ${parent.head()}
                                         scoreline.click(function(){
                                             if(!$('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('assigned')) {
                                                 if($('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('suggested')) {
-                                                    $('#history').prepend('<span class="agreement" style="color:lightgreen;">✓</span>');
+                                                    $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
                                                 }
                                                 else {
-                                                    $('#history').prepend('<span class="agreement" style="color:red;">✗</span>');
+                                                    $('#history').prepend('<span class="agreement no" style="color:red;">✗</span>');
                                                 }
                                                 var histsize = parseInt($("#histsize").val());
                                                 $('#history').children().slice(histsize).remove();
+                                                var total = $('#history').children().length;
+                                                var positive = $('#history').children('.yes').length;
+                                                $('#accuracy').text((positive/total).toFixed(2));
                                                 $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                                                 $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
                                                 $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
@@ -151,7 +154,11 @@ ${parent.head()}
                             return $(a)[0].id.localeCompare($(b)[0].id);
                         }));
                         if($('#all\\_correct').length==0) {
-                            var all_correct = jQuery('<div id="all_correct" class="right">Apply suggestions</div>');
+                            var next_button = jQuery('<div id="next" class="right">Next</div>');
+                            next_button.button({ icons: {primary:'ui-icon-arrow-1-e'} });
+                            next_button.click(next_doc);
+                            $('#suggestions').append(next_button);
+                            var all_correct = jQuery('<div id="all_correct" class="right"><span class="suggested">Suggestions</span> are correct</div>');
                             all_correct.button({ icons: {primary:'ui-icon-check'} });
                             all_correct.click(function() {
                                 $('#suggestions div div .suggested').each(function(i,item) {
@@ -163,10 +170,6 @@ ${parent.head()}
                                 $('#historybox').hide();
                             }
                             $('#suggestions').append(all_correct);
-                            var next_button = jQuery('<div id="next" class="right">Next</div>');
-                            next_button.button({ icons: {primary:'ui-icon-arrow-1-e'} });
-                            next_button.click(next_doc);
-                            $('#suggestions').append(next_button);
                         }
                     }
             });
@@ -482,7 +485,7 @@ ${parent.head()}
         <div class="margined ui-corner-all ui-widget ui-widget-content" >
             <div class="padded ui-widget-header ui-corner-all">Browse dataset '<span id="datasetname">NULL</span>':</div>
             <div class="padded">
-                <label class="ui-button right" for="showsugg">Show labeling suggestions <input type="checkbox" id="showsugg" ></label>
+                <label class="ui-button right" for="showsugg">Show labeling <span class="suggested">suggestions</span> <input type="checkbox" id="showsugg" ></label>
 
                 <div class="ui-button">Current: <input id='position' type="number" min=0 max=0 value=0>/<span id="size">NULL</span></div>
                 <div id="browse_first">First</div>
@@ -496,7 +499,7 @@ ${parent.head()}
             <div class="padded ui-widget-header ui-corner-all">Classify text:</div>
             <div class="padded"><textarea id="textbox" class="textbox padded" placeholder="Text to code"></textarea></div>
                 <div id="historybox" class="margined padded ui-widget-content suggestion-container">
-                    Agreement history (last <input id="histsize" type="number" min="10" max="500" value="20">): <div id="history"></div>
+                   Accuracy on last <input id="histsize" type="number" min="10" max="500" value="50">: <span id="accuracy">n/a</span><br/> Agreement history: <div id="history"></div>
                 </div>
                 <div id="suggestions" class="margined padded ui-widget-content suggestion-container"></div>
                 <div id="pool" style="display:none;"></div>
