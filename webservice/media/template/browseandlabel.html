@@ -17,20 +17,20 @@ ${parent.head()}
         single = 'single';
         multi = 'multi';
 
-        browse_next = 'next in order';
-        browse_prev = 'previous in order';
-        browse_diff = 'difficult decisions';
-        browse_easy = 'easy decisions';
-        browse_hidden = 'reevaluate non-relevant';
-        browse_random = 'random';
+        browse_next = 'test (in order)';
+        //browse_prev = 'previous in order';
+        browse_diff = 'train';
+        //browse_easy = 'easy decisions';
+        //browse_hidden = 'reevaluate non-relevant';
+        browse_random = 'test (random)';
 
         autobrowsevalues = [
-            [browse_next,multi],
-            [browse_prev,multi],
-            [browse_random,multi],
             [browse_diff,single],
-            [browse_easy,single],
-            [browse_hidden,single]
+            [browse_next,multi],
+            //[browse_prev,multi],
+            [browse_random,multi],
+            //[browse_easy,single],
+            //[browse_hidden,single]
         ];
 
         autobrowse = 0;
@@ -290,6 +290,21 @@ ${parent.head()}
             if(autobrowse>= autobrowsevalues.length)
                 autobrowse = 0;
             $('#direction').text(autobrowsevalues[autobrowse][0]);
+            if(autobrowsevalues[autobrowse][0]==browse_diff) {
+                $('#showsugg').prop('checked', false);
+                show_suggestions();
+                next_doc();
+            }
+            else if(autobrowsevalues[autobrowse][0]==browse_next) {
+                $('#showsugg').prop('checked', true);
+                show_suggestions();
+                goto_first();
+            }
+            else if(autobrowsevalues[autobrowse][0]==browse_random) {
+                $('#showsugg').prop('checked', true);
+                show_suggestions();
+                next_doc();
+            }
         }
 
         function reset_labels() {
@@ -316,18 +331,20 @@ ${parent.head()}
                 var newposition = parseInt($("#position").val())+1;
                 if(newposition<=datasetsize) {
                     $('#position').val(newposition).change();
-                }
             }
-            else if(autobrowsevalues[autobrowse][0]==browse_prev) {
-                var newposition = parseInt($("#position").val())-1;
-                if(newposition>0) {
-                    $('#position').val(newposition).change();
-                }            }
+            }
+            //else if(autobrowsevalues[autobrowse][0]==browse_prev) {
+            //    var newposition = parseInt($("#position").val())-1;
+            //    if(newposition>0) {
+            //        $('#position').val(newposition).change();
+            //    }
+            //}
             else if(autobrowsevalues[autobrowse][0]==browse_random) {
                 var newposition = Math.floor(Math.random() * datasetsize);
                 $('#position').val(newposition).change();
             }
-            else if(autobrowsevalues[autobrowse][0]==browse_diff) {
+            else
+            if(autobrowsevalues[autobrowse][0]==browse_diff) {
                 if(classifier_name==null) {
                     var newposition = Math.floor(Math.random() * datasetsize);
                     $('#position').val(newposition).change();
@@ -347,26 +364,26 @@ ${parent.head()}
                     });
                 }
             }
-            else if(autobrowsevalues[autobrowse][0]==browse_easy) {
-                if(classifier_name==null) {
-                    var newposition = Math.floor(Math.random() * datasetsize);
-                    $('#position').val(newposition).change();
-                }
-                else {
-                    $.ajax({
-                        type:'POST',
-                        url:'${dataset_path}/most_certain_document_id',
-                        data: { name: dataset_name , classifier_name: classifier_name },
-                        dataType: 'json'})
-                    .done(function(msg) {
-                        var newposition = parseInt(msg);
-                        $('#position').val(newposition).change();
-                    })
-                    .fail(function(errMsg) {
-                        custom_alert(errMsg.responseText);
-                    });
-                }
-            }
+            //else if(autobrowsevalues[autobrowse][0]==browse_easy) {
+            //    if(classifier_name==null) {
+            //        var newposition = Math.floor(Math.random() * datasetsize);
+            //        $('#position').val(newposition).change();
+            //    }
+            //    else {
+            //        $.ajax({
+            //            type:'POST',
+            //            url:'${dataset_path}/most_certain_document_id',
+            //            data: { name: dataset_name , classifier_name: classifier_name },
+            //            dataType: 'json'})
+            //        .done(function(msg) {
+            //            var newposition = parseInt(msg);
+            //            $('#position').val(newposition).change();
+            //        })
+            //        .fail(function(errMsg) {
+            //            custom_alert(errMsg.responseText);
+            //        });
+            //    }
+            //}
             else if(autobrowsevalues[autobrowse][0]==browse_hidden) {
                 if(classifier_name==null) {
                     var newposition = Math.floor(Math.random() * datasetsize);
@@ -485,12 +502,12 @@ ${parent.head()}
         <div class="margined ui-corner-all ui-widget ui-widget-content" >
             <div class="padded ui-widget-header ui-corner-all">Browse dataset '<span id="datasetname">NULL</span>':</div>
             <div class="padded">
-                <label class="ui-button right" for="showsugg">Show labeling <span class="suggested">suggestions</span> <input type="checkbox" id="showsugg" ></label>
+                <div class="hidden"><label class="ui-button right" for="showsugg">Show labeling <span class="suggested">suggestions</span> <input type="checkbox" id="showsugg" ></label></div>
 
                 <div class="ui-button">Current: <input id='position' type="number" min=0 max=0 value=0>/<span id="size">NULL</span></div>
                 <div id="browse_first">First</div>
                 <div id="browse_last">Last</div>
-                <div id="browse_autobrowse">Next document: <span id='direction'>NULL</span></div>
+                <div id="browse_autobrowse" class="right">Browsing mode: <span id='direction'>NULL</span></div>
                 <div class="margined">ID: <span id="external-id">NULL</span></div>
                 <div class="margined">Uploaded: <span id="uploaded">NULL</span></div>
             </div>

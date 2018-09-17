@@ -138,6 +138,10 @@ div .table   {
     padding: 2px;
 }
 
+.hidden {
+    display:none;
+}
+
 .pointer {
     cursor: pointer;
 }
