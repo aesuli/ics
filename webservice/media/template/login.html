@@ -23,13 +23,15 @@
 </script>
 </%block>
 <p>&nbsp;</p>
-<div class="margined  ui-corner-all ui-widget ui-widget-content" style="display: inline-block;margin-left:40%;" id="login">
+<div id="main">
+<div class="margined  ui-corner-all ui-widget ui-widget-content" style="display:inline-block;margin-left:40%;" id="login">
 <div class="padded ui-widget-header ui-corner-all" style="margin: 0 auto;">Please login</div>
-<form method="post" action="#" autocomplete="on">
+<div style="margin: 0 auto;"><form method="post" action="#" autocomplete="on">
     <p>    <label for="username">Username:</label> <input id="username" type="text" name="username" value="${username}" autofocus/></p>
    <p>  <label for="password">Password:</label> <input id="password" type="password" name="password"/></p>
    <label></label> <input type="submit" value="Log in"/>
 </form>
-</div>
+</div></div>
 <p id="msg">${msg}</p>
 <p>&nbsp;</p>
+</div>

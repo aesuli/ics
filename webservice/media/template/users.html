@@ -17,6 +17,7 @@ ${parent.head()}
                          count<select id="pagesize"><option value="10" selected>10</option>\
                          <option value="20">20</option><option value="50" >50</option>\
                          <option value="100">100</option><option value="200">200</option></select></div></div>');
+
         function timed_update() {
             now = Date.now();
             if(now-last_update>update_interval)
@@ -45,7 +46,7 @@ ${parent.head()}
                 data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
             .done( function(msg) {
-                $('#users\\_list div .user\\_name').each(function(i,item) {
+                $('#data\\_list div .user\\_name').each(function(i,item) {
                     var found = false;
                     for(var i = 0;i<msg.length;++i) {
                         if($(item).text()==msg[i].name) {
@@ -58,22 +59,22 @@ ${parent.head()}
                     }
                 });
                 if(msg.length==0) {
-                    $('#users\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No users</div>');
+                    $('#data\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No users</div>');
                     $('#nodata').prepend(pagination_div);
                     $('#page').val(1);
                 }
                 else {
                     if($('#gotusers').length==0) {
-                        $('#users\\_list').html('<div id="gotusers" class="padded ui-widget-header ui-corner-all">Users:</div>\
+                        $('#data\\_list').html('<div id="gotusers" class="padded ui-widget-header ui-corner-all">Users:</div>\
                         <div id="data" class="table margined ui-widget-content ui-corner-all">\
-                        <div><div>name</div>\
-                        <div>created</div>\
-                        <div>last updated</div>\
-                        <div>total requests</div>\
-                        <div>request limit</div>\
-                        <div>hourly limit</div>\
-                        <div>requests this hour</div>\
-                        <div>actions</div>\
+                        <div><div>Name</div>\
+                        <div>Created</div>\
+                        <div>Updated</div>\
+                        <div>Total requests</div>\
+                        <div>Request limit</div>\
+                        <div>Hourly limit</div>\
+                        <div>Requests this hour</div>\
+                        <div>Actions</div>\
                         </div></div>');
                         $('#gotusers').prepend(pagination_div);
                     }
@@ -84,19 +85,19 @@ ${parent.head()}
                         var sort_string = msg[i].name.replace(/\W/g,'X')
                         item = jQuery('<div id=\'entry_'+sort_string+'\'>\
                         <div class="id">'+msg[i].name+'</div>\
-                        <div class="small">'+msg[i].created+'</div>\
-                        <div class="small">'+msg[i].updated+'</div>\
+                        <div class="small">'+msg[i].created.slice(0,-13)+'</div>\
+                        <div class="small">'+msg[i].updated.slice(0,-13)+'</div>\
                         <div>'+msg[i].total_request_counter+'</div>\
                         <div>'+msg[i].request_limit+'</div>\
                         <div>'+msg[i].hourly_limit+'</div>\
                         <div>'+msg[i].current_request_counter+'</div>\
-                        <div>\
-                            <div id="change_password_button_'+name_string+'">Change password</div>\
+                        <div><ul id="actions_'+name_string+'"><li>Actions<ul>\
+                            <li><div id="change_password_button_'+name_string+'">Change password</div></li>\
 % if username == 'admin':
-                            <div id="change_request_limit_'+name_string+'">Change request limit</div>\
-                            <div id="change_hourly_limit_'+name_string+'">Change hourly limit</div>\
-                            <div id="counter_reset_'+name_string+'">Reset current counter</div>\
-                            <div id="delete_'+name_string+'">Delete</div>\
+                            <li><div id="change_request_limit_'+name_string+'">Change request limit</div></li>\
+                            <li><div id="change_hourly_limit_'+name_string+'">Change hourly limit</div></li>\
+                            <li><div id="counter_reset_'+name_string+'">Reset current counter</div></li>\
+                            <li><div id="delete_'+name_string+'">Delete</div></li>\
 % endif
                         </div>\
                         </div>');
@@ -106,18 +107,14 @@ ${parent.head()}
                         }
                         else
                             $('#data').append(item);
+                        $('#actions\\_'+name_string).menu();
 % if username == 'admin':
-                        $('#change\\_request\\_limit\\_'+name_string).button({ icons: {primary:'ui-icon-alert'} });
-                        $('#change\\_request\\_limit\\_'+name_string).click(change_request_limit);
-                        $('#change\\_hourly\\_limit\\_'+name_string).button({ icons: {primary:'ui-icon-clock'} });
-                        $('#change\\_hourly\\_limit\\_'+name_string).click(change_hourly_limit);
-                        $('#counter_reset\\_'+name_string).button({ icons: {primary:'ui-icon-arrowreturn-1-w'} });
-                        $('#counter_reset\\_'+name_string).click(reset_user);
-                        $('#delete\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
-                        $('#delete\\_'+name_string).click(delete_user);
+                        $('#change\\_request\\_limit\\_'+name_string).click(change_request_limit.bind(null,msg[i].name));
+                        $('#change\\_hourly\\_limit\\_'+name_string).click(change_hourly_limit.bind(null,msg[i].name));
+                        $('#delete\\_'+name_string).click(delete_user.bind(null,msg[i].name));
+                        $('#counter_reset\\_'+name_string).click(reset_user.bind(null,msg[i].name));
 % endif
-                        $('#change\\_password\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#change\\_password\\_button\\_'+name_string).click(change_password);
+                        $('#change\\_password\\_button\\_'+name_string).click(change_password.bind(null,msg[i].name));
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
@@ -152,8 +149,7 @@ ${parent.head()}
             return false;
         };
 
-        function reset_user() {
-            var user_name = $(this).parent().siblings('.id').text();
+        function reset_user(user_name) {
             $.ajax({
                 type:'POST',
                 url:'${user_auth_path}/set_current_request_counter/'+user_name })
@@ -161,8 +157,7 @@ ${parent.head()}
             .fail(update);
         };
 
-        function change_hourly_limit() {
-            var user_name = $(this).parent().siblings('.id').text();
+        function change_hourly_limit(user_name) {
             var name_string = user_name.replace(/\W/g,'X');
             var change_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'diag_change_hourly_limit_'+name_string+'\'><div><label for="new_limit_'+name_string+'">New hourly limit:</label><input id="new_limit_'+name_string+'" type="number" value="100"></div></div>');
             change_dialog.dialog({modal:true,
@@ -191,8 +186,7 @@ ${parent.head()}
                                   });
         };
 
-        function change_request_limit() {
-            var user_name = $(this).parent().siblings('.id').text();
+        function change_request_limit(user_name) {
             var name_string = user_name.replace(/\W/g,'X');
             var change_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'diag_change_request_limit_'+name_string+'\'><div><label for="new_limit_'+name_string+'">New request limit:</label><input id="new_request_limit_'+name_string+'" type="number" value="10000"></div></div>');
             change_dialog.dialog({modal:true,
@@ -221,11 +215,11 @@ ${parent.head()}
                                   });
         };
 
-        function delete_user() {
+        function delete_user(user_name) {
             if(!confirm('Please confirm the DELETE request, proceed?'))
                 return;
-            var user_name = $(this).parent().siblings('.id').text();
-            $('#entry\\_'+user_name).hide();
+            var name_string = user_name.replace(/\W/g,'X');
+            $('#entry\\_'+name_string).hide();
             $.ajax({
                 type:'POST',
                 url:'${user_auth_path}/delete/'+user_name })
@@ -236,9 +230,8 @@ ${parent.head()}
             });
         };
 
-        function change_password() {
-            var user_name = $(this).parent().siblings('.id').text();
-            var change_password_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'change_password_'+user_name+'\'><div><label for="change_password_new_password_'+user_name+'">New password:</label><input id="change_password_new_password_'+user_name+'" type="password"><label for="change_password_confirm_password_'+user_name+'">Confirm new password:</label><input id="change_password_confirm_password_'+user_name+'" type="password"></div></div>');
+        function change_password(user_name) {
+            var change_password_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' d=\'change_password_'+user_name+'\'><div><label for="change_password_new_password_'+user_name+'">New password:</label><input id="change_password_new_password_'+user_name+'" type="password"><label for="change_password_confirm_password_'+user_name+'">Confirm new password:</label><input id="change_password_confirm_password_'+user_name+'" type="password"></div></div>');
             change_password_dialog.dialog({modal:true,
                                     title:'Change password',
                                     width: $(window).width()*0.5,
@@ -304,7 +297,7 @@ ${parent.head()}
         </div>
     </div>
     <div id="center">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="users_list">
+        <div class="margined ui-corner-all ui-widget ui-widget-content" id="data_list">
         </div>
     </div>
 </div>

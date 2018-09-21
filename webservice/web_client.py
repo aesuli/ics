@@ -71,19 +71,19 @@ class WebClient(object):
         return self.datasets()
 
     @cherrypy.expose
-    def typeandlabel(self):
-        template = self._lookup.get_template('typeandlabel.html')
+    def typeandcode(self):
+        template = self._lookup.get_template('typeandcode.html')
         return template.render(**{**self._template_data, **self.session_data()})
 
     @cherrypy.expose
-    def browseandlabel(self, name=None):
+    def browseandcode(self, name=None):
         if name is None:
             raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
 
         if not self._db.dataset_exists(name):
             raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
 
-        template = self._lookup.get_template('browseandlabel.html')
+        template = self._lookup.get_template('browseandcode.html')
         return template.render(**{**self._template_data, **self.session_data()})
 
     @cherrypy.expose
@@ -152,4 +152,4 @@ class WebClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "2.1.1"
+        return "3.1.1"

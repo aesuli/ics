@@ -41,7 +41,7 @@ ${parent.head()}
                 url:'${dataset_path}/info',
                 dataType: 'json',})
             .done(function(msg) {
-                $('#datasets\\_list div .dataset\\_name').each(function(i,item) {
+                $('#data\\_list div .dataset\\_name').each(function(i,item) {
                     var found = false;
                     for(var i = 0;i<msg.length;++i) {
                         if($(item).text()==msg[i].name) {
@@ -54,19 +54,19 @@ ${parent.head()}
                     }
                 });
                 if(msg.length==0) {
-                    $('#datasets\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No dataset available</div>');
+                    $('#data\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No dataset available</div>');
                     $('#nodata').prepend(pagination_div);
                     $('#page').val(1);
                 }
                 else {
                     if($('#gotdata').length==0) {
-                        $('#datasets\\_list').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Datasets:</div>\
+                        $('#data\\_list').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Datasets:</div>\
                         <div id="data" class="table margined ui-widget-content ui-corner-all">\
-                        <div><div>name</div>\
-                        <div>size</div>\
-                        <div>created</div>\
-                        <div>updated</div>\
-                        <div>actions</div>\
+                        <div><div>Name</div>\
+                        <div>Size</div>\
+                        <div>Created</div>\
+                        <div>Updated</div>\
+                        <div>Actions</div>\
                         </div></div>');
                         $('#gotdata').prepend(pagination_div);
                     }
@@ -78,16 +78,16 @@ ${parent.head()}
                         item = jQuery('<div id=\'entry_'+sort_string+'\'>\
                         <div class="id">'+msg[i].name+'</div>\
                         <div class="small">'+msg[i].size+'</div>\
-                        <div class="small">'+msg[i].created+'</div>\
-                        <div class="small">'+msg[i].updated+'</div>\
-                        <div>\
-                            <div id="browse_button_'+name_string+'">Browse &amp; label</div>\
-                            <div id="classify_button_'+name_string+'">Classifications</div>\
-                            <div id="rename_button_'+name_string+'">Rename</div>\
-                            <div id="upload_button_'+name_string+'">Select for upload</div>\
-                            <div id="download_button_'+name_string+'">Download</div>\
-                            <div id="del_button_'+name_string+'">Delete</div>\
-                        </div>\
+                        <div class="small">'+msg[i].created.slice(0,-13)+'</div>\
+                        <div class="small">'+msg[i].updated.slice(0,-13)+'</div>\
+                        <div><ul id="actions_'+name_string+'"><li>Actions<ul>\
+                            <li><div id="browse_button_'+name_string+'">Browse &amp; code</div></li>\
+                            <li><div id="classify_button_'+name_string+'">Classify</div></li><li />\
+                            <li><div id="rename_button_'+name_string+'">Rename</div></li>\
+                            <li><div id="upload_button_'+name_string+'">Select for upload</div></li>\
+                            <li><div id="download_button_'+name_string+'">Download</div></li>\
+                            <li><div id="del_button_'+name_string+'">Delete</div>\
+                        </ul></li></ul></div>\
                         </div>');
                         if ($('#entry\\_'+sort_string).length!=0) {
                             $('#entry\\_'+sort_string).replaceWith(item)
@@ -95,15 +95,16 @@ ${parent.head()}
                         }
                         else
                             $('#data').append(item);
-                        $('#browse\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-search'} });
+                        $('#actions\\_'+name_string).menu();
+                       // $('#browse\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-search'} });
                         $('#browse\\_button\\_'+name_string).click(
                             (function() {
                                 var dataset_name = msg[i].name;
                                 return function() {
-                                    window.location.href = '${mount_dir}/browseandlabel/'+dataset_name;
+                                    window.location.href = '${mount_dir}/browseandcode/'+dataset_name;
                                 }
                         })());
-                        $('#classify\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
+                        //$('#classify\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-tag'} });
                         $('#classify\\_button\\_'+msg[i].name).click(
                             (function() {
                                 var dataset_name = msg[i].name;
@@ -111,7 +112,7 @@ ${parent.head()}
                                     window.location.href = '${mount_dir}/classify/'+dataset_name;
                                 }
                         })());
-                        $('#upload\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
+                        //$('#upload\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthick-1-n'} });
                         $('#upload\\_button\\_'+name_string).click(
                             (function() {
                                 var dataset_name = msg[i].name;
@@ -120,12 +121,12 @@ ${parent.head()}
                                     $('#dataset\\_upload').effect("bounce", {'distance':'5', 'times':'2'}, 200)
                                 }
                         })());
-                        $('#download\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                        $('#download\\_button\\_'+name_string).click(download_dataset);
-                        $('#rename\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#rename\\_button\\_'+name_string).click(rename_dataset);
-                        $('#del\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
-                        $('#del\\_button\\_'+name_string).click(delete_dataset);
+                        //$('#download\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                        $('#download\\_button\\_'+name_string).click(download_dataset.bind(null,msg[i].name));
+                        //$('#rename\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
+                        $('#rename\\_button\\_'+name_string).click(rename_dataset.bind(null,msg[i].name));
+                        //$('#del\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#del\\_button\\_'+name_string).click(delete_dataset.bind(null,msg[i].name));
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
@@ -172,8 +173,7 @@ ${parent.head()}
             return false ;
         };
 
-        function rename_dataset() {
-            var dataset_name =  $(this).parent().siblings('.id').text();
+        function rename_dataset(dataset_name) {
             var rename_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'rename_dataset_'+dataset_name+'\'><input id="rename_new_name_'+dataset_name+'" type="text"></div>');
             rename_dialog.dialog({modal:true,
                                     title:'Rename dataset',
@@ -201,11 +201,9 @@ ${parent.head()}
                                   });
         };
 
-        function delete_dataset() {
+        function delete_dataset(dataset_name) {
             if(!confirm('Please confirm the DELETE request, proceed?'))
                 return;
-            var dataset_name =  $(this).parent().siblings('.id').text();
-            $('#dataset\\_'+dataset_name).hide();
             $.ajax({
                 type:'POST',
                 url:'${dataset_path}/delete/'+dataset_name})
@@ -215,8 +213,7 @@ ${parent.head()}
             });
         };
 
-        function download_dataset() {
-            var dataset_name =  $(this).parent().siblings('.id').text();
+        function download_dataset(dataset_name) {
             var form = $('<form></form>').attr('action', '${dataset_path}/download/'+dataset_name).attr('method', 'post');
             form.appendTo('body').submit().remove();
         };
@@ -243,16 +240,16 @@ ${parent.head()}
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="dataset_upload">
             <div class="padded ui-widget-header ui-corner-all">Upload documents to a dataset (create if missing):</div>
             <form enctype="multipart/form-data" id="upload_form" class="margined" action="#" method="post">
-                <p><label for="name">Dataset name:</label><input type="text" id="name"/></p>
+                <p><label class="margined"  for="name">Dataset name:</label><input class="margined"  type="text" id="name"/></p>
 
-                <p><label>Data file:</label><input type="file" id="dataFile"/></p>
+                <p><label class="margined" >Data file:</label><input class="margined"  type="file" id="dataFile"/></p>
 
-                <p><label></label><input id="upload_button" type="submit" value="Upload"/></p>
+                <p><label></label><input id="upload_button" class="margined"  type="submit" value="Upload"/></p>
             </form>
         </div>
     </div>
     <div id="center">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="datasets_list">
+        <div class="margined ui-corner-all ui-widget ui-widget-content" id="data_list">
         </div>
     </div>
 </div>

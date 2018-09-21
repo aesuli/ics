@@ -792,6 +792,18 @@ class SQLAlchemyDB(object):
                     .limit(limit)
                     )
 
+    def get_dataset_documents_without_labels_count(self, dataset_name, classifier_name):
+        with self.session_scope() as session:
+            return (session.query(DatasetDocument)
+                    .join(DatasetDocument.dataset)
+                    .filter(Dataset.name == dataset_name)
+                    .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
+                                                     Classification.classifier_id == Classifier.id,
+                                                     Classifier.name == classifier_name,
+                                                     TrainingDocument.id == Classification.document_id))))
+                    .count()
+                    )
+
     def get_dataset_documents_by_name(self, name, offset=0, limit=None):
         with self.session_scope() as session:
             return (session.query(DatasetDocument)

@@ -52,10 +52,10 @@ ${parent.head()}
                     if($('#gotlock').length==0) {
                         $('#lock\\_list').html('<div id="gotlock" class="padded ui-widget-header ui-corner-all">Locks:</div>\
                         <div id="lock" class="table margined ui-widget-content ui-corner-all">\
-                        <div><div>name</div>\
-                        <div>locker</div>\
-                        <div class="small">created</div>\
-                        <div>actions</div>\
+                        <div id=""><div>Name</div>\
+                        <div>Locker</div>\
+                        <div>Created</div>\
+                        <div>Actions</div>\
                         </div></div>');
                         $('#gotlock').prepend(pagination_div);
                     }
@@ -65,7 +65,7 @@ ${parent.head()}
                         item = jQuery('<div id=\'lock_'+msg[i].name.replace(/(\W)/gi,'_')+'\'>\
                         <div class="name">'+msg[i].name+'</div>\
                         <div>'+msg[i].locker+'</div>\
-                        <div>'+msg[i].creation+'</div>\
+                        <div class="small">'+msg[i].creation.slice(0,-13)+'</div>\
                         <div><div id="delete_'+msg[i].name.replace(/(\W)/gi,'_')+'">Delete</div></div>\
                         </div>');
                         if ($('#lock\\_'+msg[i].name.replace(/(\W)/gi,'_')).length!=0) {
@@ -74,12 +74,15 @@ ${parent.head()}
                         }
                         else
                             $('#lock').append(item);
-                        $('#delete\\_'+msg[i].name.replace(/(\W)/gi,'_')).button({ icons: {primary:'ui-icon-trash'} });
-                        $('#delete\\_'+msg[i].name.replace(/(\W)/gi,'_')).click(delete_lock);
+                        //$('#delete\\_'+msg[i].name.replace(/(\W)/gi,'_')).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#delete\\_'+msg[i].name.replace(/(\W)/gi,'_')).click(delete_lock.bind(null,msg[i].name));
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
                     }
+                    $('#lock\\_list').append($('#lock\\_list > div').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
                 }
                 $('#page').unbind('keyup mouseup');
                 $('#pagesize').unbind('keyup mouseup');

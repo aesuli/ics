@@ -2,12 +2,19 @@ body {
     background-color: #EEEEEE;
 }
 
+#screen {
+    display: flex;
+    flex-flow: column;
+    height: 99%;
+}
+
 #center {
     overflow: hidden;
 }
 
 #main {
-    overflow: hidden;
+    flex: auto;
+    overflow: auto;
 }
 
 #sidebar {
