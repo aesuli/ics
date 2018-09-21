@@ -1,5 +1,4 @@
 import csv
-import json
 import os
 import random
 import shutil
@@ -200,6 +199,11 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
+    def documents_without_labels_count(self, dataset_name, classifier_name):
+        return str(self._db.get_dataset_documents_without_labels_count(dataset_name, classifier_name))
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
     def most_uncertain_document_id(self, name, classifier_name):
         dataset_size = self._db.get_dataset_size(name)
         offset = random.randint(0, max(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE))
@@ -211,7 +215,8 @@ class DatasetCollectionService(object):
             doc_ids.append(doc.id)
 
         if len(X) == 0:
-            return random.randint(0, dataset_size - 1)
+            cherrypy.response.status = 400
+            return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
 
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
@@ -222,6 +227,18 @@ class DatasetCollectionService(object):
             positions_scores.append((i, diff))
         positions_scores.sort(key=lambda x: x[1])
         return self._db.get_dataset_document_position_by_id(name, doc_ids[positions_scores[0][0]])
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def random_unlabeled_document_id(self, name, classifier_name):
+        dataset_size = self._db.get_dataset_size(name)
+        offset = random.randint(0, max(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE))
+        try:
+            doc_id = self._db.get_dataset_documents_without_labels(name, classifier_name, offset, 1)[0].id
+            return self._db.get_dataset_document_position_by_id(name, doc_id)
+        except:
+            cherrypy.response.status = 400
+            return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -236,7 +253,8 @@ class DatasetCollectionService(object):
             doc_ids.append(doc.id)
 
         if len(X) == 0:
-            return random.randint(0, dataset_size - 1)
+            cherrypy.response.status = 400
+            return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
 
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
@@ -389,7 +407,8 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                     found = False
                     X = list()
                     id = list()
-                    for document in db.get_dataset_documents_by_name(datasetname,batch_count*MAX_BATCH_SIZE,MAX_BATCH_SIZE):
+                    for document in db.get_dataset_documents_by_name(datasetname, batch_count * MAX_BATCH_SIZE,
+                                                                     MAX_BATCH_SIZE):
                         id.append(document.external_id)
                         X.append(document.text)
                     if len(X) > 0:
@@ -433,7 +452,7 @@ def _create_dataset_documents(db_connection_string, dataset_name, filename):
             for row in reader:
                 if len(row) > 1:
                     document_name = row[0].strip()
-                    if len(document_name)==0 or document_name[0]=='#':
+                    if len(document_name) == 0 or document_name[0] == '#':
                         continue
                     content = row[1]
                     external_ids_and_contents.append((document_name, content))

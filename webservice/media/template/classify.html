@@ -47,14 +47,14 @@ ${parent.head()}
                 dataType: 'json'})
             .done(function(msg) {
                 if(msg.length==0) {
-                    $('#classification').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No classification available for dataset \''+datasetname+'\'</div>');
+                    $('#data\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No classification available for dataset \''+datasetname+'\'</div>');
                     $('#nodata').prepend(pagination_div);
                     $('#page').val(1);
                 }
                 else {
                     if($('#gotdata').length==0) {
-                        $('#classification').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Classifications for dataset \''+datasetname+'\':</div>\
-                        <div id="job" class="table margined ui-widget-content ui-corner-all"><div><div>id</div><div>classifiers</div><div>created</div><div>completed</div><div>status</div><div>actions</div></div></div>');
+                        $('#data\\_list').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Classifications for dataset \''+datasetname+'\':</div>\
+                        <div id="job" class="table margined ui-widget-content ui-corner-all"><div id="zz"><div>id</div><div>Classifier</div><div>Created</div><div>Completed</div><div>Status</div><div>Actions</div></div></div>');
                         $('#gotdata').prepend(pagination_div);
                     }
                     var curr_list = {};
@@ -63,29 +63,34 @@ ${parent.head()}
                         item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
                         <div class="id">'+msg[i].id+'</div>\
                         <div>'+msg[i].classifiers+'</div>\
-                        <div>'+msg[i].creation+'</div>\
-                        <div>'+msg[i].completion+'</div>\
+                        <div>'+msg[i].creation.slice(0,-13)+'</div>\
+                        <div>'+msg[i].completion.slice(0,-13)+'</div>\
                         <div>'+msg[i].status+'</div>\
-                        <div><div id="view_'+msg[i].id+'">View</div>\
-                        <div id="download_'+msg[i].id+'">Download</div>\
-                        <div id="delete_'+msg[i].id+'">Delete</div></div>\
-                        </div>');
+                        <div><ul id="actions_'+msg[i].name+'"><li>Actions<ul>\
+                        <li><div id="view_'+msg[i].id+'">View</div></li>\
+                        <li><div id="download_'+msg[i].id+'">Download</div></li>\
+                        <li><div id="delete_'+msg[i].id+'">Delete</div></div></li>\
+                        </ul></li></ul></div>');
                         if ($('#job\\_'+msg[i].id).length!=0) {
                             $('#job\\_'+msg[i].id).replaceWith(item);
                             delete curr_list['job_'+msg[i].id];
                         }
                         else
                             $('#job').append(item);
-                        $('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
-                        $('#delete\\_'+msg[i].id).click(delete_classification);
-                        $('#download\\_'+msg[i].id).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                        $('#download\\_'+msg[i].id).click(download_classification);
-                        $('#view\\_'+msg[i].id).button({ icons: {primary:'ui-icon-search'} });
-                        $('#view\\_'+msg[i].id).click(view_classification);
+                        $('#actions\\_'+msg[i].name).menu();
+                        //$('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#delete\\_'+msg[i].id).click(delete_classification.bind(null,msg[i].id));
+                        //$('#download\\_'+msg[i].id).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                        $('#download\\_'+msg[i].id).click(download_classification.bind(null,msg[i].id));
+                        //$('#view\\_'+msg[i].id).button({ icons: {primary:'ui-icon-search'} });
+                        $('#view\\_'+msg[i].id).click(view_classification.bind(null,msg[i].id));
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
                     }
+                    $('#job').append($('#job > div').get().sort(function (a, b) {
+                        return -$(a)[0].id.localeCompare($(b)[0].id);
+                    }));
                 }
                 $('#page').unbind('keyup mouseup');
                 $('#pagesize').unbind('keyup mouseup');
@@ -98,66 +103,23 @@ ${parent.head()}
                 url:'${classifier_path}/info',
                 dataType: 'json'})
             .done(function(msg) {
-                    $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
-                        var found = false;
-                        for(var i = 0;i<msg.length;++i) {
-                            if($(item).text()==msg[i].name) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if(!found) {
-                            $('#suggestions\\_'+$(item).text()).remove();
-                            $(item).parent().remove();
-                        }
-                    });
-                    if(msg.length==0) {
-                        $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifiers available</div>');
-                    }
-                    else {
-                        if($('#gotclassifiers').length==0)
-                            $('#classifiers\\_list').html('<div id="gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
-                        for(var i = 0;i<msg.length;++i) {
-                            if($('#classifier\\_'+msg[i].name).length==0) {
-                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\' title="'+msg[i].description+'">\
-                                <div id=\'classifier_name_'+msg[i].name+'\' class=\' inline padded  ui-corner-all left classifier_name\' style=\'vertical-align: middle;\'>'+msg[i].name+'</div>\
-                                <div id=\'use_button_'+msg[i].name+'\' class=\'right\'>Use</div>\
-                                </div>');
-                                $('#use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-plus'} });
-                                $('#use\\_button\\_'+msg[i].name).click(
-                                    (function() {
-                                        var classifier_name = msg[i].name;
-                                        return function() {
-                                            var classifier_item = $(this).siblings('.classifier\\_name');
-                                            var classifier_name = classifier_item.text();
-                                            var item = $('#use\\_button\\_'+classifier_name);
-                                            if(classifier_item.hasClass('ui-state-highlight')) {
-                                                classifier_item.removeClass('ui-state-highlight');
-                                                item.removeClass('ui-state-focus');
-                                                item.button({icons: {primary :'ui-icon-plus'}});
-                                            }
-                                            else {
-                                                classifier_item.addClass('ui-state-highlight');
-                                                item.addClass('ui-state-focus');
-                                                item.button({icons: {primary :'ui-icon-check'}});
-                                            }
-                                        }
-                                })());
-                            }
-                        }
-                        if($('#classify\\_button').length==0) {
-                            $('#classifiers\\_list').append('<div id="classify_button">Classify the dataset</div>');
-                            $('#classify\\_button').button({ icons: {primary:'ui-icon-tag'} });
-                            $('#classify\\_button').click(classify);
+                    var valid_classifiers = {}
+                    for(var i = 0;i<msg.length;++i) {
+                        valid_classifiers[msg[i].name] = true;
+                        if($('#do\\_opt\\_'+msg[i].name).length==0) {
+                            $('#do\\_name').append($('<option id="do_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
                         }
                     }
+                    $('#do\\_name').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(7)]) {$('#'+value.id).remove();}});
+                    $('#do\\_name').append($('#do\\_name > option').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
             });
         }
 
-        function delete_classification() {
+        function delete_classification(classification_id) {
             if(!confirm('Please confirm the DELETE request, proceed?'))
                 return;
-            var classification_id = $(this).parent().siblings('.id').text();
             $('#job\\_'+classification_id).hide();
             $.ajax({
                 type:'POST',
@@ -169,19 +131,17 @@ ${parent.head()}
             });
         };
 
-        function download_classification() {
-            var classification_id = $(this).parent().siblings('.id').text();
+        function download_classification(classification_id) {
             var form = $('<form></form>').attr('action', '${dataset_path}/classification_download/'+classification_id).attr('method', 'post');
             form.appendTo('body').submit().remove();
         };
 
-        function view_classification() {
-            var classification_id = $(this).parent().siblings('.id').text();
+        function view_classification(classification_id) {
             window.location = '${mount_dir}/classification_view/'+datasetname+'/'+classification_id;
         };
 
         function classify() {
-            classifiers = []
+            classifiers = [$("#do\\_name").val()]
             $('.ui-state-highlight').each(function(i,item) {
                 classifiers.push($(item).text());
             })
@@ -191,6 +151,7 @@ ${parent.head()}
                 data: { name : datasetname, classifiers : classifiers }})
             .done(update)
             .fail(function (msg) { custom_alert(msg.responseText);  });
+            return false;
         }
 
 
@@ -198,6 +159,7 @@ ${parent.head()}
             var pathname = window.location.pathname;
             datasetname = pathname.substring(pathname.lastIndexOf('/')+1)
             $('#datasetname').text(datasetname);
+            $("#do\\_classify").submit(classify);
 
             $( "input[type=submit]" ).button();
 
@@ -210,12 +172,22 @@ ${parent.head()}
 
 <div id="main" class="padded ui-widget ui-widget-content">
     <div id="sidebar">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_duplicate">
+            <div class="padded ui-widget-header ui-corner-all">Classify dataset using:</div>
+            <form id="do_classify" class="margined" action="#" method="post">
+                 <p>
+                    <label class="margined"  for="do_name">Classifier:</label>
+                    <select class="margined"  id="do_name">
+                    </select></p>
+                <p><label></label>
+                <input  class="margined" type="submit" value="Classify" />
+                </p>
+            </form>
         </div>
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
     </div>
     <div id="center">
-        <div id="classification" class="margined ui-widget-content suggestion-container"></div>
+        <div id="data_list" class="margined ui-widget-content suggestion-container"></div>
     </div>
 </div>

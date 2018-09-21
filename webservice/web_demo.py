@@ -50,7 +50,7 @@ class WebDemo(object):
 
     @cherrypy.expose
     def index(self):
-        template = self._lookup.get_template('demo_typeandlabel.html')
+        template = self._lookup.get_template('demo_typeandcode.html')
         return template.render(**{**self._template_data, **self.session_data()})
 
     @cherrypy.expose

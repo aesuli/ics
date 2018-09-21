@@ -44,21 +44,21 @@ ${parent.head()}
                 dataType: 'json'})
             .done(function(msg) {
                 if(msg.length==0) {
-                    $('#job\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No jobs</div>');
+                    $('#data\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No jobs</div>');
                     $('#nodata').prepend(pagination_div);
                     $('#page').val(1);
                 }
                 else {
                     if($('#gotdata').length==0) {
-                        $('#job\\_list').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Jobs:</div>\
+                        $('#data\\_list').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Jobs:</div>\
                         <div id="job" class="table margined ui-widget-content ui-corner-all">\
-                        <div><div>id</div>\
-                        <div>description</div>\
-                        <div>created</div>\
-                        <div>started</div>\
-                        <div>completed</div>\
-                        <div>status</div>\
-                        <div>actions</div>\
+                        <div id="zz"><div>ID</div>\
+                        <div>Description</div>\
+                        <div>Created</div>\
+                        <div>Started</div>\
+                        <div>Completed</div>\
+                        <div>Status</div>\
+                        <div>Actions</div>\
                         </div></div>');
                         $('#gotdata').prepend(pagination_div);
                     }
@@ -68,12 +68,14 @@ ${parent.head()}
                         item = jQuery('<div id=\'job_'+msg[i].id+'\'>\
                         <div class="id">'+msg[i].id+'</div>\
                         <div class="small">'+msg[i].description+'</div>\
-                        <div class="small">'+msg[i].creation+'</div>\
-                        <div class="small">'+msg[i].start+'</div>\
-                        <div class="small">'+msg[i].completion+'</div>\
+                        <div class="small">'+msg[i].creation.slice(0,-13)+'</div>\
+                        <div class="small">'+msg[i].start.slice(0,-13)+'</div>\
+                        <div class="small">'+msg[i].completion.slice(0,-13)+'</div>\
                         <div>'+msg[i].status+'</div>\
-                        <div><div id="rerun_'+msg[i].id+'">Rerun</div>\
-                        <div id="delete_'+msg[i].id+'">Delete</div></div>\
+                        <div><ul id="actions_'+msg[i].id+'"><li>Actions<ul>\
+                            <li><div id="rerun_'+msg[i].id+'">Rerun</div></li>\
+                            <li><div id="delete_'+msg[i].id+'">Delete</div></li>\
+                        </ul></li></ul></div>\
                         </div>');
                         if ($('#job\\_'+msg[i].id).length!=0) {
                             $('#job\\_'+msg[i].id).replaceWith(item)
@@ -81,14 +83,18 @@ ${parent.head()}
                         }
                         else
                             $('#job').append(item);
-                        $('#rerun\\_'+msg[i].id).button({ icons: {primary:'ui-icon-refresh'} });
-                        $('#rerun\\_'+msg[i].id).click(rerun_job);
-                        $('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
-                        $('#delete\\_'+msg[i].id).click(delete_job);
+                        $('#actions\\_'+msg[i].id).menu();
+                        //$('#rerun\\_'+msg[i].id).button({ icons: {primary:'ui-icon-refresh'} });
+                        $('#rerun\\_'+msg[i].id).click(rerun_job.bind(null,msg[i].id));
+                        //$('#delete\\_'+msg[i].id).button({ icons: {primary:'ui-icon-trash'} });
+                        $('#delete\\_'+msg[i].id).click(delete_job.bind(null,msg[i].id));
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
                     }
+                    $('#job').append($('#job > div').get().sort(function (a, b) {
+                        return -$(a)[0].id.localeCompare($(b)[0].id);
+                    }));
                 }
                 $('#page').unbind('keyup mouseup');
                 $('#pagesize').unbind('keyup mouseup');
@@ -97,8 +103,7 @@ ${parent.head()}
             });
         }
 
-        function rerun_job() {
-            var job_id = $(this).parent().siblings('.id').text();
+        function rerun_job(job_id) {
             $.ajax({
                 type:'POST',
                 url:'${jobs_path}/rerun/'+job_id})
@@ -106,10 +111,9 @@ ${parent.head()}
             .fail(update);
         };
 
-        function delete_job() {
+        function delete_job(job_id) {
             if(!confirm('Please confirm the DELETE request, proceed?'))
                 return;
-            var job_id = $(this).parent().siblings('.id').text();
             $('#job\\_'+job_id).hide();
             $.ajax({
                 type:'POST',
@@ -147,6 +151,6 @@ ${parent.head()}
         </div>-->
     </div>
     <div id="center">
-        <div id="job_list" class="margined ui-widget-content suggestion-container"></div>
+        <div id="data_list" class="margined ui-widget-content suggestion-container"></div>
     </div>
 </div>
