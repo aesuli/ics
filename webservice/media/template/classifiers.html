@@ -103,8 +103,8 @@ ${parent.head()}
                             delete curr_list['entry_'+sort_string];
                         }
                         else {
-                            $('#dup\\_from').append($('<option id="dup_opt_'+name_string+'"/>').val(name_string).text(name_string));
-                            $('#comb\\_from').append($('<option id="comb_opt_'+name_string+'"/>').val(name_string).text(name_string));
+                            $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+name_string+'"/>').val(name_string).text(name_string));
+                            $('#comb\\_from').append($('<option title="'+msg[i].description+'" id="comb_opt_'+name_string+'"/>').val(name_string).text(name_string));
                             $('#data').append(item);
                         }
                         $('#actions\\_'+name_string).menu();

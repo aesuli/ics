@@ -71,7 +71,8 @@ ${parent.head()}
                 for(var i = 0;i<msg.length;++i) {
                     valid_classifiers[msg[i].name] = true;
                     if($('#use\\_opt\\_'+msg[i].name).length==0) {
-                        $('#use').append($('<option id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
+                        $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
+                        $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
                         var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all"><span class="name">'+msg[i].name+'</span></div><div id="assignments_'+msg[i].name+'"></div></div>');
                         suggestion_div.appendTo('#pool');
                         set_uncoded_count(dataset_name, msg[i].name);
@@ -132,7 +133,10 @@ ${parent.head()}
                     $('#suggestions').append(all_correct);
                 }
                 $('#use').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(8)]) {$('#'+value.id).remove();}});
-                $('#use').append($('#use\\_name > option').get().sort(function (a, b) {
+                $('#use').append($('#use > option').get().sort(function (a, b) {
+                    return $(a)[0].id.localeCompare($(b)[0].id);
+                }));
+                $('#dup\\_from').append($('#dup\\_from > option').get().sort(function (a, b) {
                     return $(a)[0].id.localeCompare($(b)[0].id);
                 }));
                 var updated_list = {};

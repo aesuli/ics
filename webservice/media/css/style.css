@@ -33,6 +33,14 @@ input { display: table-cell; }
 
 #data_list {overflow: auto;}
 
+select:not([mutiple]) {
+  padding: 5px;
+}
+
+select option {
+  padding: 5px;
+}
+
 div .table   {
  display: table;
 }
