@@ -43,7 +43,7 @@ ${parent.head()}
                 url: '${dataset_path}/documents_without_labels_count',
                 data: { dataset_name : dataset_name , classifier_name:classifier_name}})
             .done( function (msg) {
-                $('#use\\_opt\\_'+classifier_name).text(classifier_name+' ('+msg+')');
+                $('#use\\_opt\\_'+classifier_name).text(classifier_name+' ('+(datasetsize-parseInt(msg))+', '+msg+')');
                 //$('#uncoded\\_'+classifier_name).text(parseInt(msg));
                 //(<span id="uncoded_'+msg[i].name+'">n/a</span>)
             });
@@ -155,7 +155,6 @@ ${parent.head()}
                     }
                     return false;
                 });
-
             });
         }
 

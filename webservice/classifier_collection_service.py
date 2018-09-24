@@ -45,9 +45,12 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self, page=0, page_size=50):
+    def info(self, page=None, page_size=50):
         result = []
-        names = self._db.classifier_names()[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
+        if page is None:
+            names = self._db.classifier_names()
+        else:
+            names = self._db.classifier_names()[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for name in names:
             classifier_info = dict()
             classifier_info['name'] = name

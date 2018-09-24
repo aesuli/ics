@@ -39,21 +39,9 @@ ${parent.head()}
             $.ajax({
                 type:'POST',
                 url:'${classifier_path}/info',
-                data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
+//                data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
             .done( function(msg) {
-                $('#data\\_list div .classifier\\_name').each(function(i,item) {
-                    var found = false;
-                    for(var i = 0;i<msg.length;++i) {
-                        if($(item).text()==msg[i].name) {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if(!found) {
-                        $(item).parent().remove();
-                    }
-                });
                 if(msg.length==0) {
                     $('#data\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No classifier available</div>');
                     $('#nodata').prepend(pagination_div);
@@ -74,63 +62,83 @@ ${parent.head()}
                         </div></div>');
                         $('#gotdata').prepend(pagination_div);
                     }
+                    var page = parseInt($(pagination_div.children()[0]).val())-1;
+                    var page_size = parseInt($(pagination_div.children()[2]).val());
+                    var start = Math.min((page)*page_size,msg.length);
+                    var end = Math.min((page+1)*page_size,msg.length);
+                    $('#data\\_list div .classifier\\_name').each(function(i,item) {
+                        var found = false;
+                        for(var i = start;i<end;++i) {
+                            if($(item).text()==page_msg[i].name) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if(!found) {
+                            $(item).parent().remove();
+                        }
+                    });
                     var curr_list = {};
                     $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                    var updated_list = {};
                     for(var i = 0;i<msg.length;++i) {
                         var name_string = msg[i].name
+                        updated_list[name_string] = true;
                         var sort_string = msg[i].name.replace(/\W/g,'X')
-                        item = jQuery('<div id=\'entry_'+sort_string+'\'>\
-                        <div class="id">'+msg[i].name+'</div>\
-                        <div>'+String(msg[i].labels).replace(/,/g,', ')+'</div>\
-                        <div class="small" id="classifier_description_'+msg[i].name+'">'+msg[i].description+'</div>\
-                        <div class="small">'+msg[i].type+'</div>\
-                        <div class="small">'+msg[i].size+'</div>\
-                        <div class="small">'+msg[i].created.slice(0,-13)+'</div>\
-                        <div class="small">'+msg[i].updated.slice(0,-13)+'</div>\
-                        <div><ul id="actions_'+name_string+'"><li>Actions<ul>\
-                            <li><div id="rename_button_'+name_string+'">Rename</div></li>\
-                            <li><div id="rename_label_button_'+name_string+'">Rename label</div></li>\
-                            <li><div id="description_button_'+name_string+'">Change description</div></li>\
-                            <li><div id="extract_button_'+name_string+'">Extract labels as classifiers</div></li>\
-                            <li><div id="view_button_'+name_string+'">View training data</div></li>\
-                            <li><div id="download_button_'+name_string+'">Download training data</div></li>\
-                            <li><div id="download_model_button_'+name_string+'">Download classification model</div></li>\
-                            <li><div id="del_button_'+name_string+'">Delete</div></li>\
-                        </ul></li></ul></div>\
-                        </div>');
-                        if ($('#entry\\_'+sort_string).length!=0) {
-                            $('#entry\\_'+sort_string).replaceWith(item)
-                            delete curr_list['entry_'+sort_string];
-                        }
-                        else {
+                        if($('#dup\\_opt\\_'+name_string).length==0) {
                             $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+name_string+'"/>').val(name_string).text(name_string));
                             $('#comb\\_from').append($('<option title="'+msg[i].description+'" id="comb_opt_'+name_string+'"/>').val(name_string).text(name_string));
-                            $('#data').append(item);
                         }
-                        $('#actions\\_'+name_string).menu();
-                        //$('#view\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-search'} });
-                        $('#view\\_button\\_'+name_string).click(view_training_data.bind(null,name_string));
-                        //$('#download\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                        $('#download\\_button\\_'+name_string).click(download_training_data.bind(null,name_string));
-                        //$('#download\\_model\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
-                        $('#download\\_model\\_button\\_'+name_string).click(download_model.bind(null,name_string));
-                        //$('#select\\_button\\_'+name_string).click(select_classifier.bind(null,name_string));
-                        //$('#extract\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-extlink'} });
-                        $('#extract\\_button\\_'+name_string).click(extract_classifier.bind(null,name_string));
-                        //$('#rename\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#rename\\_button\\_'+name_string).click(rename_classifier.bind(null,name_string));
-                        //$('#description\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#description\\_button\\_'+name_string).click(classifier_description.bind(null,name_string));
-                        //$('#rename\\_label\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
-                        $('#rename\\_label\\_button\\_'+name_string).click(rename_classifier_label.bind(null,name_string));
-                        //$('#del\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
-                        $('#del\\_button\\_'+name_string).click(delete_classifier.bind(null,name_string));
+                        if (i >=start && i<end) {
+                            item = jQuery('<div id=\'entry_'+sort_string+'\'>\
+                            <div class="id">'+msg[i].name+'</div>\
+                            <div>'+String(msg[i].labels).replace(/,/g,', ')+'</div>\
+                            <div class="small" id="classifier_description_'+msg[i].name+'">'+msg[i].description+'</div>\
+                            <div class="small">'+msg[i].type+'</div>\
+                            <div class="small">'+msg[i].size+'</div>\
+                            <div class="small">'+msg[i].created.slice(0,-13)+'</div>\
+                            <div class="small">'+msg[i].updated.slice(0,-13)+'</div>\
+                            <div><ul id="actions_'+name_string+'"><li>Actions<ul>\
+                                <li><div id="rename_button_'+name_string+'">Rename</div></li>\
+                                <li><div id="rename_label_button_'+name_string+'">Rename label</div></li>\
+                                <li><div id="description_button_'+name_string+'">Change description</div></li>\
+                                <li><div id="extract_button_'+name_string+'">Extract labels as classifiers</div></li>\
+                                <li><div id="view_button_'+name_string+'">View training data</div></li>\
+                                <li><div id="download_button_'+name_string+'">Download training data</div></li>\
+                                <li><div id="download_model_button_'+name_string+'">Download classification model</div></li>\
+                                <li><div id="del_button_'+name_string+'">Delete</div></li>\
+                            </ul></li></ul></div>\
+                            </div>');
+                            if ($('#entry\\_'+sort_string).length!=0) {
+                                $('#entry\\_'+sort_string).replaceWith(item)
+                                delete curr_list['entry_'+sort_string];
+                            }
+                            else {
+                                $('#data').append(item);
+                            }
+                            $('#actions\\_'+name_string).menu();
+                            //$('#view\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-search'} });
+                            $('#view\\_button\\_'+name_string).click(view_training_data.bind(null,name_string));
+                            //$('#download\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                            $('#download\\_button\\_'+name_string).click(download_training_data.bind(null,name_string));
+                            //$('#download\\_model\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-arrowthickstop-1-s'} });
+                            $('#download\\_model\\_button\\_'+name_string).click(download_model.bind(null,name_string));
+                            //$('#select\\_button\\_'+name_string).click(select_classifier.bind(null,name_string));
+                            //$('#extract\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-extlink'} });
+                            $('#extract\\_button\\_'+name_string).click(extract_classifier.bind(null,name_string));
+                            //$('#rename\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
+                            $('#rename\\_button\\_'+name_string).click(rename_classifier.bind(null,name_string));
+                            //$('#description\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
+                            $('#description\\_button\\_'+name_string).click(classifier_description.bind(null,name_string));
+                            //$('#rename\\_label\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-tag'} });
+                            $('#rename\\_label\\_button\\_'+name_string).click(rename_classifier_label.bind(null,name_string));
+                            //$('#del\\_button\\_'+name_string).button({ icons: {primary:'ui-icon-trash'} });
+                            $('#del\\_button\\_'+name_string).click(delete_classifier.bind(null,name_string));
+                        }
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
                     }
-                    var updated_list = {};
-                    $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { updated_list[value.id.slice(6)]=true;}});
                     $('#dup\\_from').children().each(function (index, value) {if(!updated_list[value.id.slice(8)]) {$('#'+value.id).remove();}});
                     $('#comb\\_from').children().each(function (index, value) {if(!updated_list[value.id.slice(9)]) {$('#'+value.id).remove();}});
                     $('#data').append($('#data > div').get().sort(function (a, b) {

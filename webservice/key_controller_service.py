@@ -24,7 +24,7 @@ class KeyControllerService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self, page=0, page_size=50):
+    def info(self, page=None, page_size=50):
         result = []
         requester = cherrypy.request.login
         if requester is not None and requester == SQLAlchemyDB.admin_name():
@@ -35,7 +35,8 @@ class KeyControllerService(object):
                 keys = [key]
             else:
                 keys = []
-        keys = keys[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
+        if page is not None:
+            keys = keys[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for key in keys:
             key_info = dict()
             key_info['key'] = key

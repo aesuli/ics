@@ -30,7 +30,7 @@ class IPControllerService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self, page=0, page_size=50):
+    def info(self, page=None, page_size=50):
         result = []
         requester = cherrypy.request.login
         if requester is not None and requester == SQLAlchemyDB.admin_name():
@@ -40,7 +40,8 @@ class IPControllerService(object):
                 ips = [cherrypy.request.remote.ip]
             else:
                 ips = []
-        ips = ips[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
+        if page is not None:
+            ips = ips[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for ip in ips:
             ip_info = dict()
             ip_info['ip'] = ip

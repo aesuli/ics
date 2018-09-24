@@ -21,133 +21,81 @@
                 url:'${classifier_path}/info',
                 dataType: 'json'})
             .done(function(msg) {
-                    $('#classifiers\\_list div .classifier\\_name').each(function(i,item) {
-                        var found = false;
-                        for(var i = 0;i<msg.length;++i) {
-                            if($(item).text()==msg[i].name) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if(!found) {
-                            $('#suggestions\\_'+$(item).text()).remove();
-                            $(item).parent().remove();
-                        }
-                    });
-                    if(msg.length==0) {
-                        $('#classifiers\\_list').html('<div class="padded ui-widget-header ui-corner-all">No classifiers available</div>');
-                    }
-                    else {
-                        if($('#\\_gotclassifiers').length==0)
-                            $('#classifiers\\_list').html('<div id="_gotclassifiers" class="padded ui-widget-header ui-corner-all">Select classifiers:</div>');
-                        for(var i = 0;i<msg.length;++i) {
-                            if($('#classifier\\_'+msg[i].name).length==0) {
-                                $('#classifiers\\_list').append('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'classifier_'+msg[i].name+'\' title="'+msg[i].description+'">\
-                                <div id=\'classifier_name_'+msg[i].name+'\' class=\'inline padded ui-corner-all left classifier_name\'>'+msg[i].name+'</div>\
-                                <div id=\'use_button_'+msg[i].name+'\' class=\'right\'>Use</div></div>');
-                                if(selected_classifiers[msg[i].name]) {
-                                    $('#use\\_button\\_'+msg[i].name).addClass('ui-state-focus');
-                                    $('#use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-check'} });
-                                }
-                                else {
-                                    $('#use\\_button\\_'+msg[i].name).button({ icons: {primary:'ui-icon-plus'} });
-                                }
-                                $('#use\\_button\\_'+msg[i].name).click(use);
-                                var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all">'+msg[i].name+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
-                                suggestion_div.appendTo('#pool');
-                                for(var j = 0;j<msg[i].labels.length;++j) {
-                                    var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="pointer scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
-                                    (function() {
-                                        var label = ''+msg[i].labels[j];
-                                        var classifier_name = ''+msg[i].name;
-                                        scoreline.click(function(){
-                                            if(!$('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('assigned')) {
-                                                if($('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('suggested')) {
-                                                    $('#history').prepend('<span class="agreement" style="color:lightgreen;">✓</span>');
-                                                }
-                                                else {
-                                                    $('#history').prepend('<span class="agreement" style="color:red;">✗</span>');
-                                                }
-                                                var histsize = parseInt($("#histsize").val());
-                                                $('#history').children().slice(histsize).remove();
-                                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                                                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
-                                                $('#suggestion\\_'+classifier_name+'\\_'+label).removeClass('not_relevant')
-                                                $('#suggestion\\_'+classifier_name+'\\_'+label).addClass('assigned')
-                                                $.ajax({
-                                                    type:'POST',
-                                                    url:'${classifier_path}/update',
-                                                    data: { name: classifier_name, X: [last_text], y: [label]}})
-                                                .fail(function(msg) {
-                                                    custom_alert(msg);
-                                                });
-                                            }
-                                        });
-                                    }());
-                                    $('#assignments\\_'+msg[i].name).append(scoreline);
-                                }
-
-                                var hideline = jQuery('<div id="'+msg[i].name+'_nonrel" class="scoreline pointer hide ui-corner-all margined morepadded">non-relevant</div>');
-                                hideline.click((function () {
-                                    var classifier_name = ''+msg[i].name;
-                                    return function() {
+                var valid_classifiers = {}
+                for(var i = 0;i<msg.length;++i) {
+                    valid_classifiers[msg[i].name] = true;
+                    if($('#use\\_opt\\_'+msg[i].name).length==0) {
+                        $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
+                        $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
+                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all"><span class="name">'+msg[i].name+'</span></div><div id="assignments_'+msg[i].name+'"></div></div>');
+                        suggestion_div.appendTo('#pool');
+                        for(var j = 0;j<msg[i].labels.length;++j) {
+                            var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="pointer scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
+                                scoreline.click((function(classifier_name, label){
+                                    if(!$('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('assigned')) {
+                                        if($('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('suggested')) {
+                                            $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
+                                        }
+                                        else {
+                                            $('#history').prepend('<span class="agreement no" style="color:red;">✗</span>');
+                                        }
+                                        var histsize = parseInt($("#histsize").val());
+                                        $('#history').children().slice(histsize).remove();
+                                        var total = $('#history').children().length;
+                                        var positive = $('#history').children('.yes').length;
+                                        $('#accuracy').text((positive/total).toFixed(2));
                                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
                                         $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
-                                        $('#'+classifier_name+'\\_nonrel').removeClass('not_relevant')
-                                        $('#'+classifier_name+'\\_nonrel').addClass('assigned')
-                                        $('#history').prepend('<span class="agreement">🗑</span>');
-                                        var histsize = parseInt($("#histsize").val());
-                                        $('#history').children().slice(histsize).remove();
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label).removeClass('not_relevant')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label).addClass('assigned')
                                         $.ajax({
                                             type:'POST',
-                                            url:'${classifier_path}/hide',
-                                            data: { name: classifier_name, X: [last_text]}})
+                                            url:'${classifier_path}/update',
+                                            data: { name: classifier_name, X: [last_text], y: [label]}})
                                         .fail(function(msg) {
                                             custom_alert(msg);
                                         });
-                                    };
-                                })());
-                                $('#assignments\\_'+msg[i].name).append(hideline);
-                            }
-                        }
-                        $('#classifiers\\_list').append($('#classifiers\\_list > div').get().sort(function (a, b) {
-                            return $(a)[0].id.localeCompare($(b)[0].id);
-                        }));
-                        if($('#all\\_correct').length==0) {
-                            var all_correct = jQuery('<div id="all_correct" class="right">Apply suggestions</div>');
-                            all_correct.button({ icons: {primary:'ui-icon-check'} });
-                            all_correct.click(function() {
-                                $('#suggestions div div .suggested').each(function(i,item) {
-                                    item.click();
-                                });
-                            });
-                            $('#suggestions').append(all_correct);
+                                    }
+                                }).bind(null,msg[i].name, msg[i].labels[j]));
+                            $('#assignments\\_'+msg[i].name).append(scoreline);
                         }
                     }
+                }
+                if($('#all\\_correct').length==0) {
+                    var all_correct = jQuery('<div id="all_correct" class="right"><span class="suggested">Suggestions</span> are correct</div>');
+                    all_correct.button({ icons: {primary:'ui-icon-check'} });
+                    all_correct.click(function() {
+                        $('#suggestions div div .suggested').each(function(i,item) {
+                            item.click();
+                        });
+                    });
+                    $('#suggestions').append(all_correct);
+                }
+                $('#use').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(8)]) {$('#'+value.id).remove();}});
+                $('#use').append($('#use > option').get().sort(function (a, b) {
+                    return $(a)[0].id.localeCompare($(b)[0].id);
+                }));
+                $('#dup\\_from').append($('#dup\\_from > option').get().sort(function (a, b) {
+                    return $(a)[0].id.localeCompare($(b)[0].id);
+                }));
+                var updated_list = {};
+                $('#use').attr('size',Math.min(10,Object.keys(valid_classifiers).length));
+                $("select[multiple] option").off('mousedown').on('mousedown',function(){
+                    var option = $(this);
+                    option.parent().focus();
+                    if (option.prop("selected")) {
+                        option.prop("selected", false);
+                        $('#suggestions\\_'+option.val()).detach().appendTo('#pool');
+                    }
+                    else {
+                        option.prop("selected", true);
+                        $('#suggestions\\_'+option.val()).detach().appendTo('#suggestions');
+                        classify([option.text()]);
+                    }
+                    return false;
+                });
             });
-        }
-
-        function use() {
-            var classifier_item = $(this).siblings('.classifier\\_name');
-            var classifier_name = classifier_item.text();
-            var item = $('#use\\_button\\_'+classifier_name);
-            if(item.hasClass('ui-state-focus')) {
-                classifier_item.removeClass('ui-state-highlight');
-                item.removeClass('ui-state-focus');
-                item.button({icons: {primary :'ui-icon-plus'}});
-                delete selected_classifiers[classifier_name];
-                $('#suggestions\\_'+classifier_name).detach().appendTo('#pool');
-            }
-            else {
-                classifier_item.addClass('ui-state-highlight');
-                item.addClass('ui-state-focus');
-                item.button({icons: {primary :'ui-icon-check'}});
-                selected_classifiers[classifier_name] = true;
-                $('#suggestions\\_'+classifier_name).detach().appendTo('#suggestions');
-                classify();
-            }
         }
 
         function create_classifier() {
@@ -175,27 +123,37 @@
             return false ;
         };
 
+        function duplicate_classifier() {
+            name = $("#dup\\_name").val();
+            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            dup_from = $("#dup\\_from").val();
+            var duplicatetype = $("#dup\\_type").val();
+            var data = {name: dup_from, new_name: name, type: duplicatetype};
+            $.ajax({
+                type: "POST",
+                url: "${classifier_path}/duplicate",
+                data: data})
+            .done(update)
+            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
+            });
+            return false ;
+        };
+
         last_text = ""
-        function classify() {
-                var text = $("#textbox").val();
-                var force = text!=last_text;
-                if(force) {
-                    $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
-                        var classifier_name = $(item).text();
-                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                        $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
-                    });
-                    $('#pool div[id^=suggestions] .ui-widget-header').each(function(i,item) {
-                        var classifier_name = $(item).text();
-                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                        $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
-                    });
-                }
-                last_text = text;
-                $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
-                    var classifier_name = $(item).text();
+        function classify(selection) {
+            var text = $("#textbox").val();
+            var force = text!=last_text;
+            if(force) {
+                reset_labels();
+            }
+            last_text = text;
+            $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
+                var classifier_name = $(item).children('.name').text();
+                if(typeof selection == 'undefined' || selection.indexOf(classifier_name)>=0) {
                     var assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
                     if(!assigned||force) {
                         $.ajax({
@@ -215,16 +173,34 @@
                             }
                         });
                     }
-                });
+                }
+            });
         }
+
+        function reset_labels() {
+            $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
+                var classifier_name = $(item).children('.name').text();
+                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+            });
+            $('#pool div[id^=suggestions] .ui-widget-header').each(function(i,item) {
+                var classifier_name = $(item).children('.name').text();
+                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+            });
+        }
+
         $( document ).ready(function() {
             $("#textbox").on("input",function() {
                 delay(function() {
-                $('#classifiers\\_list div div.ui-state-focus').each(function(){$('#suggestions\\_'+$(this).siblings('.classifier\\_name').text()).detach().appendTo('#suggestions').show();});
+                reset_labels();
                 classify();
             },delay_interval);});
 
             $("#create\\_classifier").submit(create_classifier);
+            $("#duplicate\\_classifier").submit(duplicate_classifier);
 
             //$('#force\\_update').button().click(update);
             $( "input[type=submit]" ).button();
@@ -236,28 +212,54 @@
 <div id="main" class="padded ui-widget ui-widget-content">
     <div id="sidebar">
         <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
+            <div class="padded ui-widget-header ui-corner-all">Select classifiers:</div>
+            <select class="margined"  multiple id="use" style="resize: vertical;width: 95%;">
+            </select>
         </div>
         <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
         </div>-->
         <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
-            <div class="padded ui-widget-header ui-corner-all">Create a classifier:</div>
+            <div class="padded ui-widget-header ui-corner-all">Create a classifier from scratch:</div>
             <form id="create_classifier" class="margined" action="#" method="post">
                 <p>
-                <label for="name">Name:</label>
-                <input type="text" id="name" /> </p>
+                <label class="margined" for="name">Name:</label>
+                <input class="margined" type="text" id="name" /> </p>
                 <p>
-                <label for="labels">Labels (comma separated):</label>
-                <input type="text" id="labels" /> </p>
+                <label class="margined" for="labels">Labels (comma separated):</label>
+                <input class="margined" type="text" id="labels" /> </p>
                  <p class="hidden">
-                    <label for="type">Type:</label>
-                    <select id="type">
+                    <label class="margined" for="type">Type:</label>
+                    <select class="margined" id="type">
 <%! from db import sqlalchemydb %>
 % for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
                         <option value="${classifier_type}">${classifier_type}</option>
 % endfor
                     </select></p>
                 <p><label></label>
-                <input type="submit" value="Create" />
+                <input class="margined" type="submit" value="Create" />
+                </p>
+            </form>
+        </div>
+        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_duplicate">
+            <div class="padded ui-widget-header ui-corner-all">Create a classifier from another one:</div>
+            <form id="duplicate_classifier" class="margined" action="#" method="post">
+                <p>
+                <label class="margined" for="dup_name">Name:</label>
+                <input class="margined" type="text" id="dup_name" /> </p>
+                 <p>
+                    <label class="margined" for="dup_from">From:</label>
+                    <select class="margined" id="dup_from">
+                    </select></p>
+                 <p class="hidden">
+                    <label class="margined" for="dup_type">Type:</label>
+                    <select class="margined" id="dup_type">
+<%! from db import sqlalchemydb %>
+% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+                        <option value="${classifier_type}">${classifier_type}</option>
+% endfor
+                    </select></p>
+                <p><label></label>
+                <input class="margined" type="submit" value="Create" />
                 </p>
             </form>
         </div>
