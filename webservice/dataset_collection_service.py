@@ -38,9 +38,12 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self, page=0, page_size=50):
+    def info(self, page=None, page_size=50):
         result = []
-        names = self._db.dataset_names()[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
+        if page is None:
+            names = self._db.dataset_names()
+        else:
+            names = self._db.dataset_names()[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for name in names:
             dataset_info = dict()
             dataset_info['name'] = name
@@ -323,14 +326,17 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def classification_info(self, name, page=0, page_size=50):
+    def classification_info(self, name, page=None, page_size=50):
         got_deleted = True
         result = None
         while got_deleted:
             got_deleted = False
             result = list()
             to_delete = list()
-            jobs = self._db.get_classification_jobs(name)[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
+            if page is None:
+                jobs = self._db.get_classification_jobs()
+            else:
+                jobs = self._db.get_classification_jobs(name)[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
             for classification_job in jobs:
                 classification_job_info = dict()
                 classification_job_info['id'] = classification_job.id

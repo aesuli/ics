@@ -21,11 +21,12 @@ class JobsService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self, page=0, page_size=50):
+    def info(self, page=None, page_size=50):
         page = max(0,int(page))
         page_size = max(1,int(page_size))
         jobslist = list()
-        jobs = self._db.get_jobs()[page * page_size:(page + 1) * page_size]
+        if page is not None:
+            jobs = self._db.get_jobs()[page * page_size:(page + 1) * page_size]
         for job in jobs:
             jobinfo = dict()
             jobinfo['id'] = job.id
@@ -58,11 +59,14 @@ class JobsService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def lock_info(self, page=0, page_size=50):
+    def lock_info(self, page=None, page_size=50):
         page = max(0,int(page))
         page_size = max(1,int(page_size))
         lockslist = list()
-        locks = self._db.get_locks()[page * page_size:(page + 1) * page_size]
+        if page is None:
+            locks = self._db.get_locks()
+        else:
+            locks = self._db.get_locks()[page * page_size:(page + 1) * page_size]
         for lock in locks:
             lockinfo = dict()
             lockinfo['name'] = lock.name

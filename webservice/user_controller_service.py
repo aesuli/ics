@@ -38,7 +38,7 @@ class UserControllerService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def info(self, page=0, page_size=50):
+    def info(self, page=None, page_size=50):
         result = []
         requester = cherrypy.request.login
         if requester is None:
@@ -47,7 +47,8 @@ class UserControllerService(object):
             names = self._db.user_names()
         else:
             names = [requester]
-        names = names[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
+        if page is not None:
+            names = names[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for name in names:
             user_info = dict()
             user_info['name'] = name

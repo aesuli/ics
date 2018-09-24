@@ -54,7 +54,7 @@ class ServiceClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
-    def user_info(self, page=0, page_size=50):
+    def user_info(self, page=None, page_size=50):
         url = self._build_url(self._user_auth_path + '/info/')
         data = self._get_default_post_data()
         data['page'] = page
@@ -134,7 +134,7 @@ class ServiceClientSession:
 
     # key auth
 
-    def key_info(self, page=0, page_size=50):
+    def key_info(self, page=None, page_size=50):
         url = self._build_url(self._key_auth_path + '/info/')
         data = self._get_default_post_data()
         data['page'] = page
@@ -215,7 +215,7 @@ class ServiceClientSession:
 
     # ip auth
 
-    def ip_info(self, page=0, page_size=50):
+    def ip_info(self, page=None, page_size=50):
         url = self._build_url(self._ip_auth_path + '/info/')
         data = self._get_default_post_data()
         data['page'] = page
@@ -285,7 +285,7 @@ class ServiceClientSession:
 
     # jobs
 
-    def job_info(self, page=0, page_size=50):
+    def job_info(self, page=None, page_size=50):
         url = self._build_url(self._jobs_path + '/info/')
         data = self._get_default_post_data()
         data['page'] = page
@@ -338,7 +338,7 @@ class ServiceClientSession:
                 sleep(loop_wait)
         return 'Ok'
 
-    def job_lock_info(self, page=0, page_size=50):
+    def job_lock_info(self, page=None, page_size=50):
         url = self._build_url(self._jobs_path + '/lock_info/')
         data = self._get_default_post_data()
         data['page'] = page
@@ -371,7 +371,7 @@ class ServiceClientSession:
 
     # classifiers
 
-    def classifier_info(self, page=0, page_size=50):
+    def classifier_info(self, page=None, page_size=50):
         url = self._build_url(self._classifier_path + '/info/')
         data = self._get_default_post_data()
         data['page'] = page
@@ -566,7 +566,7 @@ class ServiceClientSession:
 
     # datasets
 
-    def dataset_info(self, page=0, page_size=50):
+    def dataset_info(self, page=None, page_size=50):
         url = self._build_url(self._dataset_path + '/info/')
         data = self._get_default_post_data()
         data['page'] = page
@@ -707,7 +707,7 @@ class ServiceClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
-    def dataset_classification_info(self, name, page=0, page_size=50):
+    def dataset_classification_info(self, name, page=None, page_size=50):
         url = self._build_url(self._dataset_path + '/classification_info/')
         data = self._get_default_post_data()
         data['name'] = name
