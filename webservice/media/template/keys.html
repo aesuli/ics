@@ -56,7 +56,6 @@ ${parent.head()}
                 });
                 if(msg.length==0) {
                     $('#data\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No keys</div>');
-                    $('#nodata').prepend(pagination_div);
                     $('#page').val(1);
                 }
                 else {
@@ -73,7 +72,7 @@ ${parent.head()}
                         <div>Requests this hour</div>\
                         <div>Actions</div>\
                         </div></div>');
-                        $('#gotdata').prepend(pagination_div);
+                        $('#gotdata').prepend(pagination_div).trigger('resize');
                     }
                     var curr_list = {};
                     $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})

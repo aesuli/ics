@@ -45,7 +45,6 @@ ${parent.head()}
             .done(function(msg) {
                 if(msg.length==0) {
                     $('#lock\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No locks</div>');
-                    $('#nodata').prepend(pagination_div);
                     $('#page').val(1);
                 }
                 else {
