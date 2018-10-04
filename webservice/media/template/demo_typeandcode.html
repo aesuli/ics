@@ -72,9 +72,11 @@
                 dataType: 'json'})
             .done(function(msg) {
                 var valid_classifiers = {}
+                var added = false;
                 for(var i = 0;i<msg.length;++i) {
                     valid_classifiers[msg[i].name] = true;
                     if($('#use\\_opt\\_'+msg[i].name).length==0) {
+                        added = true;
                         $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
                         $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
                         var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all"><span class="name">'+msg[i].name+'</span></div><div id="assignments_'+msg[i].name+'"></div></div>');
@@ -85,24 +87,30 @@
                         }
                     }
                 }
-                $('#use').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(8)]) {$('#'+value.id).remove();}});
+                $('#use').children().each(function (index, value) {
+                    if(!valid_classifiers[value.id.slice(8)]) {
+                        $('#'+value.id).remove();
+                        $('#suggestions\\_'+value.id.slice(8)).remove();
+                    }
+                });
                 $('#use').append($('#use > option').get().sort(function (a, b) {
                     return $(a)[0].id.localeCompare($(b)[0].id);
                 }));
                 var updated_list = {};
                 $('#use').attr('size',Math.min(10,Object.keys(valid_classifiers).length));
-                $("select[multiple] option").off('mousedown').on('mousedown',function(){
-                    var option = $(this);
-                    option.parent().focus();
-                    if (option.prop("selected")) {
-                        option.prop("selected", false);
-                        $('#suggestions\\_'+option.val()).detach().appendTo('#pool');
-                    }
-                    else {
-                        option.prop("selected", true);
-                        $('#suggestions\\_'+option.val()).detach().appendTo('#suggestions');
-                        classify([option.text()]);
-                    }
+                $('#use').select2({
+                    placeholder: 'Select the classifiers to use',
+                    width: 'element'
+                    });
+                $("select[multiple]").off('select2:select').on('select2:select',function(msg){
+                    var name = msg.params.data.id;
+                    $('#suggestions\\_'+name).detach().appendTo('#suggestions');
+                    classify([name]);
+                    return false;
+                });
+                $("select[multiple]").off('select2:unselect').on('select2:unselect',function(msg){
+                    var name = msg.params.data.id;
+                    $('#suggestions\\_'+name).detach().appendTo('#pool');
                     return false;
                 });
                 if($('#classify\\_button').length==0) {
@@ -202,7 +210,7 @@
             <div class="padded"><textarea id="textbox" class="textbox padded" placeholder="INSTRUCTIONS:
 
 1) Type/copy your text here.
-2) Select a relevant classifier from the list on the right.
+2) Select a relevant classifier from the selection box on the right.
 3) Hit the 'Classify' button below to see the labels assigned by the automatic classifiers.
 
 Editing the text resets the label assignment. Hit 'Classify' again when needed."></textarea></div>

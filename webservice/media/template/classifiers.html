@@ -81,11 +81,13 @@ ${parent.head()}
                     var curr_list = {};
                     $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
                     var updated_list = {};
+                    var added = false;
                     for(var i = 0;i<msg.length;++i) {
                         var name_string = msg[i].name
                         updated_list[name_string] = true;
                         var sort_string = msg[i].name.replace(/\W/g,'X')
                         if($('#dup\\_opt\\_'+name_string).length==0) {
+                            added = true;
                             $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+name_string+'"/>').val(name_string).text(name_string));
                             $('#comb\\_from').append($('<option title="'+msg[i].description+'" id="comb_opt_'+name_string+'"/>').val(name_string).text(name_string));
                         }
@@ -144,21 +146,22 @@ ${parent.head()}
                     $('#data').append($('#data > div').get().sort(function (a, b) {
                         return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
-                    $('#dup\\_from').append($('#dup\\_from > option').get().sort(function (a, b) {
-                        return $(a)[0].id.localeCompare($(b)[0].id);
-                    }));
-                    $('#comb\\_from').append($('#comb\\_from > option').get().sort(function (a, b) {
-                        return $(a)[0].id.localeCompare($(b)[0].id);
-                    }));
+                    if(added) {
+                        $('#dup\\_from').append($('#dup\\_from > option').get().sort(function (a, b) {
+                            return $(a)[0].id.localeCompare($(b)[0].id);
+                        }));
+                        $('#comb\\_from').append($('#comb\\_from > option').get().sort(function (a, b) {
+                            return $(a)[0].id.localeCompare($(b)[0].id);
+                        }));
+                    }
                     $('#comb\\_from').attr('size',Math.min(10,Object.keys(updated_list).length));
-                    $("select[multiple] option").off('mousedown').on('mousedown',function(){
-                       var option = $(this);
-                       option.parent().focus();
-                       if (option.prop("selected"))
-                              option.prop("selected", false);
-                       else
-                           option.prop("selected", true);
-                       return false;
+                    $('#comb\\_from').select2({
+                        placeholder: 'Select the classifiers to combine',
+                        width: 'element'
+                    });
+                    $('#dup\\_from').select2({
+                        placeholder: 'Select the source classifier',
+                        width: '100%'
                     });
                 }
                 $('#uploadingdiv').remove();
