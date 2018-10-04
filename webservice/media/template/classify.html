@@ -103,17 +103,25 @@ ${parent.head()}
                 url:'${classifier_path}/info',
                 dataType: 'json'})
             .done(function(msg) {
-                    var valid_classifiers = {}
-                    for(var i = 0;i<msg.length;++i) {
-                        valid_classifiers[msg[i].name] = true;
-                        if($('#do\\_opt\\_'+msg[i].name).length==0) {
-                            $('#do\\_name').append($('<option id="do_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
-                        }
+                var valid_classifiers = {}
+                var added = false;
+                for(var i = 0;i<msg.length;++i) {
+                    valid_classifiers[msg[i].name] = true;
+                    if($('#do\\_opt\\_'+msg[i].name).length==0) {
+                        added = true;
+                        $('#do\\_name').append($('<option id="do_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
                     }
-                    $('#do\\_name').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(7)]) {$('#'+value.id).remove();}});
+                }
+                $('#do\\_name').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(7)]) {$('#'+value.id).remove();}});
+                if(added) {
                     $('#do\\_name').append($('#do\\_name > option').get().sort(function (a, b) {
                         return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
+                }
+                $('#do\\_name').select2({
+                    placeholder: 'Select the classifier',
+                    width: 'element'
+                });
             });
         }
 

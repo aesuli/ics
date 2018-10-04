@@ -33,12 +33,17 @@ input { display: table-cell; }
 
 #data_list {overflow: auto;}
 
-select:not([mutiple]) {
+.select2 {
+  font-family: Arial, Helvetica, sans-serif;
+  padding: 5px;
+}
+.select2-container {
+  font-family: Arial, Helvetica, sans-serif;
   padding: 5px;
 }
 
-select option {
-  padding: 5px;
+.select2-container--default .select2-selection--multiple .select2-selection__rendered li {
+    padding: 5px;
 }
 
 div .table   {
