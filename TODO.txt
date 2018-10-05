@@ -1,4 +1,6 @@
 TODO
+- text search in browse and code
+    * extend to all browsing modes
 - labeling from table views
 - automatic DB creation
 - use ids rather than names in batch jobs
@@ -21,6 +23,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- text search in browse and code
 - update demo labeling interface following the browse and label one
 - dataset documents as table view
 - classified dataset documents as table view
