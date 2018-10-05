@@ -349,7 +349,7 @@ ${parent.head()}
                     $.ajax({
                         type:'POST',
                         url:'${dataset_path}/random_unlabeled_document_id',
-                        data: { name: dataset_name , classifier_name: classifier_name },
+                        data: { name: dataset_name , classifier_name: classifier_name, filter: $('#filter').val() },
                         dataType: 'json'})
                     .done(function(msg) {
                         var newposition = parseInt(msg);
@@ -370,7 +370,7 @@ ${parent.head()}
                     $.ajax({
                         type:'POST',
                         url:'${dataset_path}/most_uncertain_document_id',
-                        data: { name: dataset_name , classifier_name: classifier_name },
+                        data: { name: dataset_name , classifier_name: classifier_name, filter: $('#filter').val() },
                         dataType: 'json'})
                     .done(function(msg) {
                         var newposition = parseInt(msg);
@@ -548,11 +548,12 @@ ${parent.head()}
             <div class="padded ui-widget-header ui-corner-all">Browse dataset '<span id="datasetname">NULL</span>':</div>
             <div class="padded">
                 <div class="hidden"><label class="ui-button right" for="showsugg">Show labeling <span class="suggested">suggestions</span> <input type="checkbox" id="showsugg" ></label></div>
+                <div id="browse_autobrowse" class="right">Browsing mode: <span id='direction'>NULL</span></div>
+                <div class="ui-corner-all ui-button right"><input type="text" id="filter" placeholder="Text filter"/></div>
 
                 <div class="ui-button">Current: <input id='position' type="number" min=0 max=0 value=0>/<span id="size">NULL</span></div>
                <!-- <div id="browse_first">First</div>
                 <div id="browse_last">Last</div>-->
-                <div id="browse_autobrowse" class="right">Browsing mode: <span id='direction'>NULL</span></div>
                 <div class="margined">ID: <span id="external-id">NULL</span></div>
                 <div class="margined">Uploaded: <span id="uploaded">NULL</span></div>
             </div>

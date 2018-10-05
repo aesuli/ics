@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from passlib.hash import pbkdf2_sha256
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, create_engine, PickleType, \
-    UniqueConstraint, exists, not_, and_
+    UniqueConstraint, exists, not_, and_, func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
@@ -778,7 +778,7 @@ class SQLAlchemyDB(object):
                     .limit(limit)
                     )
 
-    def get_dataset_documents_without_labels(self, dataset_name, classifier_name, offset=0, limit=None):
+    def get_dataset_random_documents_without_labels(self, dataset_name, classifier_name, limit):
         with self.session_scope() as session:
             return (session.query(DatasetDocument)
                     .join(DatasetDocument.dataset)
@@ -787,8 +787,21 @@ class SQLAlchemyDB(object):
                                                      Classification.classifier_id == Classifier.id,
                                                      Classifier.name == classifier_name,
                                                      TrainingDocument.id == Classification.document_id))))
-                    .order_by(DatasetDocument.id)
-                    .offset(offset)
+                    .order_by(func.random())
+                    .limit(limit)
+                    )
+
+    def get_dataset_random_documents_without_labels_filter(self, dataset_name, classifier_name, filter, limit):
+        with self.session_scope() as session:
+            return (session.query(DatasetDocument)
+                    .join(DatasetDocument.dataset)
+                    .filter(Dataset.name == dataset_name)
+                    .filter(DatasetDocument.text.like('%'+filter+'%'))
+                    .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
+                                                     Classification.classifier_id == Classifier.id,
+                                                     Classifier.name == classifier_name,
+                                                     TrainingDocument.id == Classification.document_id))))
+                    .order_by(func.random())
                     .limit(limit)
                     )
 
@@ -804,7 +817,7 @@ class SQLAlchemyDB(object):
                     .count()
                     )
 
-    def get_dataset_documents_by_name(self, name, offset=0, limit=None):
+    def get_dataset_documents_sorted_by_name(self, name, offset=0, limit=None):
         with self.session_scope() as session:
             return (session.query(DatasetDocument)
                     .filter(Dataset.name == name)
@@ -814,7 +827,7 @@ class SQLAlchemyDB(object):
                     .limit(limit)
                     )
 
-    def get_dataset_documents_by_position(self, name, offset=0, limit=None):
+    def get_dataset_documents_sorted_by_position(self, name, offset=0, limit=None):
         with self.session_scope() as session:
             return (session.query(DatasetDocument)
                     .filter(Dataset.name == name)

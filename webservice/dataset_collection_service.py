@@ -147,7 +147,7 @@ class DatasetCollectionService(object):
             try:
                 with open(fullpath, 'w', encoding='utf-8', newline='') as file:
                     writer = csv.writer(file, lineterminator='\n')
-                    for document in self._db.get_dataset_documents_by_name(name):
+                    for document in self._db.get_dataset_documents_sorted_by_name(name):
                         writer.writerow([document.external_id, document.text])
             except:
                 os.unlink(fullpath)
@@ -207,19 +207,22 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def most_uncertain_document_id(self, name, classifier_name):
-        dataset_size = self._db.get_dataset_size(name)
-        offset = random.randint(0, max(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE))
+    def most_uncertain_document_id(self, name, classifier_name, filter=None):
         X = list()
         doc_ids = list()
-        for doc in self._db.get_dataset_documents_without_labels(name, classifier_name, offset,
-                                                                 QUICK_CLASSIFICATION_BATCH_SIZE):
+        if filter is None:
+            filter = ''
+        for doc in self._db.get_dataset_random_documents_without_labels_filter(name, classifier_name, filter,
+                                                                               QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
             doc_ids.append(doc.id)
 
         if len(X) == 0:
             cherrypy.response.status = 400
-            return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            if len(filter) == 0:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            else:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\' and text filter \'{filter}\''
 
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
@@ -233,31 +236,37 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def random_unlabeled_document_id(self, name, classifier_name):
-        dataset_size = self._db.get_dataset_size(name)
-        offset = random.randint(0, max(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE))
+    def random_unlabeled_document_id(self, name, classifier_name, filter=None):
+        if filter is None:
+            filter = ''
         try:
-            doc_id = self._db.get_dataset_documents_without_labels(name, classifier_name, offset, 1)[0].id
+            doc_id = self._db.get_dataset_random_documents_without_labels_filter(name, classifier_name, filter, 1)[0].id
             return self._db.get_dataset_document_position_by_id(name, doc_id)
         except:
             cherrypy.response.status = 400
-            return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            if len(filter) == 0:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            else:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\' and text filter \'{filter}\''
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def most_certain_document_id(self, name, classifier_name):
-        dataset_size = self._db.get_dataset_size(name)
-        offset = random.randint(0, max(0, dataset_size - QUICK_CLASSIFICATION_BATCH_SIZE))
+    def most_certain_document_id(self, name, classifier_name, filter=None):
         X = list()
         doc_ids = list()
-        for doc in self._db.get_dataset_documents_without_labels(name, classifier_name, offset,
-                                                                 QUICK_CLASSIFICATION_BATCH_SIZE):
+        if filter is None:
+            filter = ''
+        for doc in self._db.get_dataset_random_documents_without_labels_filter(name, classifier_name, filter,
+                                                                               QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
             doc_ids.append(doc.id)
 
         if len(X) == 0:
             cherrypy.response.status = 400
-            return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            if len(filter) == 0:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            else:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\' and text filter \'{filter}\''
 
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
@@ -336,7 +345,8 @@ class DatasetCollectionService(object):
             if page is None:
                 jobs = self._db.get_classification_jobs()
             else:
-                jobs = self._db.get_classification_jobs(name)[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
+                jobs = self._db.get_classification_jobs(name)[
+                       int(page) * int(page_size):(int(page) + 1) * int(page_size)]
             for classification_job in jobs:
                 classification_job_info = dict()
                 classification_job_info['id'] = classification_job.id
@@ -413,8 +423,8 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                     found = False
                     X = list()
                     id = list()
-                    for document in db.get_dataset_documents_by_name(datasetname, batch_count * MAX_BATCH_SIZE,
-                                                                     MAX_BATCH_SIZE):
+                    for document in db.get_dataset_documents_sorted_by_name(datasetname, batch_count * MAX_BATCH_SIZE,
+                                                                            MAX_BATCH_SIZE):
                         id.append(document.external_id)
                         X.append(document.text)
                     if len(X) > 0:
