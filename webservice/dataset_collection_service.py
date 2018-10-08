@@ -212,8 +212,8 @@ class DatasetCollectionService(object):
         doc_ids = list()
         if filter is None:
             filter = ''
-        for doc in self._db.get_dataset_random_documents_without_labels_filter(name, classifier_name, filter,
-                                                                               QUICK_CLASSIFICATION_BATCH_SIZE):
+        for doc in self._db.get_dataset_random_documents_without_labels(name, classifier_name, filter,
+                                                                        QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
             doc_ids.append(doc.id)
 
@@ -236,11 +236,26 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
+    def random_document_id(self, name, filter=None):
+        if filter is None:
+            filter = ''
+        try:
+            doc_id = self._db.get_dataset_random_documents(name, filter, 1)[0].id
+            return self._db.get_dataset_document_position_by_id(name, doc_id)
+        except:
+            cherrypy.response.status = 400
+            if len(filter) == 0:
+                return f'No documents in dataset \'{name}\''
+            else:
+                return f'No documents in dataset \'{name}\' for text filter \'{filter}\''
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
     def random_unlabeled_document_id(self, name, classifier_name, filter=None):
         if filter is None:
             filter = ''
         try:
-            doc_id = self._db.get_dataset_random_documents_without_labels_filter(name, classifier_name, filter, 1)[0].id
+            doc_id = self._db.get_dataset_random_documents_without_labels(name, classifier_name, filter, 1)[0].id
             return self._db.get_dataset_document_position_by_id(name, doc_id)
         except:
             cherrypy.response.status = 400
@@ -256,8 +271,8 @@ class DatasetCollectionService(object):
         doc_ids = list()
         if filter is None:
             filter = ''
-        for doc in self._db.get_dataset_random_documents_without_labels_filter(name, classifier_name, filter,
-                                                                               QUICK_CLASSIFICATION_BATCH_SIZE):
+        for doc in self._db.get_dataset_random_documents_without_labels(name, classifier_name, filter,
+                                                                        QUICK_CLASSIFICATION_BATCH_SIZE):
             X.append(doc.text)
             doc_ids.append(doc.id)
 
@@ -280,16 +295,21 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def random_hidden_document_id(self, name, classifier_name):
+    def random_hidden_document_id(self, name, classifier_name, filter = None):
+        if filter is None:
+            filter = ''
         document_ids = [document.id for document in
-                        self._db.get_dataset_documents_with_label(name, classifier_name, Label.HIDDEN_LABEL)]
+                        self._db.get_dataset_documents_with_label(name, classifier_name, Label.HIDDEN_LABEL, filter)]
         if document_ids:
             document_id = random.choice(document_ids)
             position = self._db.get_dataset_document_position_by_id(name, document_id)
             return position
         else:
             cherrypy.response.status = 400
-            return f'No hidden documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            if len(filter) == 0:
+                return f'No hidden documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            else:
+                return f'No hidden documents in dataset \'{name}\' for classifier \'{classifier_name}\' and text filter \'{filter}\''
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

@@ -117,7 +117,7 @@ ${parent.head()}
                     }
                 }
                 if($('#all\\_correct').length==0) {
-                    var next_button = jQuery('<div id="next" class="right">Next</div>');
+                    var next_button = jQuery('<div id="next" class="right" title="Press the right arrow key to move to next document">Next</div>');
                     next_button.button({ icons: {primary:'ui-icon-arrow-1-e'} });
                     next_button.click(next_doc);
                     $('#suggestions').append(next_button);
@@ -339,11 +339,19 @@ ${parent.head()}
             //    }
             //}
             if(autobrowsevalues[autobrowse][0]==browse_random) {
-//                var newposition = Math.floor(Math.random() * datasetsize);
-//                $('#position').val(newposition).change();
                 if(classifier_name==null) {
-                    var newposition = Math.floor(Math.random() * datasetsize);
-                    $('#position').val(newposition).change();
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/random_document_id',
+                        data: { name: dataset_name , filter: $('#filter').val() },
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
+                        $('#position').val(newposition).change();
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
                 }
                 else {
                     $.ajax({
@@ -363,8 +371,18 @@ ${parent.head()}
             else
             if(autobrowsevalues[autobrowse][0]==browse_diff) {
                 if(classifier_name==null) {
-                    var newposition = Math.floor(Math.random() * datasetsize);
-                    $('#position').val(newposition).change();
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/random_document_id',
+                        data: { name: dataset_name , filter: $('#filter').val() },
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
+                        $('#position').val(newposition).change();
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
                 }
                 else {
                     $.ajax({
@@ -383,8 +401,18 @@ ${parent.head()}
             }
             //else if(autobrowsevalues[autobrowse][0]==browse_easy) {
             //    if(classifier_name==null) {
-            //        var newposition = Math.floor(Math.random() * datasetsize);
-            //        $('#position').val(newposition).change();
+            //        $.ajax({
+            //            type:'POST',
+            //            url:'${dataset_path}/random_document_id',
+            //            data: { name: dataset_name , filter: $('#filter').val() },
+            //            dataType: 'json'})
+            //        .done(function(msg) {
+            //            var newposition = parseInt(msg);
+            //            $('#position').val(newposition).change();
+            //        })
+            //        .fail(function(errMsg) {
+            //            custom_alert(errMsg.responseText);
+            //        });
             //    }
             //    else {
             //        $.ajax({
@@ -403,8 +431,18 @@ ${parent.head()}
             //}
             else if(autobrowsevalues[autobrowse][0]==browse_hidden) {
                 if(classifier_name==null) {
-                    var newposition = Math.floor(Math.random() * datasetsize);
-                    $('#position').val(newposition).change();
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/random_document_id',
+                        data: { name: dataset_name , filter: $('#filter').val() },
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
+                        $('#position').val(newposition).change();
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
                 }
                 else {
                     $.ajax({
@@ -480,6 +518,18 @@ ${parent.head()}
             $('#browse\\_autobrowse').click(change_autobrowse);
 
             $('#showsugg').change(show_suggestions);
+
+            $('#filter').on('keyup', function (e) {
+                if (e.keyCode == 13) {//enter
+                    next_doc();
+                }
+            });
+
+            $(document).on('keyup', function(e) {
+                if(e.keyCode == 39 && e.target.id == '') {//right
+                    next_doc();
+                }
+            });
 
             timed_update();
             goto_first();
