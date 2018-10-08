@@ -762,36 +762,23 @@ class SQLAlchemyDB(object):
                     .limit(limit)
                     )
 
-    def get_dataset_documents_with_label(self, dataset_name, classifier_name, label, offset=0, limit=None):
+    def get_dataset_documents_with_label(self, dataset_name, classifier_name, label, filter, limit=None):
         with self.session_scope() as session:
             return (session.query(DatasetDocument)
                     .join(DatasetDocument.dataset)
                     .filter(Dataset.name == dataset_name)
+                    .filter(DatasetDocument.text.like('%'+filter+'%'))
                     .filter(DatasetDocument.md5 == TrainingDocument.md5)
                     .filter(Classifier.name == classifier_name)
                     .join(Classification.document)
                     .join(Classification.classifier)
                     .join(Classification.label)
                     .filter(Label.name == label)
-                    .order_by(DatasetDocument.id)
-                    .offset(offset)
-                    .limit(limit)
-                    )
-
-    def get_dataset_random_documents_without_labels(self, dataset_name, classifier_name, limit):
-        with self.session_scope() as session:
-            return (session.query(DatasetDocument)
-                    .join(DatasetDocument.dataset)
-                    .filter(Dataset.name == dataset_name)
-                    .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
-                                                     Classification.classifier_id == Classifier.id,
-                                                     Classifier.name == classifier_name,
-                                                     TrainingDocument.id == Classification.document_id))))
                     .order_by(func.random())
                     .limit(limit)
                     )
 
-    def get_dataset_random_documents_without_labels_filter(self, dataset_name, classifier_name, filter, limit):
+    def get_dataset_random_documents_without_labels(self, dataset_name, classifier_name, filter, limit=None):
         with self.session_scope() as session:
             return (session.query(DatasetDocument)
                     .join(DatasetDocument.dataset)
@@ -801,6 +788,16 @@ class SQLAlchemyDB(object):
                                                      Classification.classifier_id == Classifier.id,
                                                      Classifier.name == classifier_name,
                                                      TrainingDocument.id == Classification.document_id))))
+                    .order_by(func.random())
+                    .limit(limit)
+                    )
+
+    def get_dataset_random_documents(self, dataset_name, filter, limit=None):
+        with self.session_scope() as session:
+            return (session.query(DatasetDocument)
+                    .join(DatasetDocument.dataset)
+                    .filter(Dataset.name == dataset_name)
+                    .filter(DatasetDocument.text.like('%'+filter+'%'))
                     .order_by(func.random())
                     .limit(limit)
                     )
