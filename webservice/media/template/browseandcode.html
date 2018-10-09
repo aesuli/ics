@@ -519,17 +519,23 @@ ${parent.head()}
 
             $('#showsugg').change(show_suggestions);
 
-            $('#filter').on('keyup', function (e) {
+            $('#filter').on('keydown', function (e) {
                 if (e.keyCode == 13) {//enter
                     next_doc();
                 }
             });
 
-            $(document).on('keyup', function(e) {
+            $(document).on('keydown', function(e) {
                 if(e.keyCode == 39 && e.target.id == '') {//right
                     next_doc();
                 }
+                if(e.ctrlKey && e.keyCode == 70 && e.target.id == '') {
+                    $('#filter').parent().toggle();
+                    e.preventDefault();
+                }
             });
+
+            $('#filter').parent().hide();
 
             timed_update();
             goto_first();
