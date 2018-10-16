@@ -102,10 +102,6 @@ div .table   {
     margin: 5px;
 }
 
-.inline {
-    display: inline;
-}
-
 .right {
     float: right;
 }
@@ -229,4 +225,25 @@ div .table   {
 .tip {
     text-decoration: underline;
     text-decoration-style: dotted
+}
+
+.labeltype {
+    margin-left: 5px;
+    padding: 3px;
+    border-radius: 3px;
+    background-color: #9cc8f4;
+    vertical-align:super;
+    float:right;
+    font-size: 70%;
+    color: #444444;
+}
+
+.multiyes {
+    display:table-cell;
+    width:100%;
+    vertical-align:top;
+}
+
+.multino {
+    display:table-cell;
 }

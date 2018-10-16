@@ -6,13 +6,13 @@ ${parent.head()}
        delay_interval=500
         last_update = 0
         page = 1;
-        page_size = 10;
+        page_size = 20;
 
         pagination_div = jQuery('<div id="pagination" class="right plain">\
                          page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
                          /<span id="pagecount">X</span>\
-                         count<select id="pagesize"><option value="10" selected>10</option>\
-                         <option value="20">20</option><option value="50" >50</option>\
+                         count<select id="pagesize"><option value="10">10</option>\
+                         <option value="20" selected>20</option><option value="50" >50</option>\
                          <option value="100">100</option><option value="200">200</option></select></div></div>');
 
         function timed_update() {

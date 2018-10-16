@@ -23,7 +23,7 @@ ${parent.head()}
             <li><code>name</code> - name of the classifier</li>
             <li><code>type</code> - type of the classifier, i.e., a name that indicates the type of machine learning algorithm on which the classifier is based. Current classifier types are
 <%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES:
+% for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
                 "<code>${classifier_type}</code>"
 % endfor
             .</li>

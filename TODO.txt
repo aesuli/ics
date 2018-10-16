@@ -1,6 +1,6 @@
 TODO
-- text search in browse and code
-    * extend to all browsing modes
+- multilabel visualization in demo page
+- multilabel visualization in type and code page
 - labeling from table views
 - automatic DB creation
 - use ids rather than names in batch jobs
@@ -23,7 +23,17 @@ TOMONITOR
 - strip input strings
 
 DONE
+- fix missing label count of multilabel
+- multilabel relevance sampling
+- multilabel incertainty sampling
+- add 'M' and 'S' to dropdown menu
+- extend duplicate to multilabel
+- extend extract to multilabel
+- extend combine to multilabel
+- multilabel data download
+- multilabel classifiers
 - text search in browse and code
+    * extend to all browsing modes
 - update demo labeling interface following the browse and label one
 - dataset documents as table view
 - classified dataset documents as table view

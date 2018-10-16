@@ -5,13 +5,13 @@ ${parent.head()}
         update_interval=5000
         last_update = 0
         page = 1;
-        page_size = 10;
+        page_size = 20;
 
         pagination_div = jQuery('<div id="pagination" class="right plain">\
                          page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
                          /<span id="pagecount">X</span>\
-                         count<select id="pagesize"><option value="10" selected>10</option>\
-                         <option value="20">20</option><option value="50" >50</option>\
+                         count<select id="pagesize"><option value="10">10</option>\
+                         <option value="20" selected>20</option><option value="50" >50</option>\
                          <option value="100">100</option><option value="200">200</option></select></div></div>');
 
         function timed_update() {
@@ -204,9 +204,7 @@ ${parent.head()}
                 custom_alert("Must select a file.");
                 return false;
             }
-            uploadtype = $("#uploadtype").val();
             var data = new FormData()
-            data.append("type", uploadtype);
             data.append("file", $('#dataFile')[0].files[0]);
             $.ajax({
                 type: "POST",
@@ -307,39 +305,31 @@ ${parent.head()}
                         });
                         extract_dialog.append(labeldiv);
                     }
-                    var typediv = jQuery('<div><p class="hidden">\
-                                        <select id="extracttype">\<%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
-                    <option value="${classifier_type}">${classifier_type}</option>\
-% endfor
-                </select></p></div>');
-                    extract_dialog.append(typediv);
                     extract_dialog.dialog({modal:true,
-                                            title:'Extract binary classifiers from "'+classifier_name+'"',
-                                            width: $(window).width()*0.5,
-                                            buttons: {
-                                                'Extract': function() {
-                                                    var selected = []
-                                                    $('div[id^="extract\\_"].ui-state-focus').each(function () {
-                                                        selected.push($($(this)[0]).text());
-                                                    });
-                                                    extracttype = $("#extracttype").val();
-                                                    var data = {name: classifier_name, labels: selected, type: extracttype};
-                                                    $.ajax({
-                                                        type: "POST",
-                                                        url: "${classifier_path}/extract",
-                                                        data: data})
-                                                    .done(update)
-                                                    .fail(function(errMsg) {
-                                                        custom_alert(errMsg.responseText);
-                                                    });
-                                                    $(this).dialog('destroy').remove();
-                                                },
-                                                'Cancel': function() {
-                                                    $(this).dialog('destroy').remove();
-                                                }
-                                            },
-                                          });
+                        title:'Extract binary classifiers from "'+classifier_name+'"',
+                        width: $(window).width()*0.5,
+                        buttons: {
+                            'Extract': function() {
+                                var selected = []
+                                $('div[id^="extract\\_"].ui-state-focus').each(function () {
+                                    selected.push($($(this)[0]).text());
+                                });
+                                var data = {name: classifier_name, labels: selected};
+                                $.ajax({
+                                    type: "POST",
+                                    url: "${classifier_path}/extract",
+                                    data: data})
+                                .done(update)
+                                .fail(function(errMsg) {
+                                    custom_alert(errMsg.responseText);
+                                });
+                                $(this).dialog('destroy').remove();
+                            },
+                            'Cancel': function() {
+                                $(this).dialog('destroy').remove();
+                            }
+                        }
+                    });
                 });
         };
 
@@ -534,11 +524,11 @@ ${parent.head()}
                 <p>
                     <label class="margined"  for="labels">Labels (comma separated):</label>
                     <input class="margined"  type="text" id="labels"/></p>
-                 <p class="hidden">
+                 <p>
                     <label class="margined"  for="type">Type:</label>
                     <select class="margined"  id="type">
 <%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+% for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
                         <option value="${classifier_type}">${classifier_type}</option>
 % endfor
                     </select></p>
@@ -557,11 +547,11 @@ ${parent.head()}
                     <label class="margined"  for="dup_from">From:</label>
                     <select class="margined"  id="dup_from">
                     </select></p>
-                 <p class="hidden">
+                 <p>
                     <label class="margined"  for="dup_type">Type:</label>
                     <select class="margined"  id="dup_type">
 <%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+% for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
                         <option value="${classifier_type}">${classifier_type}</option>
 % endfor
                     </select></p>
@@ -580,11 +570,11 @@ ${parent.head()}
                     <label class="margined"  for="comb_from">From:</label>
                     <select class="margined"  multiple id="comb_from" style="resize: vertical;width: 100%;">
                     </select></p>
-                 <p class="hidden">
+                 <p>
                     <label for="combinetype">Type:</label>
                     <select id="combinetype">
 <%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+% for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
                         <option value="${classifier_type}">${classifier_type}</option>
 % endfor
                     </select></p>
@@ -600,14 +590,6 @@ ${parent.head()}
             <form enctype="multipart/form-data" id="upload_form" class="margined" action="#" method="post">
                 <p><label class="margined" >Data file:</label>
                     <input class="margined"  type="file" id="dataFile"/></p>
-                 <p class="hidden">
-                    <label class="margined"  for="uploadtype">Type:</label>
-                    <select class="margined"  id="uploadtype">
-<%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
-                        <option value="${classifier_type}">${classifier_type}</option>
-% endfor
-                    </select></p>
                 <p><label></label>
                     <input class="margined"  id="upload_button" type="submit" value="Upload"/></p>
             </form>

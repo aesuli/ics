@@ -1,6 +1,5 @@
 import csv
 import os
-import random
 import shutil
 from uuid import uuid4
 
@@ -8,7 +7,8 @@ import cherrypy
 import numpy as np
 from cherrypy.lib.static import serve_file
 
-from db.sqlalchemydb import SQLAlchemyDB, Job, Label
+from classifier.classifier import SINGLE_LABEL, MULTI_LABEL
+from db.sqlalchemydb import SQLAlchemyDB, Job
 from util.util import get_fully_portable_file_name
 
 __author__ = 'Andrea Esuli'
@@ -212,10 +212,10 @@ class DatasetCollectionService(object):
         doc_ids = list()
         if filter is None:
             filter = ''
-        for doc in self._db.get_dataset_random_documents_without_labels(name, classifier_name, filter,
+        for text,id in self._db.get_dataset_random_documents_without_labels(name, classifier_name, filter,
                                                                         QUICK_CLASSIFICATION_BATCH_SIZE):
-            X.append(doc.text)
-            doc_ids.append(doc.id)
+            X.append(text)
+            doc_ids.append(id)
 
         if len(X) == 0:
             cherrypy.response.status = 400
@@ -226,13 +226,77 @@ class DatasetCollectionService(object):
 
         scores = self._db.score(classifier_name, X)
         positions_scores = list()
-        for i, dict_ in enumerate(scores):
-            probs = self._softmax(list(dict_.values()))
-            probs.sort()
-            diff = probs[-1] - probs[-2]
-            positions_scores.append((i, diff))
+        classifier_type = self._db.get_classifier_type(classifier_name)
+        if classifier_type == SINGLE_LABEL:
+            for i, dict_ in enumerate(scores):
+                probs = self._softmax(list(dict_.values()))
+                probs.sort()
+                diff = probs[-1] - probs[-2]
+                positions_scores.append((i, diff))
+        elif classifier_type == MULTI_LABEL:
+            for i, dict_ in enumerate(scores):
+                diff = float('inf')
+                for entry in dict_.values():
+                    probs = self._softmax(list(entry))
+                    probs.sort()
+                    diff = min(diff,probs[-1] - probs[-2])
+                positions_scores.append((i, diff))
         positions_scores.sort(key=lambda x: x[1])
         return self._db.get_dataset_document_position_by_id(name, doc_ids[positions_scores[0][0]])
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def most_certain_document_id(self, name, classifier_name, filter=None):
+        X = list()
+        doc_ids = list()
+        if filter is None:
+            filter = ''
+        for text,id in self._db.get_dataset_random_documents_without_labels(name, classifier_name, filter,
+                                                                        QUICK_CLASSIFICATION_BATCH_SIZE):
+            X.append(text)
+            doc_ids.append(id)
+
+        if len(X) == 0:
+            cherrypy.response.status = 400
+            if len(filter) == 0:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            else:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\' and text filter \'{filter}\''
+
+        scores = self._db.score(classifier_name, X)
+        positions_scores = list()
+        classifier_type = self._db.get_classifier_type(classifier_name)
+        if classifier_type == SINGLE_LABEL:
+            for i, dict_ in enumerate(scores):
+                probs = self._softmax(list(dict_.values()))
+                probs.sort()
+                diff = probs[-1] - probs[-2]
+                positions_scores.append((i, diff))
+        elif classifier_type == MULTI_LABEL:
+            for i, dict_ in enumerate(scores):
+                diff = float('inf')
+                for entry in dict_.values():
+                    probs = self._softmax(list(entry))
+                    probs.sort()
+                    diff = min(diff,probs[-1] - probs[-2])
+                positions_scores.append((i, diff))
+        positions_scores.sort(key=lambda x: -x[1])
+        return self._db.get_dataset_document_position_by_id(name, doc_ids[positions_scores[0][0]])
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def random_unlabeled_document_id(self, name, classifier_name, filter=None):
+        if filter is None:
+            filter = ''
+        try:
+            doc_id = self._db.get_dataset_random_documents_without_labels(name, classifier_name, filter, 1)[0][1]
+            return self._db.get_dataset_document_position_by_id(name, doc_id)
+        except:
+            cherrypy.response.status = 400
+            if len(filter) == 0:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
+            else:
+                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\' and text filter \'{filter}\''
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -248,68 +312,6 @@ class DatasetCollectionService(object):
                 return f'No documents in dataset \'{name}\''
             else:
                 return f'No documents in dataset \'{name}\' for text filter \'{filter}\''
-
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def random_unlabeled_document_id(self, name, classifier_name, filter=None):
-        if filter is None:
-            filter = ''
-        try:
-            doc_id = self._db.get_dataset_random_documents_without_labels(name, classifier_name, filter, 1)[0].id
-            return self._db.get_dataset_document_position_by_id(name, doc_id)
-        except:
-            cherrypy.response.status = 400
-            if len(filter) == 0:
-                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
-            else:
-                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\' and text filter \'{filter}\''
-
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def most_certain_document_id(self, name, classifier_name, filter=None):
-        X = list()
-        doc_ids = list()
-        if filter is None:
-            filter = ''
-        for doc in self._db.get_dataset_random_documents_without_labels(name, classifier_name, filter,
-                                                                        QUICK_CLASSIFICATION_BATCH_SIZE):
-            X.append(doc.text)
-            doc_ids.append(doc.id)
-
-        if len(X) == 0:
-            cherrypy.response.status = 400
-            if len(filter) == 0:
-                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\''
-            else:
-                return f'No unlabeled documents in dataset \'{name}\' for classifier \'{classifier_name}\' and text filter \'{filter}\''
-
-        scores = self._db.score(classifier_name, X)
-        positions_scores = list()
-        for i, dict_ in enumerate(scores):
-            probs = self._softmax(list(dict_.values()))
-            probs.sort()
-            diff = probs[-1] - probs[-2]
-            positions_scores.append((i, diff))
-        positions_scores.sort(key=lambda x: -x[1])
-        return self._db.get_dataset_document_position_by_id(name, doc_ids[positions_scores[0][0]])
-
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def random_hidden_document_id(self, name, classifier_name, filter = None):
-        if filter is None:
-            filter = ''
-        document_ids = [document.id for document in
-                        self._db.get_dataset_documents_with_label(name, classifier_name, Label.HIDDEN_LABEL, filter)]
-        if document_ids:
-            document_id = random.choice(document_ids)
-            position = self._db.get_dataset_document_position_by_id(name, document_id)
-            return position
-        else:
-            cherrypy.response.status = 400
-            if len(filter) == 0:
-                return f'No hidden documents in dataset \'{name}\' for classifier \'{classifier_name}\''
-            else:
-                return f'No hidden documents in dataset \'{name}\' for classifier \'{classifier_name}\' and text filter \'{filter}\''
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -417,7 +419,7 @@ class DatasetCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "3.1.3 (db: %s)" % self._db.version()
+        return "3.3.1 (db: %s)" % self._db.version()
 
 
 def _classify(db_connection_string, datasetname, classifiers, fullpath):
@@ -431,8 +433,10 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                 header = list()
                 header.append('#id')
                 header.append('text')
+                classifiers_type = dict()
                 for classifier in classifiers:
                     if db.classifier_exists(classifier):
+                        classifiers_type[classifier] = db.get_classifier_type(classifier)
                         header.append(
                             classifier + ' = (' + ', '.join(db.get_classifier_labels(classifier)) + ')')
                 writer.writerow(header)
@@ -447,12 +451,18 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                                                                             MAX_BATCH_SIZE):
                         id.append(document.external_id)
                         X.append(document.text)
+
                     if len(X) > 0:
                         cols = list()
                         cols.append(id)
                         cols.append(X)
-                        for classifier in classifiers:
-                            cols.append(['%s:%s' % (classifier, y) for y in db.classify(classifier, X)])
+                        for classifier in classifiers_type:
+                            if classifiers_type[classifier]==SINGLE_LABEL:
+                                cols.append(['%s:%s' % (classifier, y) for y in db.classify(classifier, X)])
+                            elif classifiers_type[classifier]==MULTI_LABEL:
+                                label_lists = zip(*db.classify(classifier, X))
+                                for label_list in label_lists:
+                                    cols.append(['%s:%s' % (classifier, y) for y in label_list])
                         for row in zip(*cols):
                             writer.writerow(row)
                         found = True

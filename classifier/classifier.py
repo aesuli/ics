@@ -1,28 +1,33 @@
 from abc import ABCMeta, abstractmethod
 
-_CLASSIFIER_TYPES = ['Statistical', 'Neural', 'Custom']
+SINGLE_LABEL = 'Single-label'
+MULTI_LABEL = 'Multi-label'
+CLASSIFIER_TYPES = [MULTI_LABEL, SINGLE_LABEL]
 
 
 def get_classifier_model(type, name, labels):
-    if type == _CLASSIFIER_TYPES[0]:
+    if type == SINGLE_LABEL:
         from classifier.online_classifier import OnlineClassifier
         return OnlineClassifier(name, labels)
-    elif type == _CLASSIFIER_TYPES[1]:
-        from classifier.pytorch_classifier import LSTMClassifier
-        return LSTMClassifier(name, labels)
+    elif type == MULTI_LABEL:
+        from classifier.multilabel_online_classifier import MultiLabelOnlineClassifier
+        return MultiLabelOnlineClassifier(name, labels)
+        # from classifier.pytorch_classifier import LSTMClassifier
+        # return LSTMClassifier(name, labels)
     else:
         raise ValueError('Unknown classifier type')
 
 
 def get_classifier_type_from_model(model):
     from classifier.online_classifier import OnlineClassifier
-    from classifier.pytorch_classifier import LSTMClassifier
+    from classifier.multilabel_online_classifier import MultiLabelOnlineClassifier
+    #from classifier.pytorch_classifier import LSTMClassifier
     if isinstance(model, OnlineClassifier):
-        classifier_type = _CLASSIFIER_TYPES[0]
-    elif isinstance(model, LSTMClassifier):
-        classifier_type = _CLASSIFIER_TYPES[1]
+        classifier_type = SINGLE_LABEL
+    elif isinstance(model, MultiLabelOnlineClassifier):
+        classifier_type = MULTI_LABEL
     else:
-        classifier_type = _CLASSIFIER_TYPES[-1]
+        classifier_type = 'Custom'
     return classifier_type
 
 

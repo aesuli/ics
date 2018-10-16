@@ -434,15 +434,6 @@ class ServiceClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
-    def classifier_hide(self, name, X):
-        url = self._build_url(self._classifier_path + '/hide/')
-        data = self._get_default_post_data()
-        data['name'] = name
-        data['X'] = X
-        r = self._session.post(url, data=data)
-        r.raise_for_status()
-        return json.loads(r.content.decode())
-
     def classifier_set_description(self, name, description):
         url = self._build_url(self._classifier_path + '/set_description/')
         data = self._get_default_post_data()
@@ -689,15 +680,6 @@ class ServiceClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
-    def dataset_random_hidden_document_id(self, dataset_name, classifier_name):
-        url = self._build_url(self._dataset_path + '/random_hidden_document_id/')
-        data = self._get_default_post_data()
-        data['name'] = dataset_name
-        data['classifier_name'] = classifier_name
-        r = self._session.post(url, data=data)
-        r.raise_for_status()
-        return json.loads(r.content.decode())
-
     def dataset_classify(self, name, classifiers):
         url = self._build_url(self._dataset_path + '/classify/')
         data = self._get_default_post_data()
@@ -751,4 +733,4 @@ class ServiceClientSession:
         return json.loads(r.content.decode())
 
     def version(self):
-        return "0.3.1"
+        return "0.3.2"
