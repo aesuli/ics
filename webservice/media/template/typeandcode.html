@@ -1,9 +1,9 @@
 <%inherit file="basewithmenu.html" />
 <%block name="head">
- ${parent.head()}
-   <script type="text/javascript">
-       update_interval=5000
-       delay_interval=500
+${parent.head()}
+<script type="text/javascript">
+        update_interval=8000
+        delay_interval=500
         last_update = 0
         function timed_update() {
             now = Date.now();
@@ -26,14 +26,25 @@
                 for(var i = 0;i<msg.length;++i) {
                     valid_classifiers[msg[i].name] = true;
                     if($('#use\\_opt\\_'+msg[i].name).length==0) {
+                        var single_label = msg[i].type=="Single-label";
+                        var labeltype='<span id="'+msg[i].name+'_single" class="labeltype">S</span>';
+                        if(!single_label) {
+                            labeltype='<span id="'+msg[i].name+'_multi" class="labeltype">M</span>'
+                        }
                         added = true;
-                        $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
+                        if(single_label) {
+                            $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name+' (S)'));
+                        }
+                        else {
+                            $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name+' (M)'));
+                        }
                         $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
-                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all"><span class="name">'+msg[i].name+'</span></div><div id="assignments_'+msg[i].name+'"></div></div>');
+                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all"><span class="name">'+msg[i].name+'</span>'+labeltype+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
                         suggestion_div.appendTo('#pool');
                         for(var j = 0;j<msg[i].labels.length;++j) {
-                            var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="pointer scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
-                                scoreline.click((function(classifier_name, label){
+                            if(single_label) {
+                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="pointer scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
+                                scoreline.click((function(single_label, classifier_name, label){
                                     if(!$('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('assigned')) {
                                         if($('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('suggested')) {
                                             $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
@@ -46,6 +57,7 @@
                                         var total = $('#history').children().length;
                                         var positive = $('#history').children('.yes').length;
                                         $('#accuracy').text((positive/total).toFixed(2));
+
                                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
                                         $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
@@ -59,7 +71,75 @@
                                             custom_alert(msg);
                                         });
                                     }
-                                }).bind(null,msg[i].name, msg[i].labels[j]));
+                                }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                            }
+                            else {
+                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'_yes" class="pointer scoreline not_relevant ui-corner-all margined morepadded multiyes">'+msg[i].labels[j]+'</div>');
+                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'_no" class="pointer scoreline not_relevant ui-corner-all margined morepadded multino">✗</div>');
+                                scoreline_yes.click((function(single_label, classifier_name, label){
+                                    if(!$('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').hasClass('assigned')) {
+                                        if($('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').hasClass('suggested')) {
+                                            $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
+                                        }
+                                        else {
+                                            $('#history').prepend('<span class="agreement no" style="color:red;">✗</span>');
+                                        }
+                                        var histsize = parseInt($("#histsize").val());
+                                        $('#history').children().slice(histsize).remove();
+                                        var total = $('#history').children().length;
+                                        var positive = $('#history').children('.yes').length;
+                                        $('#accuracy').text((positive/total).toFixed(2));
+
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').removeClass('not_relevant')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').removeClass('suggested')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').addClass('assigned')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').removeClass('assigned')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').removeClass('suggested')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').addClass('not_relevant')
+
+                                        $.ajax({
+                                            type:'POST',
+                                            url:'${classifier_path}/update',
+                                            data: { name: classifier_name, X: [last_text], y: [label+':yes']}})
+                                        .fail(function(msg) {
+                                            custom_alert(msg);
+                                        });
+                                    }
+                                }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                                scoreline_no.click((function(single_label, classifier_name, label){
+                                    if(!$('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').hasClass('assigned')) {
+                                        if($('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').hasClass('suggested')) {
+                                            $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
+                                        }
+                                        else {
+                                            $('#history').prepend('<span class="agreement no" style="color:red;">✗</span>');
+                                        }
+                                        var histsize = parseInt($("#histsize").val());
+                                        $('#history').children().slice(histsize).remove();
+                                        var total = $('#history').children().length;
+                                        var positive = $('#history').children('.yes').length;
+                                        $('#accuracy').text((positive/total).toFixed(2));
+
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').removeClass('not_relevant')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').removeClass('suggested')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').addClass('assigned')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').removeClass('assigned')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').removeClass('suggested')
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').addClass('not_relevant')
+
+                                        $.ajax({
+                                            type:'POST',
+                                            url:'${classifier_path}/update',
+                                            data: { name: classifier_name, X: [last_text], y: [label+':no']}})
+                                        .fail(function(msg) {
+                                            custom_alert(msg);
+                                        });
+                                    }
+                                }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                                var scoreline = jQuery('<div  class="margined"></div>');
+                                scoreline.append(scoreline_yes);
+                                scoreline.append(scoreline_no);
+                            }
                             $('#assignments\\_'+msg[i].name).append(scoreline);
                         }
                     }
@@ -168,24 +248,68 @@
             last_text = text;
             $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                 var classifier_name = $(item).children('.name').text();
+                var single_label = $('#'+classifier_name+'\\_single').length>0;
                 if(typeof selection == 'undefined' || selection.indexOf(classifier_name)>=0) {
-                    var assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
-                    if(!assigned||force) {
-                        $.ajax({
+                    if(single_label) {
+                        var assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
+                        if(!assigned||force) {
+                            $.ajax({
+                                type:'POST',
+                                url:'${classifier_path}/classify',
+                                data: { name: classifier_name, X: [text]}})
+                            .done(function(msg) {
+                                var suggested = msg[0];
+                                assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
+                                if(!assigned || force) {
+                                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                                    $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                                    if(suggested.startsWith('✍')) {
+                                        var name = suggested.substring(1);
+                                        $('#suggestion\\_'+classifier_name+'\\_'+name).removeClass('not_relevant');
+                                        $('#suggestion\\_'+classifier_name+'\\_'+name).addClass('assigned');
+                                    }
+                                    else {
+                                        $('#suggestion\\_'+classifier_name+'\\_'+suggested).removeClass('not_relevant');
+                                        $('#suggestion\\_'+classifier_name+'\\_'+suggested).addClass('suggested');
+                                    }
+                                }
+                            });
+                        }
+                    }
+                    else {
+                       $.ajax({
                             type:'POST',
                             url:'${classifier_path}/classify',
-                            data: { name: classifier_name, X: [text] },
-                            dataType: 'json'})
+                            data: { name: classifier_name, X: [text]}})
                         .done(function(msg) {
                             var suggested = msg[0];
-                            assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
-                            if(!assigned || force) {
-                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
-                                $('#suggestion\\_'+classifier_name+'\\_'+suggested).removeClass('not_relevant');
-                                $('#suggestion\\_'+classifier_name+'\\_'+suggested).addClass('suggested');
-                            }
+                            suggested.forEach(function(label_value) {
+                                var split = label_value.split(':');
+                                var label = split[0];
+                                var value = split[1];
+                                var human = false;
+                                if(label.startsWith('✍')) {
+                                    label = label.substring(1);
+                                    human = true;
+                                }
+                                var not_value = (value=='yes')?'no':'yes';
+                                assigned = $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).hasClass('assigned');
+                                if(!assigned || force) {
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('not_relevant');
+                                    if(human) {
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).addClass('assigned');
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('suggested');
+                                    }
+                                    else {
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).addClass('suggested');
+                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('assigned');
+                                    }
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).removeClass('assigned');
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).removeClass('suggested');
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).addClass('not_relevant');
+                                }
+                            });
                         });
                     }
                 }
@@ -195,15 +319,15 @@
         function reset_labels() {
             $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                 var classifier_name = $(item).children('.name').text();
-                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
+                $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
+                $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
             });
             $('#pool div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                 var classifier_name = $(item).children('.name').text();
-                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
+                $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
+                $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
             });
         }
 
@@ -242,11 +366,11 @@
                 <p>
                 <label class="margined" for="labels">Labels (comma separated):</label>
                 <input class="margined" type="text" id="labels" /> </p>
-                 <p class="hidden">
+                 <p>
                     <label class="margined" for="type">Type:</label>
                     <select class="margined" id="type">
 <%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+% for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
                         <option value="${classifier_type}">${classifier_type}</option>
 % endfor
                     </select></p>
@@ -265,11 +389,11 @@
                     <label class="margined" for="dup_from">From:</label>
                     <select class="margined" id="dup_from">
                     </select></p>
-                 <p class="hidden">
+                 <p>
                     <label class="margined" for="dup_type">Type:</label>
                     <select class="margined" id="dup_type">
 <%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+% for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
                         <option value="${classifier_type}">${classifier_type}</option>
 % endfor
                     </select></p>

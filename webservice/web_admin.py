@@ -10,8 +10,7 @@ __author__ = 'Andrea Esuli'
 
 class WebAdmin(object):
     def __init__(self, db_connection_string, media_dir, client_path, user_auth_path, ip_auth_path, key_auth_path,
-                 classifier_path,
-                 dataset_path, jobs_path, name):
+                 classifier_path, dataset_path, jobs_path, name):
         self._db = SQLAlchemyDB(db_connection_string)
         self._media_dir = media_dir
         self._template_data = {'client_path': client_path,

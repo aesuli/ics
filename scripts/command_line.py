@@ -620,19 +620,6 @@ class CommandLine(Cmd):
         y = [match.group(2)]
         pprint(self._sc.classifier_update(name, X, y))
 
-    def help_classifier_hide(self):
-        print('''
-        Hides a text from a classifier, i.e., any label previously assigned is not considered when such text is classified
-        > classifier_hide classifier_name text...
-        ''')
-
-    @print_exception
-    def do_classifier_hide(self, args):
-        match = re.match('^([^,\s]+)[,\s]+(.+)$', args.strip())
-        name = match.group(1)
-        X = [match.group(2)]
-        pprint(self._sc.classifier_hide(name, X))
-
     def help_classifier_description(self):
         print('''
         Sets a description for a classifier
@@ -644,7 +631,7 @@ class CommandLine(Cmd):
         match = re.match('^([^,\s]+)[,\s]+(.+)$', args.strip())
         name = match.group(1)
         description = match.group(2)
-        pprint(self._sc.classifier_hide(name, description))
+        pprint(self._sc.classifier_set_description(name, description))
 
     def help_classifier_rename(self):
         print('''
@@ -1025,18 +1012,6 @@ class CommandLine(Cmd):
         dataset_name = args[0]
         classifier_name = args[1]
         pprint(self._sc.dataset_most_certain_document_id(dataset_name, classifier_name))
-
-    def help_dataset_random_hidden_document_id(self):
-        print('''
-        Prints the name of a random document among those hidden to the classifier
-        > dataset_random_hidden_document_id dataset_name classifier_name
-        ''')
-
-    def do_dataset_random_hidden_document_id(self, args):
-        args = re.split('[,\s]+', args.strip())
-        dataset_name = args[0]
-        classifier_name = args[1]
-        pprint(self._sc.dataset_random_hidden_document_id(dataset_name, classifier_name))
 
     def help_dataset_classify(self):
         print('''

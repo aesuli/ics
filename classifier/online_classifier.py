@@ -14,9 +14,8 @@ __author__ = 'Andrea Esuli'
 class OnlineClassifier(Classifier):
     def __init__(self, name, classes, n_features=(2 ** 21), average=False):
         self._name = name
-        # int(n_features/len(classes)) makes memory usage constant for
-        # the entire classifier when the one-vs-all multi-class method
         analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[4])
+        # int(n_features/len(classes)) makes memory usage constant for the classifier as a whole
         self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), analyzer=analyzer)
         self._clf = SGDClassifier(average=average, n_jobs=-1, max_iter=1000, tol=1e-3)
         self._clf.partial_fit(self._vec.transform(['']), [classes[0]], classes)
@@ -50,28 +49,3 @@ class OnlineClassifier(Classifier):
     def labels(self):
         return list(self._clf.classes_)
 
-
-if __name__ == '__main__':
-    text = 'one two three'
-    for clf in [
-        OnlineClassifier('test', ['yes', 'no']),
-        OnlineClassifier('test', ['yes', 'no'], average=100),
-        OnlineClassifier('test', ['yes', 'no'], average=2),
-        OnlineClassifier('test', ['yes', 'no', 'maybe']),
-        OnlineClassifier('test', ['yes', 'no'], average=100),
-        OnlineClassifier('test', ['yes', 'no', 'maybe'], average=2)
-    ]:
-        print(clf.predict([text]))
-        print(clf.decision_function([text]))
-        clf.partial_fit(['one two three'], ['yes'])
-        print(clf.predict([text]))
-        print(clf.decision_function([text]))
-        clf.partial_fit(['two three'], ['yes'])
-        print(clf.predict([text]))
-        print(clf.decision_function([text]))
-        clf.partial_fit(['two two'], ['yes'])
-        print(clf.predict([text]))
-        print(clf.decision_function([text]))
-        clf.partial_fit(['one two', 'four three'], ['yes', 'no'])
-        print(clf.predict([text, text]))
-        print(clf.decision_function([text, text]))

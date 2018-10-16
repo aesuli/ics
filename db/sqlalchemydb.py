@@ -1,5 +1,4 @@
 import datetime
-import datetime
 import os
 import secrets
 import time
@@ -15,8 +14,11 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, deferred, relationship, configure_mappers, backref
 from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.sql.functions import count
 
-from classifier.classifier import get_classifier_model, get_classifier_type_from_model, _CLASSIFIER_TYPES
+from classifier.classifier import get_classifier_model, get_classifier_type_from_model, CLASSIFIER_TYPES, SINGLE_LABEL, \
+    MULTI_LABEL
+from classifier.multilabel_online_classifier import YES_LABEL, NO_LABEL
 
 __author__ = 'Andrea Esuli'
 
@@ -26,6 +28,9 @@ _ADMIN_NAME = 'admin'
 _ADMIN_PASSWORD = 'adminadmin'
 _NO_HOURLY_LIMIT = -1
 _NO_REQUEST_LIMIT = -1
+_CLASSIFIER_LABEL_SEP = ' - '
+_CLASSIFIER_TYPE_HIDDEN_FOR_MULTI_LABEL = 'Hidden'
+_HUMAN_MADE = '✍'
 
 classifier_name_length = 80
 classifier_description_length = 300
@@ -174,7 +179,7 @@ class Classifier(Base):
     id = Column(Integer(), primary_key=True)
     name = Column(String(classifier_name_length), unique=True)
     description = Column(String(classifier_description_length), default="No description")
-    classifier_type = Column(String(max([len(name) + 2 for name in _CLASSIFIER_TYPES])))
+    classifier_type = Column(String(max([len(name) + 2 for name in CLASSIFIER_TYPES])))
     model = deferred(Column(PickleType()))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
@@ -182,14 +187,13 @@ class Classifier(Base):
     def __init__(self, name, classifier_type):
         self.name = name
         self.model = None
-        if not classifier_type in _CLASSIFIER_TYPES[:-1]:
+        if not classifier_type in CLASSIFIER_TYPES and classifier_type != _CLASSIFIER_TYPE_HIDDEN_FOR_MULTI_LABEL:
             raise ValueError('Unknown classifier type')
         self.classifier_type = classifier_type
 
 
 class Label(Base):
     __tablename__ = 'label'
-    HIDDEN_LABEL = '__hidden_label'
     id = Column(Integer(), primary_key=True)
     name = Column(String(label_name_length), nullable=False)
     classifier_id = Column(Integer(), ForeignKey('classifier.id', onupdate='CASCADE', ondelete='CASCADE'))
@@ -415,9 +419,18 @@ class SQLAlchemyDB(object):
             key_obj = session.query(User).filter(User.name == name).scalar()
             key_obj.current_request_counter = count
 
-    def classifier_names(self):
-        with self.session_scope() as session:
-            return self._flatten_list(session.query(Classifier.name).order_by(Classifier.name).all())
+    def classifier_names(self, include_hidden=False):
+        if include_hidden:
+            with self.session_scope() as session:
+                return self._flatten_list(session.query(Classifier.name)
+                                          .order_by(Classifier.name)
+                                          .all())
+        else:
+            with self.session_scope() as session:
+                return self._flatten_list(session.query(Classifier.name)
+                                          .filter(Classifier.classifier_type != _CLASSIFIER_TYPE_HIDDEN_FOR_MULTI_LABEL)
+                                          .order_by(Classifier.name)
+                                          .all())
 
     def classifier_exists(self, name):
         with self.session_scope() as session:
@@ -425,14 +438,29 @@ class SQLAlchemyDB(object):
 
     def create_classifier(self, name, labels, classifier_type):
         with self.session_scope() as session:
-            classifier = Classifier(name, classifier_type)
-            session.add(classifier)
-            session.flush()
-            for label in labels:
-                label_obj = Label(label, classifier.id)
-                session.add(label_obj)
-            label_obj = Label(Label.HIDDEN_LABEL, classifier.id)
-            session.add(label_obj)
+            if classifier_type == SINGLE_LABEL:
+                classifier = Classifier(name, classifier_type)
+                session.add(classifier)
+                session.flush()
+                for label in labels:
+                    label_obj = Label(label, classifier.id)
+                    session.add(label_obj)
+            elif classifier_type == MULTI_LABEL:
+                classifier = Classifier(name, classifier_type)
+                session.add(classifier)
+                session.flush()
+                main_classifier_id = classifier.id
+                for label in labels:
+                    label_obj = Label(label, main_classifier_id)
+                    session.add(label_obj)
+                    classifier = Classifier(name + _CLASSIFIER_LABEL_SEP + label,
+                                            _CLASSIFIER_TYPE_HIDDEN_FOR_MULTI_LABEL)
+                    session.add(classifier)
+                    session.flush()
+                    label_obj = Label(YES_LABEL, classifier.id)
+                    session.add(label_obj)
+                    label_obj = Label(NO_LABEL, classifier.id)
+                    session.add(label_obj)
 
     def get_classifier_model(self, name):
         with self.session_scope() as session:
@@ -443,7 +471,6 @@ class SQLAlchemyDB(object):
                         .join(Label.classifier)
                         .filter(Classifier.name == name)
                         .order_by(Label.name))
-                labels.remove(Label.HIDDEN_LABEL)
                 classifier.model = get_classifier_model(classifier.classifier_type, name, labels)
             return classifier.model
 
@@ -458,7 +485,6 @@ class SQLAlchemyDB(object):
                                         filter(Classifier.name == name).
                                         order_by(Label.name)
                                         )
-            labels.remove(Label.HIDDEN_LABEL)
             return labels
 
     def get_classifier_creation_time(self, name):
@@ -475,11 +501,31 @@ class SQLAlchemyDB(object):
             if classifier is None:
                 return
             if overwrite:
-                old_classifier = session.query(Classifier).filter(Classifier.name == newname).scalar()
-                if old_classifier is not None:
+                try:
+                    old_classifier_type = self.get_classifier_type(newname)
+                except:
+                    old_classifier_type = None
+                if old_classifier_type == SINGLE_LABEL:
+                    old_classifier = session.query(Classifier).filter(Classifier.name == newname).scalar()
+                    session.delete(old_classifier)
+                    session.flush()
+                elif old_classifier_type == MULTI_LABEL:
+                    labels = self.get_classifier_labels(newname)
+                    for label in labels:
+                        old_classifier = session.query(Classifier).filter(
+                            Classifier.name == newname + _CLASSIFIER_LABEL_SEP + label).scalar()
+                        session.delete(old_classifier)
+                        session.flush()
+                    old_classifier = session.query(Classifier).filter(Classifier.name == newname).scalar()
                     session.delete(old_classifier)
                     session.flush()
             classifier.name = newname
+            session.flush()
+            labels = self.get_classifier_labels(newname)
+            for label in labels:
+                classifier = session.query(Classifier).filter(
+                    Classifier.name == name + _CLASSIFIER_LABEL_SEP + label).scalar()
+                classifier.name = newname + _CLASSIFIER_LABEL_SEP + label
 
     def get_classifier_description(self, name):
         with self.session_scope() as session:
@@ -494,9 +540,21 @@ class SQLAlchemyDB(object):
 
     def delete_classifier(self, name):
         with self.session_scope() as session:
-            classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
-            if classifier is not None:
-                session.delete(classifier)
+            classifier_type = self.get_classifier_type(name)
+            if classifier_type == SINGLE_LABEL:
+                classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
+                if classifier is not None:
+                    session.delete(classifier)
+            elif classifier_type == MULTI_LABEL:
+                labels = self.get_classifier_labels(name)
+                for label in labels:
+                    classifier = session.query(Classifier).filter(
+                        Classifier.name == name + _CLASSIFIER_LABEL_SEP + label).scalar()
+                    if classifier is not None:
+                        session.delete(classifier)
+                classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
+                if classifier is not None:
+                    session.delete(classifier)
 
     def update_classifier_model(self, name, model):
         with self.session_scope() as session:
@@ -527,98 +585,182 @@ class SQLAlchemyDB(object):
 
                 classifier_id = session.query(Classifier.id).filter(Classifier.name == classifier_name).scalar()
 
-                label_set = set((label for _, label in text_and_labels))
-                label_set.add(Label.HIDDEN_LABEL)
+                classifier_type = self.get_classifier_type(classifier_name)
 
-                label_id_map = dict()
+                if classifier_type == SINGLE_LABEL:
+                    label_set = set((label for _, label in text_and_labels))
 
-                for label in label_set:
-                    label_id = (session.query(Label.id)
-                                .filter(Label.classifier_id == classifier_id)
-                                .filter(Label.name == label)
-                                .scalar()
-                                )
-                    label_id_map[label] = label_id
+                    label_id_map = dict()
 
-                text_id_and_label_ids = dict()
-                for text, label in text_and_labels:
-                    text_id_and_label_ids[text_id_map[text]] = label_id_map[label]
+                    for label in label_set:
+                        label_id = (session.query(Label.id)
+                                    .filter(Label.classifier_id == classifier_id)
+                                    .filter(Label.name == label)
+                                    .scalar()
+                                    )
+                        label_id_map[label] = label_id
 
-                text_id_and_label_ids = text_id_and_label_ids.items()
+                    text_id_and_label_ids = dict()
+                    for text, label in text_and_labels:
+                        text_id_and_label_ids[text_id_map[text]] = label_id_map[label]
 
-                values = [{'document_id': document_id,
-                           'classifier_id': classifier_id,
-                           'label_id': label_id} for document_id, label_id in text_id_and_label_ids]
+                    text_id_and_label_ids = text_id_and_label_ids.items()
 
-                stmt = insert(Classification.__table__).values(
-                    values)
-                stmt = stmt.on_conflict_do_update(index_elements=['document_id', 'classifier_id'],
-                                                  set_=dict(stmt.excluded._data))
+                    values = [{'document_id': document_id,
+                               'classifier_id': classifier_id,
+                               'label_id': label_id} for document_id, label_id in text_id_and_label_ids]
 
-                session.execute(stmt)
+                    stmt = insert(Classification.__table__).values(
+                        values)
+                    stmt = stmt.on_conflict_do_update(index_elements=['document_id', 'classifier_id'],
+                                                      set_=dict(stmt.excluded._data))
+                    session.execute(stmt)
+                elif classifier_type == MULTI_LABEL:
+                    label_set = set((label.split(':')[0] for _, label in text_and_labels))
+                    label_classifiers_id_map = dict()
 
+                    for label in label_set:
+                        label_classifier_id = (session.query(Classifier.id)
+                                               .filter(
+                            Classifier.name == classifier_name + _CLASSIFIER_LABEL_SEP + label)
+                                               .scalar()
+                                               )
+                        yes_label_id = (session.query(Label.id)
+                                        .filter(Label.classifier_id == label_classifier_id)
+                                        .filter(Label.name == YES_LABEL)
+                                        .scalar()
+                                        )
+                        no_label_id = (session.query(Label.id)
+                                       .filter(Label.classifier_id == label_classifier_id)
+                                       .filter(Label.name == NO_LABEL)
+                                       .scalar()
+                                       )
+                        label_classifiers_id_map[label] = label_classifier_id
+                        label_classifiers_id_map[label + NO_LABEL] = no_label_id
+                        label_classifiers_id_map[label + YES_LABEL] = yes_label_id
+
+                    text_id_and_label_ids = list()
+                    for text, label_value in text_and_labels:
+                        label, value = label_value.split(':')
+                        label_classifier_id = label_classifiers_id_map[label]
+                        if value == YES_LABEL:
+                            text_id_and_label_ids.append(
+                                (text_id_map[text], label_classifier_id, label_classifiers_id_map[label + YES_LABEL]))
+                        elif value == NO_LABEL:
+                            text_id_and_label_ids.append(
+                                (text_id_map[text], label_classifier_id, label_classifiers_id_map[label + NO_LABEL]))
+
+                    values = [{'document_id': document_id,
+                               'classifier_id': label_classifier_id,
+                               'label_id': label_id} for document_id, label_classifier_id, label_id in
+                              text_id_and_label_ids]
+
+                    dummy_label_id = (session.query(Label.id)
+                                      .filter(Label.classifier_id == classifier_id)
+                                      .filter(Label.name == list(label_set)[0])
+                                      .scalar()
+                                      )
+
+                    values.extend([{'document_id': document_id,
+                                    'classifier_id': classifier_id,
+                                    'label_id': dummy_label_id} for document_id in
+                                   set([document_id for document_id, _, _ in text_id_and_label_ids])])
+
+                    stmt = insert(Classification.__table__).values(
+                        values)
+                    stmt = stmt.on_conflict_do_update(index_elements=['document_id', 'classifier_id'],
+                                                      set_=dict(stmt.excluded._data))
+                    session.execute(stmt)
             except (OperationalError, MemoryError) as e:
                 session.rollback()
                 raise e
 
-    def mark_classifier_text_as_hidden(self, classifier_name, text):
-        self.create_training_examples(classifier_name, [(text, Label.HIDDEN_LABEL)])
-
-    def classifier_has_example(self, classifier_name, text, include_hidden):
-        if include_hidden:
-            with self.session_scope() as session:
-                return (session.query(TrainingDocument)
-                        .filter(TrainingDocument.md5 == md5(text.encode('utf-8')).hexdigest())
-                        .filter(Classification.document_id == TrainingDocument.id)
-                        .join(Classification.classifier)
-                        .filter(Classifier.name == classifier_name)
-                        .scalar()
-                        )
-        else:
-            with self.session_scope() as session:
-                return (session.query(TrainingDocument)
-                        .filter(TrainingDocument.md5 == md5(text.encode('utf-8')).hexdigest())
-                        .join(Classification.document)
-                        .join(Classification.classifier)
-                        .join(Classification.label)
-                        .filter(Classifier.name == classifier_name)
-                        .filter(Label.name != Label.HIDDEN_LABEL)
-                        .scalar()
-                        )
-
-    def classify(self, classifier_name, X):
+    def classify(self, classifier_name, X, mark_human_labels=False):
         clf = self.get_classifier_model(classifier_name)
         y = list()
-        if clf is None:
-            default_label = self.get_classifier_labels(classifier_name)[0]
-        for x in X:
-            label = self.get_label(classifier_name, x)
-            if label is not None and label != Label.HIDDEN_LABEL:
-                y.append(label)
-            elif clf is not None:
-                y.append(clf.predict([x])[0])
-            else:
-                y.append(default_label)
+        classifier_type = self.get_classifier_type(classifier_name)
+        if classifier_type == SINGLE_LABEL:
+            if clf is None:
+                default_label = self.get_classifier_labels(classifier_name)[0]
+            for x in X:
+                label = self.get_label(classifier_name, x)
+                if label is not None:
+                    if mark_human_labels:
+                        y.append(_HUMAN_MADE + label)
+                    else:
+                        y.append(label)
+                elif clf is not None:
+                    y.append(clf.predict([x])[0])
+                else:
+                    y.append(default_label)
+        elif classifier_type == MULTI_LABEL:
+            for x in X:
+                y_x = list()
+                known_labels_assignment = self.get_label(classifier_name, x)
+                if known_labels_assignment is None:
+                    known_labels = {}
+                else:
+                    if mark_human_labels:
+                        known_labels = {label_value.split(':')[0]: _HUMAN_MADE + label_value for label_value in
+                                        known_labels_assignment}
+                    else:
+                        known_labels = {label_value.split(':')[0]: label_value for label_value in
+                                        known_labels_assignment}
+                if clf is None:
+                    pred_labels = {}
+                else:
+                    pred_labels = {label_value.split(':')[0]: label_value for label_value in clf.predict([x])[0]}
+                for label in clf.labels():
+                    if label in known_labels:
+                        y_x.append(known_labels[label])
+                    elif label in pred_labels:
+                        y_x.append(pred_labels[label])
+                    else:
+                        y_x.append(label + ':no')
+                y.append(y_x)
         return y
 
     def score(self, classifier_name, X):
         clf = self.get_classifier_model(classifier_name)
         if clf is None:
-            return [{'dummy_yes': 1, 'dummy_no': 0} for _ in X]
+            labels = self.get_classifier_labels(classifier_name)
+            if self.get_classifier_type(classifier_name) == SINGLE_LABEL:
+                equi_prob = {label: 1 / len(labels) for label in labels}
+            else:
+                equi_prob = {label: 1 / 2 for label in labels}
+            return [equi_prob for _ in X]
         scores = clf.decision_function(X)
         labels = clf.labels()
         return [dict(zip(labels, values)) for values in scores]
 
     def get_label(self, classifier_name, text):
-        with self.session_scope() as session:
-            return (session.query(Label.name)
-                    .filter(TrainingDocument.md5 == md5(text.encode('utf-8')).hexdigest())
-                    .join(Classification.document)
-                    .join(Classification.classifier)
-                    .join(Classification.label)
-                    .filter(Classifier.name == classifier_name)
-                    .scalar()
-                    )
+        classifier_type = self.get_classifier_type(classifier_name)
+        if classifier_type == SINGLE_LABEL:
+            with self.session_scope() as session:
+                return (session.query(Label.name)
+                        .filter(TrainingDocument.md5 == md5(text.encode('utf-8')).hexdigest())
+                        .join(Classification.document)
+                        .join(Classification.classifier)
+                        .join(Classification.label)
+                        .filter(Classifier.name == classifier_name)
+                        .scalar()
+                        )
+        elif classifier_type == MULTI_LABEL:
+            labels = self.get_classifier_labels(classifier_name)
+            assigned_labels = list()
+            with self.session_scope() as session:
+                for label in labels:
+                    assigned = (session.query(Label.name)
+                                .filter(TrainingDocument.md5 == md5(text.encode('utf-8')).hexdigest())
+                                .join(Classification.document)
+                                .join(Classification.classifier)
+                                .join(Classification.label)
+                                .filter(Classifier.name == classifier_name + _CLASSIFIER_LABEL_SEP + label)
+                                .scalar()
+                                )
+                    if assigned:
+                        assigned_labels.append(label + ':' + assigned)
+            return assigned_labels
 
     def rename_classifier_label(self, classifier_name, label_name, new_name):
         with self.session_scope() as session:
@@ -635,6 +777,11 @@ class SQLAlchemyDB(object):
         if clf is not None:
             clf.rename_label(label_name, new_name)
             self.update_classifier_model(classifier_name, clf)
+        classifier_type = self.get_classifier_type(classifier_name)
+        if classifier_type == MULTI_LABEL:
+            classifier = session.query(Classifier).filter(
+                Classifier.name == classifier_name + _CLASSIFIER_LABEL_SEP + label_name).scalar()
+            classifier.name = classifier_name + _CLASSIFIER_LABEL_SEP + new_name
 
     def dataset_names(self):
         with self.session_scope() as session:
@@ -702,117 +849,178 @@ class SQLAlchemyDB(object):
                 session.delete(document)
             dataset.last_updated = datetime.datetime.now()
 
-    def get_classifier_examples_count(self, name, include_hidden):
-        if include_hidden:
-            with self.session_scope() as session:
-                return (session.query(Classification.id)
-                        .filter(Classifier.name == name)
-                        .join(Classification.classifier)
-                        .count()
-                        )
-        else:
-            with self.session_scope() as session:
-                return (session.query(Classification.id)
-                        .filter(Classifier.name == name)
-                        .join(Classification.classifier)
-                        .join(Classification.label)
-                        .filter(Label.name != Label.HIDDEN_LABEL)
-                        .count())
+    def get_classifier_examples_count(self, name):
+        with self.session_scope() as session:
+            count = (session.query(Classification.id)
+                     .filter(Classifier.name == name)
+                     .join(Classification.classifier)
+                     .count()
+                     )
+            if count:
+                return count
+            else:
+                return 0
 
     def get_classifier_examples_with_label_count(self, name, label):
-        with self.session_scope() as session:
-            return (session.query(Classification.id)
-                    .filter(Classifier.name == name)
-                    .join(Classification.classifier)
-                    .join(Classification.label)
-                    .filter(Label.name == label)
-                    .count())
-
-    def get_classifier_examples(self, name, include_hidden, offset=0, limit=None):
-        if include_hidden:
+        classifier_type = self.get_classifier_type(name)
+        if classifier_type == SINGLE_LABEL or classifier_type == _CLASSIFIER_TYPE_HIDDEN_FOR_MULTI_LABEL:
             with self.session_scope() as session:
-                return (session.query(Classification)
-                        .filter(Classifier.name == name)
-                        .join(Classification.classifier)
-                        .order_by(Classification.id)
-                        .offset(offset)
-                        .limit(limit)
-                        )
-        else:
+                count = (session.query(Classification.id)
+                         .filter(Classifier.name == name)
+                         .join(Classification.classifier)
+                         .join(Classification.label)
+                         .filter(Label.name == label)
+                         .count())
+            if count:
+                return count
+            else:
+                return 0
+        elif classifier_type == MULTI_LABEL:
             with self.session_scope() as session:
-                return (session.query(Classification)
-                        .filter(Classifier.name == name)
-                        .join(Classification.classifier)
-                        .filter(Label.name != Label.HIDDEN_LABEL)
-                        .join(Classification.label)
-                        .order_by(Classification.id)
-                        .offset(offset)
-                        .limit(limit)
-                        )
+                count = (session.query(Classification.id)
+                         .filter(Classifier.name == name + _CLASSIFIER_LABEL_SEP + label)
+                         .join(Classification.classifier)
+                         .join(Classification.label)
+                         .filter(Label.name == label)
+                         .count())
+            if count:
+                return count
+            else:
+                return 0
 
-    def get_classifier_examples_with_label(self, name, label, offset=0, limit=None):
+    def get_classifier_examples(self, name, offset=0, limit=None):
         with self.session_scope() as session:
             return (session.query(Classification)
                     .filter(Classifier.name == name)
                     .join(Classification.classifier)
-                    .join(Classification.label)
-                    .filter(Label.name == label)
                     .order_by(Classification.id)
                     .offset(offset)
                     .limit(limit)
                     )
 
-    def get_dataset_documents_with_label(self, dataset_name, classifier_name, label, filter, limit=None):
-        with self.session_scope() as session:
-            return (session.query(DatasetDocument)
-                    .join(DatasetDocument.dataset)
-                    .filter(Dataset.name == dataset_name)
-                    .filter(DatasetDocument.text.like('%'+filter+'%'))
-                    .filter(DatasetDocument.md5 == TrainingDocument.md5)
-                    .filter(Classifier.name == classifier_name)
-                    .join(Classification.document)
-                    .join(Classification.classifier)
-                    .join(Classification.label)
-                    .filter(Label.name == label)
-                    .order_by(func.random())
-                    .limit(limit)
-                    )
+    def get_classifier_examples_with_label(self, name, label, offset=0, limit=None):
+        classifier_type = self.get_classifier_type(name)
+        if classifier_type == SINGLE_LABEL or classifier_type == _CLASSIFIER_TYPE_HIDDEN_FOR_MULTI_LABEL:
+            with self.session_scope() as session:
+                return (session.query(Classification)
+                        .filter(Classifier.name == name)
+                        .join(Classification.classifier)
+                        .join(Classification.label)
+                        .filter(Label.name == label)
+                        .order_by(Classification.id)
+                        .offset(offset)
+                        .limit(limit)
+                        )
+        elif classifier_type == MULTI_LABEL:
+            with self.session_scope() as session:
+                return (session.query(Classification)
+                        .filter(Classifier.name == name)
+                        .join(Classification.classifier)
+                        .join(Classification.label)
+                        .filter(Label.name == name + _CLASSIFIER_LABEL_SEP + label)
+                        .order_by(Classification.id)
+                        .offset(offset)
+                        .limit(limit)
+                        )
 
-    def get_dataset_random_documents_without_labels(self, dataset_name, classifier_name, filter, limit=None):
-        with self.session_scope() as session:
-            return (session.query(DatasetDocument)
-                    .join(DatasetDocument.dataset)
-                    .filter(Dataset.name == dataset_name)
-                    .filter(DatasetDocument.text.like('%'+filter+'%'))
-                    .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
-                                                     Classification.classifier_id == Classifier.id,
-                                                     Classifier.name == classifier_name,
-                                                     TrainingDocument.id == Classification.document_id))))
-                    .order_by(func.random())
-                    .limit(limit)
-                    )
+    def get_dataset_random_documents_without_labels(self, dataset_name, classifier_name, filter, limit=None,
+                                                    require_all_labels_for_multi_label=True):
+        classifier_type = self.get_classifier_type(classifier_name)
+        if classifier_type == SINGLE_LABEL or not require_all_labels_for_multi_label:
+            with self.session_scope() as session:
+                return (session.query(DatasetDocument.text,DatasetDocument.id)
+                        .join(DatasetDocument.dataset)
+                        .filter(Dataset.name == dataset_name)
+                        .filter(DatasetDocument.text.like('%' + filter + '%'))
+                        .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
+                                                         Classification.classifier_id == Classifier.id,
+                                                         Classifier.name == classifier_name,
+                                                         TrainingDocument.id == Classification.document_id))))
+                        .order_by(func.random())
+                        .limit(limit)
+                        )
+        elif classifier_type == MULTI_LABEL:
+            labels = self.get_classifier_labels(classifier_name)
+            label_classifiers = [classifier_name + _CLASSIFIER_LABEL_SEP + label for label in labels]
+            with self.session_scope() as session:
+                missing = list(session.query(DatasetDocument.text,DatasetDocument.id)
+                               .join(DatasetDocument.dataset)
+                               .filter(Dataset.name == dataset_name)
+                               .filter(DatasetDocument.text.like('%' + filter + '%'))
+                               .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
+                                                                Classification.classifier_id == Classifier.id,
+                                                                Classifier.name == classifier_name,
+                                                                TrainingDocument.id == Classification.document_id))))
+                               .order_by(func.random())
+                               .limit(limit)
+                               )
+                if len(missing) > 0:
+                    return missing
+
+                partial = list(session.query(DatasetDocument.text,DatasetDocument.id)
+                               .join(DatasetDocument.dataset)
+                               .filter(Dataset.name == dataset_name)
+                               .filter(DatasetDocument.md5 == TrainingDocument.md5)
+                               .filter(TrainingDocument.id == Classification.document_id)
+                               .filter(Classification.classifier_id == Classifier.id)
+                               .filter(Classifier.name.in_(label_classifiers))
+                               .group_by(DatasetDocument.id)
+                               .having(count(Classification.id) != len(label_classifiers))
+                               .order_by(func.random())
+                               .limit(limit)
+                               )
+                return partial
 
     def get_dataset_random_documents(self, dataset_name, filter, limit=None):
         with self.session_scope() as session:
             return (session.query(DatasetDocument)
                     .join(DatasetDocument.dataset)
                     .filter(Dataset.name == dataset_name)
-                    .filter(DatasetDocument.text.like('%'+filter+'%'))
+                    .filter(DatasetDocument.text.like('%' + filter + '%'))
                     .order_by(func.random())
                     .limit(limit)
                     )
 
-    def get_dataset_documents_without_labels_count(self, dataset_name, classifier_name):
-        with self.session_scope() as session:
-            return (session.query(DatasetDocument)
-                    .join(DatasetDocument.dataset)
-                    .filter(Dataset.name == dataset_name)
-                    .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
-                                                     Classification.classifier_id == Classifier.id,
-                                                     Classifier.name == classifier_name,
-                                                     TrainingDocument.id == Classification.document_id))))
-                    .count()
-                    )
+    def get_dataset_documents_without_labels_count(self, dataset_name, classifier_name,
+                                                   require_all_labels_for_multi_label=True):
+        classifier_type = self.get_classifier_type(classifier_name)
+        if classifier_type == SINGLE_LABEL or not require_all_labels_for_multi_label:
+            with self.session_scope() as session:
+                return (session.query(DatasetDocument.id)
+                        .join(DatasetDocument.dataset)
+                        .filter(Dataset.name == dataset_name)
+                        .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
+                                                         Classification.classifier_id == Classifier.id,
+                                                         Classifier.name == classifier_name,
+                                                         TrainingDocument.id == Classification.document_id))))
+                        .count()
+                        )
+
+        elif classifier_type == MULTI_LABEL:
+            labels = self.get_classifier_labels(classifier_name)
+            label_classifiers = [classifier_name + _CLASSIFIER_LABEL_SEP + label for label in labels]
+            with self.session_scope() as session:
+                count_partial = (session.query(DatasetDocument.id)
+                                 .join(DatasetDocument.dataset)
+                                 .filter(Dataset.name == dataset_name)
+                                 .filter(DatasetDocument.md5 == TrainingDocument.md5)
+                                 .filter(TrainingDocument.id == Classification.document_id)
+                                 .filter(Classification.classifier_id == Classifier.id)
+                                 .filter(Classifier.name.in_(label_classifiers))
+                                 .group_by(DatasetDocument.id)
+                                 .having(count(Classification.id) != len(label_classifiers))
+                                 .count()
+                                 )
+                count_missing = (session.query(DatasetDocument.id)
+                                 .join(DatasetDocument.dataset)
+                                 .filter(Dataset.name == dataset_name)
+                                 .filter(not_(exists().where(and_(DatasetDocument.md5 == TrainingDocument.md5,
+                                                                  Classification.classifier_id == Classifier.id,
+                                                                  Classifier.name == classifier_name,
+                                                                  TrainingDocument.id == Classification.document_id))))
+                                 .count()
+                                 )
+                return count_partial + count_missing
 
     def get_dataset_documents_sorted_by_name(self, name, offset=0, limit=None):
         with self.session_scope() as session:
@@ -1147,7 +1355,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "3.4.1"
+        return "4.1.1"
 
 
 class DBLock(object):

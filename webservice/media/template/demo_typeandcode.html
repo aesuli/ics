@@ -1,9 +1,9 @@
 <%inherit file="demo_basewithmenu.html" />
 <%block name="head">
- ${parent.head()}
-   <script type="text/javascript">
-       update_interval=5000
-       delay_interval=500
+${parent.head()}
+<script type="text/javascript">
+        update_interval=8000
+        delay_interval=500
         last_update = 0
         function timed_update() {
             now = Date.now();
@@ -76,13 +76,32 @@
                 for(var i = 0;i<msg.length;++i) {
                     valid_classifiers[msg[i].name] = true;
                     if($('#use\\_opt\\_'+msg[i].name).length==0) {
+                        var single_label = msg[i].type=="Single-label";
+                        var labeltype='<span id="'+msg[i].name+'_single" class="labeltype">S</span>';
+                        if(!single_label) {
+                            labeltype='<span id="'+msg[i].name+'_multi" class="labeltype">M</span>'
+                        }
                         added = true;
-                        $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
+                        if(single_label) {
+                            $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name+' (S)'));
+                        }
+                        else {
+                            $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name+' (M)'));
+                        }
                         $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
-                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all"><span class="name">'+msg[i].name+'</span></div><div id="assignments_'+msg[i].name+'"></div></div>');
+                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all"><span class="name">'+msg[i].name+'</span>'+labeltype+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
                         suggestion_div.appendTo('#pool');
                         for(var j = 0;j<msg[i].labels.length;++j) {
-                            var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
+                            if(single_label) {
+                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
+                            }
+                            else {
+                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'_yes" class="scoreline not_relevant ui-corner-all margined morepadded multiyes">'+msg[i].labels[j]+'</div>');
+                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'_no" class="scoreline not_relevant ui-corner-all margined morepadded multino">✗</div>');
+                                var scoreline = jQuery('<div  class="margined"></div>');
+                                scoreline.append(scoreline_yes);
+                                scoreline.append(scoreline_no);
+                            }
                             $('#assignments\\_'+msg[i].name).append(scoreline);
                         }
                     }
@@ -135,24 +154,51 @@
             last_text = text;
             $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                 var classifier_name = $(item).children('.name').text();
+                var single_label = $('#'+classifier_name+'\\_single').length>0;
                 if(typeof selection == 'undefined' || selection.indexOf(classifier_name)>=0) {
-                    var assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
-                    if(!assigned||force) {
-                        $.ajax({
+                    if(single_label) {
+                        var assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
+                        if(!assigned||force) {
+                            $.ajax({
+                                type:'POST',
+                                url:'${classifier_path}/classify',
+                                data: { name: classifier_name, X: [text]}})
+                            .done(function(msg) {
+                                var suggested = msg[0];
+                                assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
+                                if(!assigned || force) {
+                                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                                    $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                                    $('#suggestion\\_'+classifier_name+'\\_'+suggested).removeClass('not_relevant');
+                                    $('#suggestion\\_'+classifier_name+'\\_'+suggested).addClass('suggested');
+                                }
+                            });
+                        }
+                    }
+                    else {
+                       $.ajax({
                             type:'POST',
                             url:'${classifier_path}/classify',
-                            data: { name: classifier_name, X: [text] },
-                            dataType: 'json'})
+                            data: { name: classifier_name, X: [text]}})
                         .done(function(msg) {
                             var suggested = msg[0];
-                            assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
-                            if(!assigned || force) {
-                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
-                                $('#suggestion\\_'+classifier_name+'\\_'+suggested).removeClass('not_relevant');
-                                $('#suggestion\\_'+classifier_name+'\\_'+suggested).addClass('suggested');
-                            }
+                            suggested.forEach(function(label_value) {
+                                var split = label_value.split(':');
+                                var label = split[0];
+                                var value = split[1];
+                                var human = false;
+                                var not_value = (value=='yes')?'no':'yes';
+                                assigned = $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).hasClass('assigned');
+                                if(!assigned || force) {
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('not_relevant');
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).addClass('suggested');
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('assigned');
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).removeClass('assigned');
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).removeClass('suggested');
+                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).addClass('not_relevant');
+                                }
+                            });
                         });
                     }
                 }
@@ -162,15 +208,15 @@
         function reset_labels() {
             $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                 var classifier_name = $(item).children('.name').text();
-                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
+                $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
+                $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
             });
             $('#pool div[id^=suggestions] .ui-widget-header').each(function(i,item) {
                 var classifier_name = $(item).children('.name').text();
-                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
+                $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
+                $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
             });
         }
 

@@ -1,6 +1,4 @@
 import csv
-import json
-import logging
 import os
 import pickle
 import random
@@ -12,8 +10,9 @@ import cherrypy
 import numpy
 from cherrypy.lib.static import serve_file
 
+from classifier.classifier import SINGLE_LABEL, MULTI_LABEL
 from db import sqlalchemydb
-from db.sqlalchemydb import SQLAlchemyDB, DBLock
+from db.sqlalchemydb import SQLAlchemyDB, DBLock, _CLASSIFIER_LABEL_SEP
 from util.util import get_fully_portable_file_name
 
 __author__ = 'Andrea Esuli'
@@ -59,7 +58,7 @@ class ClassifierCollectionService(object):
             classifier_info['description'] = self._db.get_classifier_description(name)
             classifier_info['created'] = str(self._db.get_classifier_creation_time(name))
             classifier_info['updated'] = str(self._db.get_classifier_last_update_time(name))
-            classifier_info['size'] = self._db.get_classifier_examples_count(name, True)
+            classifier_info['size'] = self._db.get_classifier_examples_count(name)
             result.append(classifier_info)
         return result
 
@@ -71,7 +70,7 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def classifier_types(self):
-        return sqlalchemydb._CLASSIFIER_TYPES[:-1]
+        return sqlalchemydb.CLASSIFIER_TYPES
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -86,9 +85,9 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+        if not classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
             cherrypy.response.status = 400
-            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
+            return 'Classifier type must be one of ' + str(sqlalchemydb.CLASSIFIER_TYPES)
 
         try:
             labels = data['labels']
@@ -150,9 +149,9 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+        if not classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
             cherrypy.response.status = 400
-            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
+            return 'Classifier type must be one of ' + str(sqlalchemydb.CLASSIFIER_TYPES)
         try:
             overwrite = data['overwrite']
             if overwrite == 'false' or overwrite == 'False':
@@ -217,12 +216,11 @@ class ClassifierCollectionService(object):
         except KeyError:
             synchro = False
 
-        X = numpy.atleast_1d(X)
-        y = numpy.atleast_1d(y)
+        if isinstance(X, str):
+            X = [X]
 
-        name = str.strip(name)
-        X = numpy.asanyarray([x.strip() for x in X])
-        y = numpy.asanyarray([label.strip() for label in y])
+        if isinstance(y, str):
+            y = [y]
 
         if len(X) != len(y):
             cherrypy.response.status = 400
@@ -239,31 +237,6 @@ class ClassifierCollectionService(object):
                                                   description='update training set')
 
             return [job_id_model, job_id_training]
-
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def hide(self, **data):
-        try:
-            name = data['name']
-        except KeyError:
-            cherrypy.response.status = 400
-            return 'Must specify a name'
-        try:
-            X = data['X']
-        except KeyError:
-            try:
-                X = data['X[]']
-            except KeyError:
-                cherrypy.response.status = 400
-                return 'Must specify a vector of strings (X)'
-
-        X = numpy.atleast_1d(X)
-
-        name = str.strip(name)
-        X = numpy.asanyarray([x.strip() for x in X])
-        for x in X:
-            self._db.mark_classifier_text_as_hidden(name, x)
-        return 'Ok'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -327,6 +300,7 @@ class ClassifierCollectionService(object):
         filename = get_fully_portable_file_name(filename)
         fullpath = os.path.join(self._download_dir, filename)
         if not os.path.isfile(fullpath):
+            classifier_type = self._db.get_classifier_type(name)
             header = list()
             header.append('#id')
             header.append('text')
@@ -335,9 +309,23 @@ class ClassifierCollectionService(object):
                 with open(fullpath, 'w', encoding='utf-8', newline='') as file:
                     writer = csv.writer(file, lineterminator='\n')
                     writer.writerow(header)
-                    for i, classification in enumerate(self._db.get_classifier_examples(name, False)):
-                        writer.writerow([i, classification.document.text,
-                                         '%s:%s' % (name, classification.label.name)])
+                    if classifier_type == SINGLE_LABEL:
+                        for i, classification in enumerate(self._db.get_classifier_examples(name)):
+                            writer.writerow([i, classification.document.text,
+                                             '%s:%s' % (name, classification.label.name)])
+                    elif classifier_type == MULTI_LABEL:
+                        added = True
+                        block_count = 0
+                        block_size = MAX_BATCH_SIZE
+                        while added:
+                            offset = block_count * block_size
+                            docs = [(i + offset, classification.document.text) for i, classification in enumerate(
+                                self._db.get_classifier_examples(name, offset, block_size))]
+                            for i, text in docs:
+                                label_assignment = [name + ':' + label for label in self._db.get_label(name, text)]
+                                writer.writerow([i, text] + label_assignment)
+                            block_count += 1
+                            added = len(docs) > 0
             except:
                 os.unlink(fullpath)
 
@@ -369,14 +357,6 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must upload a file'
-        try:
-            classifier_type = data['type']
-        except KeyError:
-            cherrypy.response.status = 400
-            return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
-            cherrypy.response.status = 400
-            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
 
         filename = 'examples %s.csv' % (uuid4())
         filename = get_fully_portable_file_name(filename)
@@ -388,6 +368,7 @@ class ClassifierCollectionService(object):
             csv.field_size_limit(CSV_LARGE_FIELD)
 
         classifiers_definition = defaultdict(set)
+        classifiers_type = dict()
 
         with open(fullpath, 'r', encoding='utf-8', errors='ignore') as file:
             reader = csv.reader(file)
@@ -401,12 +382,33 @@ class ClassifierCollectionService(object):
                 if len(row) < 3:
                     continue
                 for classifier_label in row[2:]:
-                    try:
-                        classifier_name, label = classifier_label.split(':')
-                    except:
-                        continue
-                    classifier_name = classifier_name.strip()
-                    label = label.strip()
+                    split_values = classifier_label.split(':')
+                    if len(split_values) == 2:
+                        classifier_name, label = split_values
+                        classifier_name = classifier_name.strip()
+                        label = label.strip()
+                        classifier_type = classifiers_type.get(classifier_name, None)
+                        if classifier_type:
+                            if classifier_type != SINGLE_LABEL:
+                                cherrypy.response.status = 400
+                                return 'Inconsistent single-label and multi-label labeling for classifier \'%s\'' % classifier_name
+                        else:
+                            classifiers_type[classifier_name] = SINGLE_LABEL
+                    elif len(split_values) == 3:
+                        classifier_name, label, value = split_values
+                        classifier_name = classifier_name.strip()
+                        label = label.strip()
+                        value = value.strip()
+                        classifier_type = classifiers_type.get(classifier_name, None)
+                        if classifier_type:
+                            if classifier_type != MULTI_LABEL:
+                                cherrypy.response.status = 400
+                                return 'Inconsistent single-label and multi-label labeling for classifier \'%s\'' % classifier_name
+                        else:
+                            classifiers_type[classifier_name] = MULTI_LABEL
+                        if value != NO_LABEL and value != YES_LABEL:
+                            cherrypy.response.status = 400
+                            return 'Unknown label value \'%s\'' % value
                     classifiers_definition[classifier_name].add(label)
 
         jobs = list()
@@ -414,15 +416,20 @@ class ClassifierCollectionService(object):
         for classifier_name in classifiers_definition:
             labels = classifiers_definition[classifier_name]
             if not self._db.classifier_exists(classifier_name):
-                if len(labels) < 2:
+                if len(labels) < 2 and classifiers_type[classifier_name] == SINGLE_LABEL:
                     cherrypy.response.status = 400
                     return 'Must specify at least two labels for classifier \'%s\'' % classifier_name
-                self.create(**{'name': classifier_name, 'labels': labels, 'type': classifier_type})
+                self.create(**{'name': classifier_name, 'labels': labels, 'type': classifiers_type[classifier_name]})
             else:
                 if not len(set(self._db.get_classifier_labels(classifier_name)).intersection(labels)) == len(
                         labels):
                     cherrypy.response.status = 400
                     return 'Existing classifier \'%s\' uses a different set of labels than input file' % classifier_name
+                classifier_type = self._db.get_classifier_type(classifier_name)
+                if classifier_type != classifiers_type[classifier_name]:
+                    cherrypy.response.status = 400
+                    return 'Existing classifier \'%s\' uses a different labeling model: \'%s\'' % (
+                        classifier_name, classifier_type)
 
         for classifier_name in classifiers_definition:
             jobs.append(self._db.create_job(_update_from_file,
@@ -500,8 +507,15 @@ class ClassifierCollectionService(object):
                 cherrypy.response.status = 400
                 return 'Must specify a vector of strings (X)'
         cherrypy.log('ClassifierCollectionService.classify(name="' + name + '", X="' + str(X) + '")')
-        X = numpy.atleast_1d(X)
-        return self._db.classify(name, X)
+        if isinstance(X, str):
+            X = [X]
+
+        mark_human_labels = False
+        requester = cherrypy.request.login
+        if requester is not None:
+            mark_human_labels = True
+
+        return self._db.classify(name, X, mark_human_labels=mark_human_labels)
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -531,14 +545,6 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a name'
-        try:
-            classifier_type = data['type']
-        except KeyError:
-            cherrypy.response.status = 400
-            return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
-            cherrypy.response.status = 400
-            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
         try:
             labels = data['labels']
         except KeyError:
@@ -571,26 +577,29 @@ class ClassifierCollectionService(object):
                 overwrite = False
         except KeyError:
             overwrite = False
+        new_name = dict()
         for label in labels:
-            with _lock_trainingset(self._db, label), _lock_model(self._db, label):
-                if self._db.classifier_exists(label) and not overwrite:
+            new_name[label] = name + '_' + label
+            with _lock_trainingset(self._db, new_name[label]), _lock_model(self._db, new_name[label]):
+                if self._db.classifier_exists(new_name[label]) and not overwrite:
                     cherrypy.response.status = 403
-                    return 'A classifier with name %s is already in the collection' % label
+                    return 'A classifier with name %s is already in the collection' % new_name[label]
 
         jobs = list()
         for label in labels:
-            with _lock_trainingset(self._db, label), _lock_model(self._db, label):
-                if not self._db.classifier_exists(label):
-                    self._db.create_classifier(label, BINARY_LABELS, classifier_type)
+            with _lock_trainingset(self._db, new_name[label]), _lock_model(self._db, new_name[label]):
+                if not self._db.classifier_exists(new_name[label]):
+                    self._db.create_classifier(new_name[label], BINARY_LABELS, SINGLE_LABEL)
                 elif not overwrite:
                     cherrypy.response.status = 403
-                    return 'A classifier with name %s is already in the collection' % label
+                    return 'A classifier with name %s is already in the collection' % new_name[label]
                 else:
                     self.delete(label)
-                    self._db.create_classifier(label, BINARY_LABELS, classifier_type)
-                jobs.append(self._db.create_job(_extract_binary_trainingset, (self._db_connection_string, name, label),
-                                                description='extract binary classifier from \'%s\' to \'%s\'' % (
-                                                    name, label)))
+                    self._db.create_classifier(new_name[label], BINARY_LABELS, SINGLE_LABEL)
+                jobs.append(self._db.create_job(_extract_binary_trainingset,
+                                                (self._db_connection_string, name, label, new_name[label]),
+                                                description='extract binary classifier \'%s\'' %
+                                                            new_name[label]))
         return jobs
 
     @cherrypy.expose
@@ -606,9 +615,9 @@ class ClassifierCollectionService(object):
         except KeyError:
             cherrypy.response.status = 400
             return 'Must specify a classifier type'
-        if not classifier_type in sqlalchemydb._CLASSIFIER_TYPES[:-1]:
+        if not classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
             cherrypy.response.status = 400
-            return 'Classifier type must be one of ' + str(sqlalchemydb._CLASSIFIER_TYPES[:-1])
+            return 'Classifier type must be one of ' + str(sqlalchemydb.CLASSIFIER_TYPES)
         try:
             sources = data['sources']
         except KeyError:
@@ -668,7 +677,7 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "3.1.1 (db: %s)" % self._db.version()
+        return "4.3.1 (db: %s)" % self._db.version()
 
 
 def _update_trainingset(db_connection_string, name, X, y):
@@ -705,7 +714,7 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
             classifiers_labels = row[2:]
             for classifier_label in classifiers_labels:
                 try:
-                    example_classifier_name, label = classifier_label.split(':')
+                    example_classifier_name, label = classifier_label.split(':', maxsplit=1)
                 except:
                     continue
                 example_classifier_name = example_classifier_name.strip()
@@ -714,7 +723,6 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
                                 label is not None and len(label) > 0:
                     X.append(text)
                     y.append(label)
-                    break
             if len(X) >= MAX_BATCH_SIZE:
                 update_function(db_connection_string, classifier_name, X, y)
                 X = []
@@ -728,6 +736,7 @@ def _duplicate_model(db_connection_string, name, new_name):
     with SQLAlchemyDB(db_connection_string) as db:
         source_type = db.get_classifier_type(name)
         new_type = db.get_classifier_type(new_name)
+        labels = db.get_classifier_labels(new_name)
         if source_type == new_type:
             with _lock_model(db, new_name):
                 model = db.get_classifier_model(name)
@@ -742,11 +751,28 @@ def _duplicate_model(db_connection_string, name, new_name):
                 batchX = list()
                 batchy = list()
                 added = False
-                example_numerator = db.get_classifier_examples(name, False, block * batchsize, batchsize)
-                for example in example_numerator:
-                    batchX.append(example.document.text)
-                    batchy.append(example.label.name)
-                    added = True
+                if source_type == SINGLE_LABEL and new_type == MULTI_LABEL:
+                    for example in db.get_classifier_examples(name, block * batchsize, batchsize):
+                        batchX.append(example.document.text)
+                        assigned = example.label.name
+                        for label in labels:
+                            if label == assigned:
+                                batchy.append(label + ':yes')
+                            else:
+                                batchy.append(label + ':no')
+                        added = True
+                elif source_type == MULTI_LABEL and new_type == SINGLE_LABEL:
+                    offset = block * batchsize
+                    docs = [classification.document.text for classification in
+                            db.get_classifier_examples(name, offset, batchsize)]
+                    for text in docs:
+                        known_labels_assignment = db.get_label(name, text)
+                        for known_label in known_labels_assignment:
+                            split = known_label.split(':')
+                            if split[1] == YES_LABEL:
+                                batchX.append(text)
+                                batchy.append(split[0])
+                    added = len(docs) > 0
                 block += 1
                 if len(batchX) > 0:
                     pairs = list(zip(batchX, batchy))
@@ -758,61 +784,119 @@ def _duplicate_model(db_connection_string, name, new_name):
 def _duplicate_trainingset(db_connection_string, name, new_name):
     cherrypy.log('ClassifierCollectionService._duplicate_trainingset(name="' + name + '", new_name="' + new_name + '")')
     with SQLAlchemyDB(db_connection_string) as db:
+        classifier_type = db.get_classifier_type(name)
+        new_classifier_type = db.get_classifier_type(new_name)
+        labels = db.get_classifier_labels(new_name)
         batchsize = MAX_BATCH_SIZE
         block = 0
         added = True
         while added:
             batch = list()
             added = False
-            for example in db.get_classifier_examples(name, True, block * batchsize, batchsize):
-                batch.append((example.document.text, example.label.name))
-                added = True
+            if classifier_type == SINGLE_LABEL:
+                for example in db.get_classifier_examples(name, block * batchsize, batchsize):
+                    if new_classifier_type == SINGLE_LABEL:
+                        batch.append((example.document.text, example.label.name))
+                    elif new_classifier_type == MULTI_LABEL:
+                        assigned = example.label.name
+                        for label in labels:
+                            if label == assigned:
+                                batch.append((example.document.text, label + ':yes'))
+                            else:
+                                batch.append((example.document.text, label + ':no'))
+                    added = True
+            elif classifier_type == MULTI_LABEL:
+                offset = block * batchsize
+                docs = [classification.document.text for classification in
+                        db.get_classifier_examples(name, offset, batchsize)]
+                for text in docs:
+                    known_labels_assignment = db.get_label(name, text)
+                    for known_label in known_labels_assignment:
+                        if new_classifier_type == SINGLE_LABEL:
+                            split = known_label.split(':')
+                            if split[1] == YES_LABEL:
+                                batch.append((text, split[0]))
+                        elif new_classifier_type == MULTI_LABEL:
+                            batch.append((text, known_label))
+                added = len(docs) > 0
             if len(batch) > 0:
                 with _lock_trainingset(db, new_name):
                     db.create_training_examples(new_name, batch)
             block += 1
 
 
-def _extract_binary_trainingset(db_connection_string, classifier, label_to_extract):
+def _extract_binary_trainingset(db_connection_string, classifier, label_to_extract, new_name):
     cherrypy.log(
         'ClassifierCollectionService._extract_binary_trainingset(classifier="' + classifier + '", label="' + label_to_extract + '")')
     with SQLAlchemyDB(db_connection_string) as db:
+        source_classifier_type = db.get_classifier_type(classifier)
         batchsize = MAX_BATCH_SIZE
         block = 0
         added = True
         while added:
             batch = list()
             added = False
-            for example in db.get_classifier_examples(classifier, False, block * batchsize, batchsize):
-                if example.label.name == label_to_extract:
-                    label = YES_LABEL
-                else:
-                    label = NO_LABEL
-                batch.append((example.document.text, label))
-
-                added = True
+            if source_classifier_type == SINGLE_LABEL:
+                for example in db.get_classifier_examples(classifier, block * batchsize, batchsize):
+                    if example.label.name == label_to_extract:
+                        label = YES_LABEL
+                    else:
+                        label = NO_LABEL
+                    batch.append((example.document.text, label))
+                    added = True
+            elif source_classifier_type == MULTI_LABEL:
+                offset = block * batchsize
+                docs = [classification.document.text for classification in
+                        db.get_classifier_examples(classifier, offset, batchsize)]
+                for text in docs:
+                    known_labels_assignment = db.get_label(classifier, text)
+                    for known_label in known_labels_assignment:
+                        split = known_label.split(':')
+                        if split[0] == label_to_extract:
+                            batch.append((text, split[1]))
+                added = len(docs) > 0
             if len(batch) > 0:
-                with _lock_trainingset(db, label_to_extract):
-                    db.create_training_examples(label_to_extract, batch)
+                with _lock_trainingset(db, new_name):
+                    db.create_training_examples(new_name, batch)
                 batchX, batchy = list(zip(*batch))
-                _update_model(db_connection_string, label_to_extract, batchX, batchy)
+                _update_model(db_connection_string, new_name, batchX, batchy)
             block += 1
 
 
 def _combine_classifiers(db_connection_string, name, sources):
+    sources = list(sources)
     cherrypy.log(
         'ClassifierCollectionService._combine_classifiers(name="' + name + '", sources="' + str(sources) + '")')
     with SQLAlchemyDB(db_connection_string) as db:
+        source_types = dict()
+        source_to_label = dict()
+        for source in sources:
+            source_types[source] = db.get_classifier_type(source)
+            source_to_label[source] = source
+        target_type = db.get_classifier_type(name)
+
         binary_sources = set()
-        for source_name in sources:
-            if set(db.get_classifier_labels(source_name)) == set(BINARY_LABELS):
-                binary_sources.add(source_name)
+        multi_binary_sources = set()
+        for source in sources:
+            if source_types[source] == SINGLE_LABEL and set(db.get_classifier_labels(source)) == set(
+                    BINARY_LABELS):
+                binary_sources.add(source)
+            if source_types[source] == MULTI_LABEL:
+                multi_binary_sources.add(source)
         sizes = list()
+        for multi_binary_source in multi_binary_sources:
+            del source_to_label[source]
+            sources.remove(multi_binary_source)
+            for label in db.get_classifier_labels(multi_binary_source):
+                sources.append(multi_binary_source + _CLASSIFIER_LABEL_SEP + label)
+                binary_sources.add(multi_binary_source + _CLASSIFIER_LABEL_SEP + label)
+                source_to_label[multi_binary_source + _CLASSIFIER_LABEL_SEP + label] = label
+
         for source in sources:
             if source in binary_sources:
                 sizes.append(db.get_classifier_examples_with_label_count(source, YES_LABEL))
             else:
-                sizes.append(db.get_classifier_examples_count(source, False))
+                sizes.append(db.get_classifier_examples_count(source))
         max_size = max(sizes)
         paddings = list()
         for size in sizes:
@@ -830,20 +914,40 @@ def _combine_classifiers(db_connection_string, name, sources):
                     paddings[i] = min(paddings[i], 0)
                     continue
                 if source in binary_sources:
-                    example_numerator = db.get_classifier_examples_with_label(source, YES_LABEL, paddings[i], batchsize)
-                    for example in example_numerator:
-                        batchX.append(example.document.text)
-                        batchy.append(source)
-                        added = True
+                    if target_type == SINGLE_LABEL:
+                        example_numerator = db.get_classifier_examples_with_label(source, YES_LABEL, paddings[i],
+                                                                                  batchsize)
+                        for example in example_numerator:
+                            batchX.append(example.document.text)
+                            batchy.append(source_to_label[source])
+                            added = True
+                    elif target_type == MULTI_LABEL:
+                        example_numerator = db.get_classifier_examples(source, paddings[i], batchsize)
+                        for example in example_numerator:
+                            batchX.append(example.document.text)
+                            batchy.append(source_to_label[source] + ':' + example.label.name)
+                            added = True
                 else:
-                    example_numerator = db.get_classifier_examples(source, False, paddings[i], batchsize)
-                    for example in example_numerator:
-                        batchX.append(example.document.text)
-                        batchy.append(example.label.name)
-                        added = True
+                    if target_type == SINGLE_LABEL:
+                        example_numerator = db.get_classifier_examples(source, paddings[i], batchsize)
+                        for example in example_numerator:
+                            batchX.append(example.document.text)
+                            batchy.append(example.label.name)
+                            added = True
+                    elif target_type == MULTI_LABEL:
+                        labels = db.get_classifier_labels(source)
+                        for example in db.get_classifier_examples(source, paddings[i], batchsize):
+                            assigned = example.label.name
+                            for label in labels:
+                                batchX.append(example.document.text)
+                                if label == assigned:
+                                    batchy.append(label + ':yes')
+                                else:
+                                    batchy.append(label + ':no')
+                            added = True
                 paddings[i] += batchsize
-            if len(batchX)>0:
-                pairs = list(zip(batchX,batchy))
+            if len(batchX) > 0:
+                pairs = list(zip(batchX, batchy))
                 random.shuffle(pairs)
                 batchX, batchy = zip(*pairs)
 
