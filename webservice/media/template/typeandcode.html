@@ -43,10 +43,10 @@ ${parent.head()}
                         suggestion_div.appendTo('#pool');
                         for(var j = 0;j<msg[i].labels.length;++j) {
                             if(single_label) {
-                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="pointer scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
+                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="pointer scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
                                 scoreline.click((function(single_label, classifier_name, label){
-                                    if(!$('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('assigned')) {
-                                        if($('#suggestion\\_'+classifier_name+'\\_'+label).hasClass('suggested')) {
+                                    if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('assigned')) {
+                                        if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('suggested')) {
                                             $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
                                         }
                                         else {
@@ -61,8 +61,8 @@ ${parent.head()}
                                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
                                         $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label).removeClass('not_relevant')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label).addClass('assigned')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label).removeClass('not_relevant')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label).addClass('assigned')
                                         $.ajax({
                                             type:'POST',
                                             url:'${classifier_path}/update',
@@ -74,11 +74,11 @@ ${parent.head()}
                                 }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
                             }
                             else {
-                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'_yes" class="pointer scoreline not_relevant ui-corner-all margined morepadded multiyes">'+msg[i].labels[j]+'</div>');
-                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'_no" class="pointer scoreline not_relevant ui-corner-all margined morepadded multino">✗</div>');
+                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="pointer scoreline not_relevant ui-corner-all margined morepadded multiyes">'+msg[i].labels[j]+'</div>');
+                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="pointer scoreline not_relevant ui-corner-all margined morepadded multino">✗</div>');
                                 scoreline_yes.click((function(single_label, classifier_name, label){
-                                    if(!$('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').hasClass('assigned')) {
-                                        if($('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').hasClass('suggested')) {
+                                    if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('assigned')) {
+                                        if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('suggested')) {
                                             $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
                                         }
                                         else {
@@ -90,12 +90,12 @@ ${parent.head()}
                                         var positive = $('#history').children('.yes').length;
                                         $('#accuracy').text((positive/total).toFixed(2));
 
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').removeClass('not_relevant')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').removeClass('suggested')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').addClass('assigned')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').removeClass('assigned')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').removeClass('suggested')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').addClass('not_relevant')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('not_relevant')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('suggested')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').addClass('assigned')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('assigned')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('suggested')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').addClass('not_relevant')
 
                                         $.ajax({
                                             type:'POST',
@@ -107,8 +107,8 @@ ${parent.head()}
                                     }
                                 }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
                                 scoreline_no.click((function(single_label, classifier_name, label){
-                                    if(!$('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').hasClass('assigned')) {
-                                        if($('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').hasClass('suggested')) {
+                                    if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('assigned')) {
+                                        if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('suggested')) {
                                             $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
                                         }
                                         else {
@@ -120,12 +120,12 @@ ${parent.head()}
                                         var positive = $('#history').children('.yes').length;
                                         $('#accuracy').text((positive/total).toFixed(2));
 
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').removeClass('not_relevant')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').removeClass('suggested')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_no').addClass('assigned')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').removeClass('assigned')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').removeClass('suggested')
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_yes').addClass('not_relevant')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('not_relevant')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('suggested')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').addClass('assigned')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('assigned')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('suggested')
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').addClass('not_relevant')
 
                                         $.ajax({
                                             type:'POST',
@@ -266,12 +266,12 @@ ${parent.head()}
                                     $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
                                     if(suggested.startsWith('✍')) {
                                         var name = suggested.substring(1);
-                                        $('#suggestion\\_'+classifier_name+'\\_'+name).removeClass('not_relevant');
-                                        $('#suggestion\\_'+classifier_name+'\\_'+name).addClass('assigned');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+name).removeClass('not_relevant');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+name).addClass('assigned');
                                     }
                                     else {
-                                        $('#suggestion\\_'+classifier_name+'\\_'+suggested).removeClass('not_relevant');
-                                        $('#suggestion\\_'+classifier_name+'\\_'+suggested).addClass('suggested');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+suggested).removeClass('not_relevant');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+suggested).addClass('suggested');
                                     }
                                 }
                             });
@@ -294,20 +294,20 @@ ${parent.head()}
                                     human = true;
                                 }
                                 var not_value = (value=='yes')?'no':'yes';
-                                assigned = $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).hasClass('assigned');
+                                assigned = $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).hasClass('assigned');
                                 if(!assigned || force) {
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('not_relevant');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).removeClass('not_relevant');
                                     if(human) {
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).addClass('assigned');
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('suggested');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).addClass('assigned');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).removeClass('suggested');
                                     }
                                     else {
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).addClass('suggested');
-                                        $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('assigned');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).addClass('suggested');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).removeClass('assigned');
                                     }
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).removeClass('assigned');
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).removeClass('suggested');
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).addClass('not_relevant');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).removeClass('assigned');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).removeClass('suggested');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).addClass('not_relevant');
                                 }
                             });
                         });
