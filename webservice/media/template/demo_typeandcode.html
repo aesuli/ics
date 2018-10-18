@@ -93,11 +93,11 @@ ${parent.head()}
                         suggestion_div.appendTo('#pool');
                         for(var j = 0;j<msg[i].labels.length;++j) {
                             if(single_label) {
-                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
+                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
                             }
                             else {
-                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'_yes" class="scoreline not_relevant ui-corner-all margined morepadded multiyes">'+msg[i].labels[j]+'</div>');
-                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_'+msg[i].labels[j]+'_no" class="scoreline not_relevant ui-corner-all margined morepadded multino">✗</div>');
+                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="scoreline not_relevant ui-corner-all margined morepadded multiyes">'+msg[i].labels[j]+'</div>');
+                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="scoreline not_relevant ui-corner-all margined morepadded multino">✗</div>');
                                 var scoreline = jQuery('<div  class="margined"></div>');
                                 scoreline.append(scoreline_yes);
                                 scoreline.append(scoreline_no);
@@ -170,8 +170,8 @@ ${parent.head()}
                                     $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
                                     $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                                     $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
-                                    $('#suggestion\\_'+classifier_name+'\\_'+suggested).removeClass('not_relevant');
-                                    $('#suggestion\\_'+classifier_name+'\\_'+suggested).addClass('suggested');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+suggested).removeClass('not_relevant');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+suggested).addClass('suggested');
                                 }
                             });
                         }
@@ -189,14 +189,14 @@ ${parent.head()}
                                 var value = split[1];
                                 var human = false;
                                 var not_value = (value=='yes')?'no':'yes';
-                                assigned = $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).hasClass('assigned');
+                                assigned = $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).hasClass('assigned');
                                 if(!assigned || force) {
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('not_relevant');
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).addClass('suggested');
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+value).removeClass('assigned');
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).removeClass('assigned');
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).removeClass('suggested');
-                                    $('#suggestion\\_'+classifier_name+'\\_'+label+'\\_'+not_value).addClass('not_relevant');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).removeClass('not_relevant');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).addClass('suggested');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).removeClass('assigned');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).removeClass('assigned');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).removeClass('suggested');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).addClass('not_relevant');
                                 }
                             });
                         });

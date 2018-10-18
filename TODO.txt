@@ -1,6 +1,4 @@
 TODO
-- multilabel visualization in demo page
-- multilabel visualization in type and code page
 - labeling from table views
 - automatic DB creation
 - use ids rather than names in batch jobs
@@ -23,6 +21,8 @@ TOMONITOR
 - strip input strings
 
 DONE
+- multilabel visualization in demo page
+- multilabel visualization in type and code page
 - fix missing label count of multilabel
 - multilabel relevance sampling
 - multilabel incertainty sampling

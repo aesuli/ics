@@ -960,6 +960,7 @@ class SQLAlchemyDB(object):
                 partial = list(session.query(DatasetDocument.text,DatasetDocument.id)
                                .join(DatasetDocument.dataset)
                                .filter(Dataset.name == dataset_name)
+                               .filter(DatasetDocument.text.like('%' + filter + '%'))
                                .filter(DatasetDocument.md5 == TrainingDocument.md5)
                                .filter(TrainingDocument.id == Classification.document_id)
                                .filter(Classification.classifier_id == Classifier.id)
