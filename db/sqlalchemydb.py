@@ -496,6 +496,7 @@ class SQLAlchemyDB(object):
             return session.query(Classifier.last_updated).filter(Classifier.name == name).scalar()
 
     def rename_classifier(self, name, newname, overwrite):
+        classifier_type = self.get_classifier_type(name)
         with self.session_scope() as session:
             classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
             if classifier is None:
@@ -520,12 +521,13 @@ class SQLAlchemyDB(object):
                     session.delete(old_classifier)
                     session.flush()
             classifier.name = newname
-            session.flush()
-            labels = self.get_classifier_labels(newname)
-            for label in labels:
-                classifier = session.query(Classifier).filter(
-                    Classifier.name == name + _CLASSIFIER_LABEL_SEP + label).scalar()
-                classifier.name = newname + _CLASSIFIER_LABEL_SEP + label
+            if classifier_type==MULTI_LABEL:
+                session.flush()
+                labels = self.get_classifier_labels(newname)
+                for label in labels:
+                    classifier = session.query(Classifier).filter(
+                        Classifier.name == name + _CLASSIFIER_LABEL_SEP + label).scalar()
+                    classifier.name = newname + _CLASSIFIER_LABEL_SEP + label
 
     def get_classifier_description(self, name):
         with self.session_scope() as session:
