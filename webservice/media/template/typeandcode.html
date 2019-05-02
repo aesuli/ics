@@ -12,8 +12,6 @@ ${parent.head()}
             setTimeout(timed_update,update_interval);
         }
 
-        selected_classifiers = {};
-
         function update() {
             last_update = Date.now();
             $.ajax({
@@ -27,36 +25,33 @@ ${parent.head()}
                     valid_classifiers[msg[i].name] = true;
                     if($('#use\\_opt\\_'+msg[i].name).length==0) {
                         var single_label = msg[i].type=="Single-label";
-                        var labeltype='<span id="'+msg[i].name+'_single" class="labeltype">S</span>';
+                        var labeltype='<span id="'+msg[i].name+'_single" class="w3-small w3-margin-left w3-right">S</span>';
                         if(!single_label) {
-                            labeltype='<span id="'+msg[i].name+'_multi" class="labeltype">M</span>'
+                            labeltype='<span id="'+msg[i].name+'_multi" class="w3-small w3-margin-left w3-right">M</span>'
                         }
                         added = true;
-                        if(single_label) {
-                            $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name+' (S)'));
-                        }
-                        else {
-                            $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name+' (M)'));
-                        }
+                        $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
                         $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
-                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all"><span class="name">'+msg[i].name+'</span>'+labeltype+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
+                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'w3-col w3-card w3-margin-top w3-margin-right\' style=\'width:auto\'>\
+                        <div class="name w3-display-container w3-container w3-padding w3-theme">'+msg[i].name+labeltype+'</div>\
+                        <div id="assignments_'+msg[i].name+'"></div></div>');
                         suggestion_div.appendTo('#pool');
                         for(var j = 0;j<msg[i].labels.length;++j) {
                             if(single_label) {
-                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="pointer scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
+                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="w3-left w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant">'+msg[i].labels[j]+'</div>');
                                 scoreline.click((function(single_label, classifier_name, label){
                                     if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('assigned')) {
                                         if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('suggested')) {
-                                            $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
+                                            $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
                                         }
                                         else {
-                                            $('#history').prepend('<span class="agreement no" style="color:red;">✗</span>');
+                                            $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
                                         }
                                         var histsize = parseInt($("#histsize").val());
                                         $('#history').children().slice(histsize).remove();
                                         var total = $('#history').children().length;
                                         var positive = $('#history').children('.yes').length;
-                                        $('#accuracy').text((positive/total).toFixed(2));
+                                        $('#accuracy').text((positive/total*100).toFixed(0)+"%");
 
                                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
                                         $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
@@ -74,21 +69,21 @@ ${parent.head()}
                                 }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
                             }
                             else {
-                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="pointer scoreline not_relevant ui-corner-all margined morepadded multiyes">'+msg[i].labels[j]+'</div>');
-                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="pointer scoreline not_relevant ui-corner-all margined morepadded multino">✗</div>');
+                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="w3-col w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant multiyes" style="width:auto;">'+msg[i].labels[j]+'</div>');
+                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="w3-rest w3-hover-theme with w3-hover-opacity w3-right-align pointer scoreline not_relevant multino"">✗</div>');
                                 scoreline_yes.click((function(single_label, classifier_name, label){
                                     if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('assigned')) {
                                         if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('suggested')) {
-                                            $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
+                                            $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
                                         }
                                         else {
-                                            $('#history').prepend('<span class="agreement no" style="color:red;">✗</span>');
+                                            $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
                                         }
                                         var histsize = parseInt($("#histsize").val());
                                         $('#history').children().slice(histsize).remove();
                                         var total = $('#history').children().length;
                                         var positive = $('#history').children('.yes').length;
-                                        $('#accuracy').text((positive/total).toFixed(2));
+                                        $('#accuracy').text((positive/total*100).toFixed(0)+"%");
 
                                         $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('not_relevant')
                                         $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('suggested')
@@ -109,16 +104,16 @@ ${parent.head()}
                                 scoreline_no.click((function(single_label, classifier_name, label){
                                     if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('assigned')) {
                                         if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('suggested')) {
-                                            $('#history').prepend('<span class="agreement yes" style="color:lightgreen;">✓</span>');
+                                            $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
                                         }
                                         else {
-                                            $('#history').prepend('<span class="agreement no" style="color:red;">✗</span>');
+                                            $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
                                         }
                                         var histsize = parseInt($("#histsize").val());
                                         $('#history').children().slice(histsize).remove();
                                         var total = $('#history').children().length;
                                         var positive = $('#history').children('.yes').length;
-                                        $('#accuracy').text((positive/total).toFixed(2));
+                                        $('#accuracy').text((positive/total*100).toFixed(0)+"%");
 
                                         $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('not_relevant')
                                         $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('suggested')
@@ -136,7 +131,7 @@ ${parent.head()}
                                         });
                                     }
                                 }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
-                                var scoreline = jQuery('<div  class="margined"></div>');
+                                var scoreline = jQuery('<div class="w3-left w3-row multiscoreline"></div>');
                                 scoreline.append(scoreline_yes);
                                 scoreline.append(scoreline_no);
                             }
@@ -145,14 +140,13 @@ ${parent.head()}
                     }
                 }
                 if($('#all\\_correct').length==0) {
-                    var all_correct = jQuery('<div id="all_correct" class="right"><span class="suggested">Suggestions</span> are correct</div>');
-                    all_correct.button({ icons: {primary:'ui-icon-check'} });
+                    var all_correct = jQuery('<div id="all_correct" class="w3-right w3-button w3-theme w3-round">All <span class="suggested w3-text-theme">suggestions</span> are correct</div>');
                     all_correct.click(function() {
                         $('#suggestions div div .suggested').each(function(i,item) {
                             item.click();
                         });
                     });
-                    $('#suggestions').append(all_correct);
+                    $('#buttons').append(all_correct);
                 }
                 $('#use').children().each(function (index, value) {
                     if(!valid_classifiers[value.id.slice(8)]) {
@@ -168,75 +162,29 @@ ${parent.head()}
                     $('#dup\\_from').append($('#dup\\_from > option').get().sort(function (a, b) {
                         return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
+                    $('#use').attr('size',Math.min(10,Object.keys(valid_classifiers).length));
+                    $('#use').select2({
+                        placeholder: 'Select the classifiers to use',
+                        width: '100%'
+                    });
+                    $('#dup\\_from').select2({
+                        placeholder: 'Select the source classifier',
+                        width: '100%'
+                    });
+                    $("select[multiple]").off('select2:select').on('select2:select',function(msg){
+                        var name = msg.params.data.id;
+                        $('#suggestions\\_'+name).detach().appendTo('#suggestions');
+                        classify([name]);
+                        return false;
+                    });
+                    $("select[multiple]").off('select2:unselect').on('select2:unselect',function(msg){
+                        var name = msg.params.data.id;
+                        $('#suggestions\\_'+name).detach().appendTo('#pool');
+                        return false;
+                    });
                 }
-                var updated_list = {};
-                $('#use').attr('size',Math.min(10,Object.keys(valid_classifiers).length));
-                $('#use').select2({
-                    placeholder: 'Select the classifiers to use',
-                    width: 'element'
-                    });
-                $('#dup\\_from').select2({
-                    placeholder: 'Select the source classifier',
-                    width: '100%'
-                    });
-                $("select[multiple]").off('select2:select').on('select2:select',function(msg){
-                    var name = msg.params.data.id;
-                    $('#suggestions\\_'+name).detach().appendTo('#suggestions');
-                    classify([name]);
-                    return false;
-                });
-                $("select[multiple]").off('select2:unselect').on('select2:unselect',function(msg){
-                    var name = msg.params.data.id;
-                    $('#suggestions\\_'+name).detach().appendTo('#pool');
-                    return false;
-                });
             });
         }
-
-        function create_classifier() {
-            name = $("#name").val();
-            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            labelsString = $("#labels").val();
-            if(!labelsString.match(/^[a-zA-Z0-9_,]+$/)) {
-                custom_alert("The names of labels can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            labels = labelsString.split(',');
-            type = $("#type").val();
-            var data = {name: name, labels: labels, type: type} ;
-            $.ajax({
-                type: "POST",
-                url: "${classifier_path}/create",
-                data: data})
-            .done(update)
-            .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
-            });
-            return false ;
-        };
-
-        function duplicate_classifier() {
-            name = $("#dup\\_name").val();
-            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_alert("The name of the classifier can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            dup_from = $("#dup\\_from").val();
-            var duplicatetype = $("#dup\\_type").val();
-            var data = {name: dup_from, new_name: name, type: duplicatetype};
-            $.ajax({
-                type: "POST",
-                url: "${classifier_path}/duplicate",
-                data: data})
-            .done(update)
-            .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
-            });
-            return false ;
-        };
 
         last_text = ""
         function classify(selection) {
@@ -246,8 +194,9 @@ ${parent.head()}
                 reset_labels();
             }
             last_text = text;
-            $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
+            $('#suggestions > div').each(function(i,item) {
                 var classifier_name = $(item).children('.name').text();
+                classifier_name = classifier_name.substr(0,classifier_name.length - 1)
                 var single_label = $('#'+classifier_name+'\\_single').length>0;
                 if(typeof selection == 'undefined' || selection.indexOf(classifier_name)>=0) {
                     if(single_label) {
@@ -317,19 +266,85 @@ ${parent.head()}
         }
 
         function reset_labels() {
-            $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
-                var classifier_name = $(item).children('.name').text();
+            $('#suggestions > div > .name').each(function(i,item) {
+                var classifier_name = $(item).text();
+                classifier_name = classifier_name.substr(0,classifier_name.length - 1);
                 $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
                 $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
                 $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
             });
-            $('#pool div[id^=suggestions] .ui-widget-header').each(function(i,item) {
-                var classifier_name = $(item).children('.name').text();
+            $('#pool > div > .name').each(function(i,item) {
+                var classifier_name = $(item).text();
+                classifier_name = classifier_name.substr(0,classifier_name.length - 1);
                 $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
                 $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
                 $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
             });
         }
+
+        function create_classifier() {
+            name = $("#create\\_name").val();
+            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+                custom_error("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            labelsString = $("#labels").val();
+            if(!labelsString.match(/^[a-zA-Z0-9_,]+$/)) {
+                custom_alert("The names of labels can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            document.getElementById('create_classifier_button').style.display='none';
+            document.getElementById('create_classifier_button_wait').style.display='block';
+            labels = labelsString.split(',');
+            type = $("#type").val();
+            var data = {name: name, labels: labels, type: type} ;
+            $.ajax({
+                type: "POST",
+                url: "${classifier_path}/create",
+                data: data})
+            .done(function() {
+                document.getElementById('dia_create_classifier').style.display='none';
+                document.getElementById('create_classifier_button').style.display='block';
+                document.getElementById('create_classifier_button_wait').style.display='none';
+                update();
+            })
+            .fail(function(errMsg) {
+                document.getElementById('create_classifier_button').style.display='block';
+                document.getElementById('create_classifier_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
+            });
+            return false;
+        };
+
+
+        function duplicate_classifier() {
+            name = $("#dup\\_name").val();
+            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+                custom_error("The name of the classifier can only contain letters, numbers and the underscore character '_'");
+                return false;
+            }
+            document.getElementById('duplicate_classifier_button').style.display='none';
+            document.getElementById('duplicate_classifier_button_wait').style.display='block';
+            dup_from = $("#dup\\_from").val();
+            var duplicatetype = $("#dup\\_type").val();
+            var data = {name: dup_from, new_name: name, type: duplicatetype};
+            $.ajax({
+                type: "POST",
+                url: "${classifier_path}/duplicate",
+                data: data})
+            .done(function() {
+                document.getElementById('dia_duplicate_classifier').style.display='none';
+                document.getElementById('duplicate_classifier_button').style.display='block';
+                document.getElementById('duplicate_classifier_button_wait').style.display='none';
+                update();
+            })
+            .fail(function(errMsg) {
+                document.getElementById('duplicate_classifier_button').style.display='block';
+                document.getElementById('duplicate_classifier_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
+            });
+            return false ;
+        };
 
         $( document ).ready(function() {
             $("#textbox").on("input",function() {
@@ -338,77 +353,116 @@ ${parent.head()}
                 classify();
             },delay_interval);});
 
-            $("#create\\_classifier").submit(create_classifier);
-            $("#duplicate\\_classifier").submit(duplicate_classifier);
+            $('#create\\_classifier').submit(create_classifier);
+            $('#duplicate\\_classifier').submit(duplicate_classifier);
 
-            //$('#force\\_update').button().click(update);
-            $( "input[type=submit]" ).button();
+            $('#use').select2({
+                placeholder: 'Select the classifiers to use',
+                allowClear: true,
+                width: '100%'
+            });
+
             timed_update();
         });
     </script>
 </%block>
 
-<div id="main" class="padded ui-widget ui-widget-content">
-    <div id="sidebar">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
-            <div class="padded ui-widget-header ui-corner-all">Select classifiers:</div>
-            <select class="margined"  multiple id="use" style="resize: vertical;width: 95%;">
-            </select>
-        </div>
-        <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
-        </div>-->
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_create">
-            <div class="padded ui-widget-header ui-corner-all">Create a classifier from scratch:</div>
-            <form id="create_classifier" class="margined" action="#" method="post">
-                <p>
-                <label class="margined" for="name">Name:</label>
-                <input class="margined" type="text" id="name" /> </p>
-                <p>
-                <label class="margined" for="labels">Labels (comma separated):</label>
-                <input class="margined" type="text" id="labels" /> </p>
-                 <p>
-                    <label class="margined" for="type">Type:</label>
-                    <select class="margined" id="type">
-<%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
-                        <option value="${classifier_type}">${classifier_type}</option>
-% endfor
+<%block name="menu2">
+<section class="w3-navbar w3-theme-d4 ">
+    <div id="but_create_classifier" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_create_classifier').style.display='block'">Create
+        new classifier
+    </div>
+    <div id="but_duplicate_classifier" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_duplicate_classifier').style.display='block'">
+        Copy a classifier
+    </div>
+</section>
+</%block>
+
+<section>
+    <div class="w3-panel w3-padding">
+        <div class="w3-card">
+            <header class="w3-container w3-theme">
+                <h4>Type & code:</h4>
+            </header>
+            <form id="select_form" class="w3-container" action="#" method="post">
+                    <p><label for="use">Classifiers to use:</label>
+                    <select class="w3-select" multiple id="use" style="width:230px;">
                     </select></p>
-                <p><label></label>
-                <input class="margined" type="submit" value="Create" />
-                </p>
             </form>
+            <div class="w3-container">
+                <span>Text to code:</span>
+                <textarea id="textbox" class="w3-block" placeholder="Text to code" style="height:33%;"></textarea>
+                <div id="buttons" class="w3-container w3-panel"></div>
+                <div id="suggestions" class="w3-container w3-margin-bottom"></div>
+                <div id="pool" style="display:none;"></div>
+                <div id="historybox">
+                    <div class="w3-margin-bottom">Agreement on last <input id="histsize" type="number" min="10" max="500" value="50"> assigned labels: <span id="accuracy">n/a</span></div>
+                    <div class="w3-margin-bottom">Agreement history: <div id="history"></div></div>
+                </div>
+            </div>
         </div>
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="classifier_duplicate">
-            <div class="padded ui-widget-header ui-corner-all">Create a classifier from another one:</div>
-            <form id="duplicate_classifier" class="margined" action="#" method="post">
+    </div>
+    <div id="dia_create_classifier" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_create_classifier').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Create classifier</h3>
+            </header>
+            <form id="create_classifier" class="w3-container" action="#" method="post">
                 <p>
-                <label class="margined" for="dup_name">Name:</label>
-                <input class="margined" type="text" id="dup_name" /> </p>
-                 <p>
-                    <label class="margined" for="dup_from">From:</label>
-                    <select class="margined" id="dup_from">
-                    </select></p>
-                 <p>
-                    <label class="margined" for="dup_type">Type:</label>
-                    <select class="margined" id="dup_type">
-<%! from db import sqlalchemydb %>
-% for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
+                    <label for="create_name">Name:</label>
+                    <input class="w3-input" type="text" id="create_name"/></p>
+                <p>
+                    <label for="labels">Labels (comma separated):</label>
+                    <input class="w3-input" type="text" id="labels"/></p>
+                <p>
+                    <label for="type">Type:</label>
+                    <select class="w3-select" id="type">
+                        <%! from db import sqlalchemydb %>
+                        % for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
                         <option value="${classifier_type}">${classifier_type}</option>
-% endfor
+                        % endfor
                     </select></p>
-                <p><label></label>
-                <input class="margined" type="submit" value="Create" />
+                <p>
+                    <input class="w3-input" id="create_classifier_button" type="submit" value="Create"/>
+                    <span class="w3-center" id="create_classifier_button_wait" style="display:none">Processing</span>
                 </p>
             </form>
         </div>
     </div>
-    <div id="center">
-        <div class="margined ui-corner-all ui-widget ui-widget-content">
-            <div class="padded ui-widget-header ui-corner-all">Classify text:</div>
-            <div class="padded"><textarea id="textbox" class="textbox padded" placeholder="Text to code"></textarea></div>
-        <div id="suggestions" class="margined padded ui-widget-content suggestion-container"></div>
-        <div id="pool" style="display:none;"></div>
+    <div id="dia_duplicate_classifier" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_duplicate_classifier').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Copy a classifier</h3>
+            </header>
+            <form id="duplicate_classifier" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="dup_name">Name:</label>
+                    <input class="w3-input" type="text" id="dup_name"/></p>
+                <p>
+                    <label for="dup_from">From:</label>
+                    <select class="w3-select" id="dup_from">
+                    </select></p>
+                <p>
+                    <label for="dup_type">Type:</label>
+                    <select class="w3-select" id="dup_type">
+                        <%! from db import sqlalchemydb %>
+                        % for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
+                        <option value="${classifier_type}">${classifier_type}</option>
+                        % endfor
+                    </select></p>
+                <p>
+                    <input class="w3-input" id="duplicate_classifier_button" type="submit" value="Create"/>
+                    <span class="w3-center" id="duplicate_classifier_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
         </div>
     </div>
-</div>
+</section>

@@ -35,11 +35,6 @@ class WebClient(object):
                  'tools.staticdir.dir': os.path.join(self._media_dir, 'js'),
                  'tools.icsauth.on': False,
                  },
-            '/fonts':
-                {'tools.staticdir.on': True,
-                 'tools.staticdir.dir': os.path.join(self._media_dir, 'fonts'),
-                 'tools.icsauth.on': False,
-                 },
         }
 
     def close(self):
@@ -95,21 +90,18 @@ class WebClient(object):
             raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
 
         template = self._lookup.get_template('classify.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data(),
+                                  **{'datasetname': name}})
 
     @cherrypy.expose
-    def classification_view(self, datasetname=None, classification_id=None):
-        if datasetname is None or classification_id is None or not self._db.dataset_exists(datasetname):
-            raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
-
-        classification_ids = [classification.id for classification in self._db.get_classification_jobs(datasetname)]
-
-        if not int(classification_id) in classification_ids:
+    def classification_view(self, datasetname=None, classifiername=None):
+        if datasetname is None or not self._db.dataset_exists(
+                datasetname) or classifiername is None or not self._db.classifier_exists(classifiername):
             raise cherrypy.HTTPRedirect(self._template_data()['dataset_path'])
 
         template = self._lookup.get_template('classification_view.html')
         return template.render(**{**self._template_data, **self.session_data(),
-                                  **{'datasetname': datasetname, 'classification_id': classification_id}})
+                                  **{'datasetname': datasetname, 'classifiername': classifiername}})
 
     @cherrypy.expose
     def training_data_view(self, classifiername=None):
@@ -152,4 +144,4 @@ class WebClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "3.1.1"
+        return "4.2.1"

@@ -12,8 +12,6 @@ def get_classifier_model(type, name, labels):
     elif type == MULTI_LABEL:
         from classifier.multilabel_online_classifier import MultiLabelOnlineClassifier
         return MultiLabelOnlineClassifier(name, labels)
-        # from classifier.pytorch_classifier import LSTMClassifier
-        # return LSTMClassifier(name, labels)
     else:
         raise ValueError('Unknown classifier type')
 
@@ -21,7 +19,6 @@ def get_classifier_model(type, name, labels):
 def get_classifier_type_from_model(model):
     from classifier.online_classifier import OnlineClassifier
     from classifier.multilabel_online_classifier import MultiLabelOnlineClassifier
-    #from classifier.pytorch_classifier import LSTMClassifier
     if isinstance(model, OnlineClassifier):
         classifier_type = SINGLE_LABEL
     elif isinstance(model, MultiLabelOnlineClassifier):

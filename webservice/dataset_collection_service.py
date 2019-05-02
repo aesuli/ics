@@ -147,7 +147,7 @@ class DatasetCollectionService(object):
             try:
                 with open(fullpath, 'w', encoding='utf-8', newline='') as file:
                     writer = csv.writer(file, lineterminator='\n')
-                    for document in self._db.get_dataset_documents_sorted_by_name(name):
+                    for document in self._db.get_dataset_documents(name):
                         writer.writerow([document.external_id, document.text])
             except:
                 os.unlink(fullpath)
@@ -196,6 +196,24 @@ class DatasetCollectionService(object):
         else:
             cherrypy.response.status = 404
             return 'Position %i does not exits in \'%s\'' % (position, name)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def get_documents(self, name, page=None, page_size=50, filter=None):
+        if not self._db.dataset_exists(name):
+            cherrypy.response.status = 404
+            return '%s does not exits' % name
+        page_size = int(page_size)
+        if page is None:
+            offset = 0
+        else:
+            offset = int(page) * page_size
+        limit = page_size
+        batch = list()
+        for document in self._db.get_dataset_documents(name, offset, limit, filter):
+            batch.append({'id': document.external_id, 'pos': document.id, 'creation': str(document.creation),
+                          'text': document.text})
+        return batch
 
     def _softmax(self, x):
         return np.exp(x) / np.sum(np.exp(x))
@@ -447,7 +465,7 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                     found = False
                     X = list()
                     id = list()
-                    for document in db.get_dataset_documents_sorted_by_name(datasetname, batch_count * MAX_BATCH_SIZE,
+                    for document in db.get_dataset_documents(datasetname, batch_count * MAX_BATCH_SIZE,
                                                                             MAX_BATCH_SIZE):
                         id.append(document.external_id)
                         X.append(document.text)

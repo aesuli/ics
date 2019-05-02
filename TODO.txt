@@ -1,5 +1,6 @@
 TODO
-- labeling from table views
+- table views
+    * different sort criteria
 - automatic DB creation
 - use ids rather than names in batch jobs
 - user authorization profiles
@@ -14,13 +15,21 @@ TODO
 - twitter integration
 - richer classifier info
     * estimated accuracy
-- templates (mako)
 - store source of classification (which user?)
 
 TOMONITOR
 - strip input strings
 
 DONE
+- table views
+    * dataset table view
+    * training table view
+    * deletion of training examples
+    * labeling from table views
+- templates (mako)
+- removed internal copies of js and css use CDN when possible
+- move to w3css
+- remove jquery-ui
 - multilabel visualization in demo page
 - multilabel visualization in type and code page
 - fix missing label count of multilabel

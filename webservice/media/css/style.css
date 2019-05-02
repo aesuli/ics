@@ -1,167 +1,20 @@
-body {
-    background-color: #EEEEEE;
-}
-
-#screen {
-    display: flex;
-    flex-flow: column;
-    height: 99%;
-}
-
-#center {
-    overflow: hidden;
-}
-
-#main {
-    flex: auto;
-    overflow: auto;
-}
-
-#sidebar {
-    float: right;
-}
-
-#footer {
-    bottom: 0;
-    left: 0;
-}
-
-form  { display: table;      }
-form > p     { display: table-row;  }
-label { display: table-cell; }
-input { display: table-cell; }
-
-#data_list {overflow: auto;}
-
-#gotdata {overflow: auto;}
-
-.select2 {
-  font-family: Arial, Helvetica, sans-serif;
-  padding: 5px;
-}
-.select2-container {
-  font-family: Arial, Helvetica, sans-serif;
-  padding: 5px;
-}
-
-.select2-container--default .select2-selection--multiple .select2-selection__rendered li {
-    padding: 5px;
-}
-
-div .table   {
- display: table;
-}
-
-.table > div     {
- display: table-row;
- }
-
-.table > div:first-child   {
-    text-align: center;
-    font-style: italic;
- }
-
-.table > div > div {
- display: table-cell;
- padding: 5px;
-}
-
-.table > div:not(:first-child):nth-child(odd) > div:nth-child(odd) {
-    background: #FFFFFF;
-}
-
-.table > div:not(:first-child):nth-child(odd) > div:nth-child(even) {
-    background: #FCFCFC;
-}
-
-.table > div:not(:first-child):nth-child(even) > div:nth-child(odd) {
-    background: #FDFDFD;
-}
-
-.table > div:not(:first-child):nth-child(even) > div:nth-child(even) {
-    background: #FAFAFA;
-}
-
-.textbox {
-    display: table-cell;
-    vertical-align: top;
-    width: 100%;
-    height: 200px;
-}
-
-/* spacing */
-.padded {
-    padding: 5px;
-}
-
-.morepadded {
-    padding: 10px;
-}
-
-.margined {
-    margin: 5px;
-}
-
-.right {
-    float: right;
-}
-
-.hideoverflow {
-    overflow: hidden;
-}
-
-/* horizontal menu */
-#nav .ui-menu{
-  /* width:50%; */
-  padding: 5px;
-}
-
-.ui-menu-item{
-  padding: 5px;
-}
-
-/* make first item inline */
-.ui-menu .ui-menu-item {
-  display: inline;
-}
-
-/* subsequent items block */
-.ui-menu-item .ui-menu-item {
-  display: block;
-}
-
-.ui-menu-item a {
-    text-decoration: none;
-}
-
-/* suggestions */
-.suggestion-container {
-    overflow: hidden;
-}
-
-.suggestion {
-    float: left;
-    text-align: center;
-}
-/* end menu */
-
-#scores div  {
-    display: table;
-}
-#scores p     {
-    display: table-row;
-}
-#scores span {
-    display: table-cell;
-    padding: 2px;
-}
-
-.hidden {
-    display:none;
-}
-
 .pointer {
     cursor: pointer;
+}
+
+.scoreline {
+    padding: 6px;
+    margin: 6px;
+}
+
+.multiscoreline {
+    padding: 1px;
+    margin: 6px;
+    border: 1px solid lightgray;
+}
+.multiscoreline .scoreline {
+    padding: 2px;
+    margin: 3px;
 }
 
 .suggested {
@@ -176,74 +29,9 @@ div .table   {
     border: 1px solid #44BB44;
 }
 
-.pending {
-    background-color: lightyellow;
-    background-image: none;
-    border: 1px solid yellow;
-}
-
 .not_relevant {
     background-color: lightyellow;
     background-image: none;
     color: #999999;
     border: 1px solid #AAAAAA;
-}
-
-.skip {
-    background-color: lightcyan;
-    background-image: none;
-    border: 1px solid #AAAAAA;
-}
-
-.hide {
-    background-color: lightgray;
-    background-image: none;
-}
-
-.hide.assigned {
-    background-color: #88bb88;
-    background-image: none;
-}
-
-.small {
- font-size:60%;
-}
-
-.left {
- float:left;
-}
-
-.masked {
-    color: black;
-    background-color: black;
-}
-
-.plain {
-    font-weight:normal;
-}
-
-.tip {
-    text-decoration: underline;
-    text-decoration-style: dotted
-}
-
-.labeltype {
-    margin-left: 5px;
-    padding: 3px;
-    border-radius: 3px;
-    background-color: #9cc8f4;
-    vertical-align:super;
-    float:right;
-    font-size: 70%;
-    color: #444444;
-}
-
-.multiyes {
-    display:table-cell;
-    width:100%;
-    vertical-align:top;
-}
-
-.multino {
-    display:table-cell;
 }

@@ -212,7 +212,8 @@ class TrainingDocument(Base):
     id = Column(Integer(), primary_key=True)
     text = Column(Text())
     md5 = Column(Text(), unique=True)
-    creation = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
+    creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+    last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
     def __init__(self, text):
         self.text = text
@@ -235,6 +236,7 @@ class Classification(Base):
                                                             cascade="all, delete-orphan",
                                                             passive_deletes=True))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
+    last_updated = Column(DateTime(timezone=True), default=datetime.datetime.now, onupdate=datetime.datetime.now)
     __table_args__ = (UniqueConstraint('document_id', 'classifier_id'),)
 
     def __init__(self, document_id, classifier_id, label_id):
@@ -521,7 +523,7 @@ class SQLAlchemyDB(object):
                     session.delete(old_classifier)
                     session.flush()
             classifier.name = newname
-            if classifier_type==MULTI_LABEL:
+            if classifier_type == MULTI_LABEL:
                 session.flush()
                 labels = self.get_classifier_labels(newname)
                 for label in labels:
@@ -576,7 +578,7 @@ class SQLAlchemyDB(object):
                     [{'text': text,
                       'md5': md5(text.encode('utf-8')).hexdigest()} for text in text_set])
                 stmt = stmt.on_conflict_do_update(index_elements=['md5'],
-                                                  set_={'creation': datetime.datetime.now()})
+                                                  set_={'last_updated': datetime.datetime.now()})
                 stmt = stmt.returning(TrainingDocument.id)
                 with self._lock_training_documents():
                     text_set_ids = [id[0] for id in session.execute(stmt)]
@@ -614,8 +616,11 @@ class SQLAlchemyDB(object):
 
                     stmt = insert(Classification.__table__).values(
                         values)
+                    to_update = dict(stmt.excluded._data)
+                    del to_update['id']
+                    del to_update['creation']
                     stmt = stmt.on_conflict_do_update(index_elements=['document_id', 'classifier_id'],
-                                                      set_=dict(stmt.excluded._data))
+                                                      set_=dict(to_update))
                     session.execute(stmt)
                 elif classifier_type == MULTI_LABEL:
                     label_set = set((label.split(':')[0] for _, label in text_and_labels))
@@ -670,8 +675,11 @@ class SQLAlchemyDB(object):
 
                     stmt = insert(Classification.__table__).values(
                         values)
+                    to_update = dict(stmt.excluded._data)
+                    del to_update['id']
+                    del to_update['creation']
                     stmt = stmt.on_conflict_do_update(index_elements=['document_id', 'classifier_id'],
-                                                      set_=dict(stmt.excluded._data))
+                                                      set_=to_update)
                     session.execute(stmt)
             except (OperationalError, MemoryError) as e:
                 session.rollback()
@@ -754,6 +762,35 @@ class SQLAlchemyDB(object):
                 for label in labels:
                     assigned = (session.query(Label.name)
                                 .filter(TrainingDocument.md5 == md5(text.encode('utf-8')).hexdigest())
+                                .join(Classification.document)
+                                .join(Classification.classifier)
+                                .join(Classification.label)
+                                .filter(Classifier.name == classifier_name + _CLASSIFIER_LABEL_SEP + label)
+                                .scalar()
+                                )
+                    if assigned:
+                        assigned_labels.append(label + ':' + assigned)
+            return assigned_labels
+
+    def get_label_from_training_id(self, classifier_name, id):
+        classifier_type = self.get_classifier_type(classifier_name)
+        if classifier_type == SINGLE_LABEL:
+            with self.session_scope() as session:
+                return (session.query(Label.name)
+                        .filter(TrainingDocument.id == id)
+                        .join(Classification.document)
+                        .join(Classification.classifier)
+                        .join(Classification.label)
+                        .filter(Classifier.name == classifier_name)
+                        .scalar()
+                        )
+        elif classifier_type == MULTI_LABEL:
+            labels = self.get_classifier_labels(classifier_name)
+            assigned_labels = list()
+            with self.session_scope() as session:
+                for label in labels:
+                    assigned = (session.query(Label.name)
+                                .filter(TrainingDocument.id == id)
                                 .join(Classification.document)
                                 .join(Classification.classifier)
                                 .join(Classification.label)
@@ -890,15 +927,37 @@ class SQLAlchemyDB(object):
             else:
                 return 0
 
-    def get_classifier_examples(self, name, offset=0, limit=None):
+    def delete_classifier_example(self, name, id):
         with self.session_scope() as session:
-            return (session.query(Classification)
-                    .filter(Classifier.name == name)
-                    .join(Classification.classifier)
-                    .order_by(Classification.id)
-                    .offset(offset)
-                    .limit(limit)
-                    )
+            classification = (session.query(Classification)
+                              .filter(Classifier.name == name)
+                              .filter(Classification.id == id)
+                              .scalar()
+                              )
+            if classification is not None:
+                session.delete(classification)
+
+    def get_classifier_examples(self, name, offset=0, limit=None, filter=None):
+        if filter is None:
+            with self.session_scope() as session:
+                return (session.query(Classification)
+                        .filter(Classifier.name == name)
+                        .join(Classification.classifier)
+                        .order_by(Classification.id)
+                        .offset(offset)
+                        .limit(limit)
+                        )
+        else:
+            with self.session_scope() as session:
+                return (session.query(Classification)
+                        .filter(TrainingDocument.text.like('%' + filter + '%'))
+                        .join(Classification.document)
+                        .filter(Classifier.name == name)
+                        .join(Classification.classifier)
+                        .order_by(Classification.id)
+                        .offset(offset)
+                        .limit(limit)
+                        )
 
     def get_classifier_examples_with_label(self, name, label, offset=0, limit=None):
         classifier_type = self.get_classifier_type(name)
@@ -930,7 +989,7 @@ class SQLAlchemyDB(object):
         classifier_type = self.get_classifier_type(classifier_name)
         if classifier_type == SINGLE_LABEL or not require_all_labels_for_multi_label:
             with self.session_scope() as session:
-                return (session.query(DatasetDocument.text,DatasetDocument.id)
+                return (session.query(DatasetDocument.text, DatasetDocument.id)
                         .join(DatasetDocument.dataset)
                         .filter(Dataset.name == dataset_name)
                         .filter(DatasetDocument.text.like('%' + filter + '%'))
@@ -945,7 +1004,7 @@ class SQLAlchemyDB(object):
             labels = self.get_classifier_labels(classifier_name)
             label_classifiers = [classifier_name + _CLASSIFIER_LABEL_SEP + label for label in labels]
             with self.session_scope() as session:
-                missing = list(session.query(DatasetDocument.text,DatasetDocument.id)
+                missing = list(session.query(DatasetDocument.text, DatasetDocument.id)
                                .join(DatasetDocument.dataset)
                                .filter(Dataset.name == dataset_name)
                                .filter(DatasetDocument.text.like('%' + filter + '%'))
@@ -959,7 +1018,7 @@ class SQLAlchemyDB(object):
                 if len(missing) > 0:
                     return missing
 
-                partial = list(session.query(DatasetDocument.text,DatasetDocument.id)
+                partial = list(session.query(DatasetDocument.text, DatasetDocument.id)
                                .join(DatasetDocument.dataset)
                                .filter(Dataset.name == dataset_name)
                                .filter(DatasetDocument.text.like('%' + filter + '%'))
@@ -1025,25 +1084,26 @@ class SQLAlchemyDB(object):
                                  )
                 return count_partial + count_missing
 
-    def get_dataset_documents_sorted_by_name(self, name, offset=0, limit=None):
-        with self.session_scope() as session:
-            return (session.query(DatasetDocument)
-                    .filter(Dataset.name == name)
-                    .join(DatasetDocument.dataset)
-                    .order_by(DatasetDocument.external_id)
-                    .offset(offset)
-                    .limit(limit)
-                    )
-
-    def get_dataset_documents_sorted_by_position(self, name, offset=0, limit=None):
-        with self.session_scope() as session:
-            return (session.query(DatasetDocument)
-                    .filter(Dataset.name == name)
-                    .join(DatasetDocument.dataset)
-                    .order_by(DatasetDocument.id)
-                    .offset(offset)
-                    .limit(limit)
-                    )
+    def get_dataset_documents(self, name, offset=0, limit=None, filter=None):
+        if filter is None:
+            with self.session_scope() as session:
+                return (session.query(DatasetDocument)
+                        .filter(Dataset.name == name)
+                        .join(DatasetDocument.dataset)
+                        .order_by(DatasetDocument.external_id)
+                        .offset(offset)
+                        .limit(limit)
+                        )
+        else:
+            with self.session_scope() as session:
+                return (session.query(DatasetDocument)
+                        .filter(DatasetDocument.text.like('%' + filter + '%'))
+                        .filter(Dataset.name == name)
+                        .join(DatasetDocument.dataset)
+                        .order_by(DatasetDocument.external_id)
+                        .offset(offset)
+                        .limit(limit)
+                        )
 
     def get_dataset_document_by_name(self, datasetname, documentname):
         with self.session_scope() as session:
@@ -1358,7 +1418,7 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "4.1.1"
+        return "4.2.1"
 
 
 class DBLock(object):

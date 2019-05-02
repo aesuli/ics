@@ -1,33 +1,35 @@
 <html>
 <head>
     <title>${name}</title>
-    <link rel="stylesheet" href="${mount_dir}/css/style.css" />
-    <link rel="stylesheet" href="${mount_dir}/js/jquery-ui-1.12.1.custom/jquery-ui.min.css" />
-    <script type="text/javascript" src="${mount_dir}/js/jquery-3.3.1.min.js"></script>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <link rel="stylesheet" href="https://www.w3schools.com/lib/w3-theme-teal.css">
+    <link rel="stylesheet" href="${mount_dir}/css/style.css"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css" rel="stylesheet"/>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.js"
+            integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js"></script>
     <script type="text/javascript" src="${mount_dir}/js/utility.js"></script>
-    <script type="text/javascript" src="${mount_dir}/js/jquery-ui-1.12.1.custom/jquery-ui.min.js"></script>
-    <link href="${mount_dir}/css/select2.min.css" rel="stylesheet" />
-    <script src="${mount_dir}/js/select2.min.js"></script>
-<%block name="head" />
+    <%block name="head" />
 
 </head>
-    <body>
-        <div id="screen" class="ui-widget-content">
+<body>
+<header class="w3-card">
+    <div class="w3-container w3-theme">
+        <h4>${name}</h4>
+    </div>
 
-            <div id="header">
-                <div id="title" class="padded ui-widget ui-widget-header">
-                    ${name}
-                </div>
-                <%block name="menu" />
-            </div>
+    <%block name="menu" />
+    <%block name="menu2" />
+</header>
 
-            ${self.body()}
+<section>
+    ${self.body()}
+</section>
 
-            <div id="footer">
-                <div class="padded ui-widget ui-widget-content">
-                Version ${version} - &copy; 2015-2018 <a href="http://esuli.it">Andrea Esuli</a> <span class="right">Cookie info: this website uses only one session cookie to manage logins.&nbsp;&nbsp;&nbsp;</span>
-                </div>
-            </div>
-        </div>
-    </body>
+<footer class="w3-container w3-text-theme w3-padding w3-tiny">
+    <span>Version ${version} - &copy; 2015-2019 <a href="http://esuli.it">Andrea Esuli</a></span> <span
+        class="w3-right">Cookie info: this website uses only one session cookie to manage logins.</span>
+</footer>
+</body>
 </html>
