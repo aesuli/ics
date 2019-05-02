@@ -1,11 +1,13 @@
 <%inherit file="base.html" />
 <%block name="head">
-    <script type="text/javascript">
+<script type="text/javascript">
 
         function login() {
             username = $("#username").val();
             password = $("#password").val();
             var data = {name: username, password: password} ;
+            $('#msg').text('');
+
             $.ajax({
                 type: "POST",
                 url: "${user_auth_path}/login",
@@ -20,18 +22,18 @@
         $( document ).ready(function() {
             $('#login').submit(login);
         });
+
 </script>
 </%block>
-<p>&nbsp;</p>
-<div id="main">
-<div class="margined  ui-corner-all ui-widget ui-widget-content" style="display:inline-block;margin-left:40%;" id="login">
-<div class="padded ui-widget-header ui-corner-all" style="margin: 0 auto;">Please login</div>
-<div style="margin: 0 auto;"><form method="post" action="#" autocomplete="on">
-    <p>    <label for="username">Username:</label> <input id="username" type="text" name="username" value="${username}" autofocus/></p>
-   <p>  <label for="password">Password:</label> <input id="password" type="password" name="password"/></p>
-   <label></label> <input type="submit" value="Log in"/>
-</form>
-</div></div>
-<p id="msg">${msg}</p>
-<p>&nbsp;</p>
-</div>
+<section class="w3-container">
+    <div class="w3-center w3-card">
+        <h3 class="w3-theme">Please login</h3>
+        <form id="login" ,ethod="post" action="#" autocomplete="on">
+            <p><label for="username">Username:</label> <input id="username" type="text" name="username"
+                                                              value="${username}" autofocus/></p>
+            <p><label for="password">Password:</label> <input id="password" type="password" name="password"/></p>
+            <p> <input class="w3-hover-theme w3-button w3-margin-bottom" type="submit" value="Log in"/></p>
+        </form>
+        <p id="msg" class="w3-text-red">${msg}</p>
+    </div>
+</section>

@@ -12,8 +12,6 @@ ${parent.head()}
             setTimeout(timed_update,update_interval);
         }
 
-        selected_classifiers = {};
-
         function update() {
             last_update = Date.now();
             $.ajax({
@@ -77,28 +75,25 @@ ${parent.head()}
                     valid_classifiers[msg[i].name] = true;
                     if($('#use\\_opt\\_'+msg[i].name).length==0) {
                         var single_label = msg[i].type=="Single-label";
-                        var labeltype='<span id="'+msg[i].name+'_single" class="labeltype">S</span>';
+                        var labeltype='<span id="'+msg[i].name+'_single" class="w3-small w3-margin-left w3-right">S</span>';
                         if(!single_label) {
-                            labeltype='<span id="'+msg[i].name+'_multi" class="labeltype">M</span>'
+                            labeltype='<span id="'+msg[i].name+'_multi" class="w3-small w3-margin-left w3-right">M</span>'
                         }
                         added = true;
-                        if(single_label) {
-                            $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name+' (S)'));
-                        }
-                        else {
-                            $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name+' (M)'));
-                        }
+                        $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
                         $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
-                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'margined ui-widget-content ui-corner-all suggestion\'><div class="ui-widget-header padded ui-corner-all"><span class="name">'+msg[i].name+'</span>'+labeltype+'</div><div id="assignments_'+msg[i].name+'"></div></div>');
+                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'w3-col w3-card w3-margin-top w3-margin-right\' style=\'width:auto\'>\
+                        <div class="name w3-display-container w3-container w3-padding w3-theme">'+msg[i].name+labeltype+'</div>\
+                        <div id="assignments_'+msg[i].name+'"></div></div>');
                         suggestion_div.appendTo('#pool');
                         for(var j = 0;j<msg[i].labels.length;++j) {
                             if(single_label) {
-                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="scoreline not_relevant ui-corner-all margined morepadded">'+msg[i].labels[j]+'</div>');
+                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="w3-left w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant">'+msg[i].labels[j]+'</div>');
                             }
                             else {
-                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="scoreline not_relevant ui-corner-all margined morepadded multiyes">'+msg[i].labels[j]+'</div>');
-                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="scoreline not_relevant ui-corner-all margined morepadded multino">✗</div>');
-                                var scoreline = jQuery('<div  class="margined"></div>');
+                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="w3-col w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant multiyes" style="width:auto;">'+msg[i].labels[j]+'</div>');
+                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="w3-rest w3-hover-theme with w3-hover-opacity w3-right-align pointer scoreline not_relevant multino"">✗</div>');
+                                var scoreline = jQuery('<div class="w3-left w3-row multiscoreline"></div>');
                                 scoreline.append(scoreline_yes);
                                 scoreline.append(scoreline_no);
                             }
@@ -112,34 +107,34 @@ ${parent.head()}
                         $('#suggestions\\_'+value.id.slice(8)).remove();
                     }
                 });
-                $('#use').append($('#use > option').get().sort(function (a, b) {
-                    return $(a)[0].id.localeCompare($(b)[0].id);
-                }));
-                var updated_list = {};
-                $('#use').attr('size',Math.min(10,Object.keys(valid_classifiers).length));
-                $('#use').select2({
-                    placeholder: 'Select the classifiers to use',
-                    width: 'element'
+                if(added) {
+                    $('#use').append($('#use > option').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                    $('#use').attr('size',Math.min(10,Object.keys(valid_classifiers).length));
+                    $('#use').select2({
+                        placeholder: 'Select the classifiers to use',
+                        width: '100%'
                     });
-                $("select[multiple]").off('select2:select').on('select2:select',function(msg){
-                    var name = msg.params.data.id;
-                    $('#suggestions\\_'+name).detach().appendTo('#suggestions');
-                    classify([name]);
-                    return false;
-                });
-                $("select[multiple]").off('select2:unselect').on('select2:unselect',function(msg){
-                    var name = msg.params.data.id;
-                    $('#suggestions\\_'+name).detach().appendTo('#pool');
-                    return false;
-                });
+                    $("select[multiple]").off('select2:select').on('select2:select',function(msg){
+                        var name = msg.params.data.id;
+                        $('#suggestions\\_'+name).detach().appendTo('#suggestions');
+                        classify([name]);
+                        return false;
+                    });
+                    $("select[multiple]").off('select2:unselect').on('select2:unselect',function(msg){
+                        var name = msg.params.data.id;
+                        $('#suggestions\\_'+name).detach().appendTo('#pool');
+                        return false;
+                    });
+                }
                 if($('#classify\\_button').length==0) {
-                    classify_button = jQuery('<div id="classify_button" class="right">Classify</div>');
-                    //classify_button.button({ icons: {primary:'ui-icon-tag'} });
-                    classify_button.button();
+                    classify_button = jQuery('<div id="classify_button" class="w3-right w3-button w3-theme w3-round">Classify</div>');
                     classify_button.click(function() {
+                        reset_labels();
                         classify();
                     });
-                    $('#suggestions').append(classify_button);
+                    $('#buttons').append(classify_button);
                 }
             });
         }
@@ -152,8 +147,9 @@ ${parent.head()}
                 reset_labels();
             }
             last_text = text;
-            $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
+            $('#suggestions > div').each(function(i,item) {
                 var classifier_name = $(item).children('.name').text();
+                classifier_name = classifier_name.substr(0,classifier_name.length - 1)
                 var single_label = $('#'+classifier_name+'\\_single').length>0;
                 if(typeof selection == 'undefined' || selection.indexOf(classifier_name)>=0) {
                     if(single_label) {
@@ -187,7 +183,9 @@ ${parent.head()}
                                 var split = label_value.split(':');
                                 var label = split[0];
                                 var value = split[1];
-                                var human = false;
+                                if(label.startsWith('✍')) {
+                                    label = label.substring(1);
+                                }
                                 var not_value = (value=='yes')?'no':'yes';
                                 assigned = $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).hasClass('assigned');
                                 if(!assigned || force) {
@@ -206,14 +204,16 @@ ${parent.head()}
         }
 
         function reset_labels() {
-            $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
-                var classifier_name = $(item).children('.name').text();
+            $('#suggestions > div > .name').each(function(i,item) {
+                var classifier_name = $(item).text();
+                classifier_name = classifier_name.substr(0,classifier_name.length - 1);
                 $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
                 $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
                 $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
             });
-            $('#pool div[id^=suggestions] .ui-widget-header').each(function(i,item) {
-                var classifier_name = $(item).children('.name').text();
+            $('#pool > div > .name').each(function(i,item) {
+                var classifier_name = $(item).text();
+                classifier_name = classifier_name.substr(0,classifier_name.length - 1);
                 $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
                 $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
                 $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
@@ -225,43 +225,76 @@ ${parent.head()}
                 reset_labels();
             });
 
-            //$('#force\\_update').button().click(update);
-            $( "input[type=submit]" ).button();
+            $('#use').select2({
+                placeholder: 'Select the classifiers to use',
+                allowClear: true,
+                width: '100%'
+            });
+
             timed_update();
         });
-    </script>
+
+</script>
 </%block>
 
-<div id="main" class="padded ui-widget ui-widget-content">
-    <div id="sidebar">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="classifiers_list">
-            <div class="padded ui-widget-header ui-corner-all">Select classifiers:</div>
-            <select class="margined"  multiple id="use" style="resize: vertical;width: 95%;">
-            </select>
-        </div>
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="info">
-            <div class="padded ui-widget-header ui-corner-all ">Service info:</div>
-            <div class="margined padded ui-widget-content ui-corner-all "><span class="tip" title="${ip}">IP</span> requests this hour: <span id="ip_request_count">0</span> - <span style=' text-decoration: underline; text-decoration-style: dotted' title="a value of -1 means no limit">limit</span>: <span id="ip_hourly_limit">0</span></div>
-            <div class="margined padded ui-widget-content ui-corner-all ">Total IP requests: <span id="ip_total">0</span> - <span style=' text-decoration: underline; text-decoration-style: dotted' title="a value of -1 means no limit">limit</span>: <span id="ip_total_limit">0</span></div>
-            <div class="margined padded ui-widget-content ui-corner-all "><label for="authkey">Authorization key (<span class="tip" title="An empty or wrong key will back up to ip access.">optional</span>)</label><input type="password" id="authkey" ></input></div>
-            <div class="margined padded ui-widget-content ui-corner-all ">Key requests this hour: <span id="key_request_count">0</span> - <span class="tip" title="a value of -1 means no limit">limit</span>:  <span id="key_hourly_limit">0</span></div>
-            <div class="margined padded ui-widget-content ui-corner-all ">Total key requests: <span id="key_total">0</span> - <span class="tip" title="a value of -1 means no limit">limit</span>: <span id="key_total_limit">0</span></div>
-        </div>
-        <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
-        </div>-->
-    </div>
-    <div id="center">
-        <div class="margined ui-corner-all ui-widget ui-widget-content">
-            <div class="padded ui-widget-header ui-corner-all">Classify text:</div>
-            <div class="padded"><textarea id="textbox" class="textbox padded" placeholder="INSTRUCTIONS:
+<section>
+    <div class="w3-panel w3-padding">
+        <div class="w3-card">
+            <header class="w3-container w3-theme">
+                <h4>Type & code:</h4>
+            </header>
+            <form id="select_form" class="w3-container" action="#" method="post">
+                <p><label for="use">Classifiers to use:</label>
+                    <select class="w3-select" multiple id="use" style="width:230px;">
+                    </select></p>
+            </form>
+            <div class="w3-container">
+                <span>Text to code:</span>
+                <textarea id="textbox" class="w3-block" placeholder="INSTRUCTIONS:
 
 1) Type/copy your text here.
-2) Select a relevant classifier from the selection box on the right.
+2) Select a relevant classifier from the selection box up here.
 3) Hit the 'Classify' button below to see the labels assigned by the automatic classifiers.
 
-Editing the text resets the label assignment. Hit 'Classify' again when needed."></textarea></div>
-            <div id="suggestions" class="margined padded ui-widget-content suggestion-container"></div>
+Editing the text resets the label assignment. Hit 'Classify' again when needed." style="height:33%;"></textarea>
+                <div id="buttons" class="w3-container w3-panel"></div>
+                <div id="suggestions" class="w3-container w3-margin-bottom"></div>
                 <div id="pool" style="display:none;"></div>
+                <div id="historybox">
+                    <div class="w3-margin-bottom">Agreement on last <input id="histsize" type="number" min="10"
+                                                                           max="500" value="50"> assigned labels: <span
+                            id="accuracy">n/a</span></div>
+                    <div class="w3-margin-bottom">Agreement history:
+                        <div id="history"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-</div>
+    <div class="w3-panel w3-padding">
+        <div class="w3-card">
+            <header class="w3-container w3-text-theme">
+                <h4>Service access info:</h4>
+            </header>
+            <div class="w3-panel w3-left" id="infoip">
+                <div class="w3-container w3-tooltip">IP-based access <div class="w3-text w3-theme w3-tag w3-small w3-round">${ip}</div></div>
+                <div class="w3-container">IP requests this hour: <span id="ip_request_count">0</span> - <span title="a value of -1 means no limit">limit</span>: <span id="ip_hourly_limit">0</span></div>
+                <div class="w3-container">Total IP requests: <span id="ip_total">0</span> - <span
+                        style=' text-decoration: underline; text-decoration-style: dotted'
+                        title="a value of -1 means no limit">limit</span>: <span id="ip_total_limit">0</span></div>
+            </div>
+            <div class="w3-panel w3-left w3-border-theme w3-border-left" id="infokey">
+                <div class="w3-container"><label class="w3-tooltip" for="authkey">Key-based access
+                    <div class="w3-text w3-theme w3-tag w3-small w3-round">An empty or wrong key will back up to IP access.</div></label><input
+                        type="password" id="authkey" placeholder="copy key here"></input></div>
+                <div class="w3-container">Key requests this hour: <span
+                        id="key_request_count">0</span> - <span title="a value of -1 means no limit">limit</span>: <span
+                        id="key_hourly_limit">0</span></div>
+                <div class="w3-container">Total key requests: <span
+                        id="key_total">0</span> - <span title="a value of -1 means no limit">limit</span>:
+                    <span id="key_total_limit">0</span></div>
+            </div>
+            <div class="w3-container w3-padding"></div>
+        </div>
+    </div>
+</section>

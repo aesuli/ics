@@ -1,16 +1,16 @@
 <%inherit file="admin_basewithmenu.html" />
 <%block name="head">
 ${parent.head()}
-    <script type="text/javascript">
+<script type="text/javascript">
         update_interval=5000
         last_update = 0
-        page = 1;
         page_size = 20;
+        maxpage = 1
 
-        pagination_div = jQuery('<div id="pagination" class="right plain">\
-                         page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+        pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
+                         Page <input id="page" style="width:3em;" type="number" min="1" value="1"/>\
                          /<span id="pagecount">X</span>\
-                         count<select id="pagesize"><option value="10">10</option>\
+                         Count <select id="pagesize"><option value="10">10</option>\
                          <option value="20" selected>20</option><option value="50" >50</option>\
                          <option value="100">100</option><option value="200">200</option></select></div></div>');
 
@@ -21,16 +21,17 @@ ${parent.head()}
             setTimeout(timed_update,update_interval);
         }
 
-        function update() {
+        async function update() {
             last_update = Date.now();
             var count = parseInt($(pagination_div.children()[2]).val())
-            $.ajax({
+            await $.ajax({
                 type:'POST',
                 url:'${key_auth_path}/count',
                 dataType: 'json'})
             .done(function(msg) {
                 count = parseInt(msg);
-                var maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+                maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+                $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
                 $(pagination_div.children()[0]).attr({
                        "max" : maxpage
                     });
@@ -42,219 +43,396 @@ ${parent.head()}
                 data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
             .done( function(msg) {
-                $('#users\\_list div .user\\_name').each(function(i,item) {
-                    var found = false;
-                    for(var i = 0;i<msg.length;++i) {
-                        if($(item).text()==msg[i].ip) {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if(!found) {
-                        $(item).parent().remove();
-                    }
-                });
                 if(msg.length==0) {
-                    $('#data\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No keys</div>');
+                    $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No Keys</h4></div>');
                     $('#page').val(1);
                 }
                 else {
                     if($('#gotdata').length==0) {
-                        $('#data\\_list').html('<div id="gotdata" class="padded ui-widget-header ui-corner-all">Keys:</div>\
-                        <div id="data" class="table margined ui-widget-content ui-corner-all">\
-                        <div><div>Name</div>\
-                        <div>Key</div>\
-                        <div>Created</div>\
-                        <div>Updated</div>\
-                        <div>Total requests</div>\
-                        <div>Request limit</div>\
-                        <div>Hourly limit</div>\
-                        <div>Requests this hour</div>\
-                        <div>Actions</div>\
-                        </div></div>');
-                        $('#gotdata').prepend(pagination_div).trigger('resize');
+                        $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Keys:</h4></div>\
+                        <div><table id="data" class="w3-table-all">\
+                        <tr>\
+                        <th></th>\
+                        <th class="w3-small">Name</th>\
+                        <th class="w3-small">Key</th>\
+                        <th class="w3-small">Created</th>\
+                        <th class="w3-small">Updated</th>\
+                        <th class="w3-small">Request limit</th>\
+                        <th class="w3-small">Total requests</th>\
+                        <th class="w3-small">Hourly limit</th>\
+                        <th class="w3-small">Requests this hour</th>\
+                        </tr></table></div>');
+                        $('#gotdata').prepend(pagination_div);
                     }
+                    var start = 0;
+                    var end = msg.length;
+                    $('td.entry\\_name').each(function(i,item) {
+                        var found = false;
+                        for(var i = start;i<end;++i) {
+                            if($(item).text()==msg[i].name) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if(!found) {
+                            $(item).parent().remove();
+                        }
+                    });
                     var curr_list = {};
                     $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                    var updated_list = {};
+                    var added = false;
                     for(var i = 0;i<msg.length;++i) {
-                        var name_string = msg[i].name.replace(/\W/g,'X')
-                        item = jQuery('<div id=\'entry_'+name_string+'\'>\
-                        <div>'+msg[i].name+'</div>\
-                        <div class="id small"><span class="masked">'+msg[i].key+'</span></div>\
-                        <div class="small">'+msg[i].created.slice(0,-13)+'</div>\
-                        <div class="small">'+msg[i].updated.slice(0,-13)+'</div>\
-                        <div>'+msg[i].total_request_counter+'</div>\
-                        <div>'+msg[i].request_limit+'</div>\
-                        <div>'+msg[i].hourly_limit+'</div>\
-                        <div>'+msg[i].current_request_counter+'</div>\
-                        <div><ul id="actions_'+name_string+'"><li>Actions<ul>\
-                            <li><div id="change_request_limit_'+name_string+'">Change request limit</div></li>\
-                            <li><div id="change_hourly_limit_'+name_string+'">Change hourly limit</div></li>\
-                            <li><div id="counter_reset_'+name_string+'">Reset current counter</div></li>\
-                            <li><div id="delete_'+name_string+'">Delete</div></li>\
-                        </ul></li></ul></div>\
-                        </div>');
-                        if ($('#entry\\_'+name_string).length!=0) {
-                            $('#entry\\_'+name_string).replaceWith(item)
-                            delete curr_list['entry_'+name_string];
+                        var name_string = msg[i].name
+                        updated_list[name_string] = true;
+                        var sort_string = msg[i].name.replace(/\W/g,'X')
+                        if (i >=start && i<end) {
+                            if ($('#entry\\_'+sort_string).length==0) {
+                                item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
+                                <td class="w3-dropdown-hover w3-hover-theme">\
+                                    ☰\
+                                    <div class="w3-dropdown-content w3-bar-block w3-card">\
+                                        <div id="change_total_limit_button_'+sort_string+'" class="w3-bar-item w3-button">Change total request limit</div>\
+                                        <div id="change_hourly_limit_button_'+sort_string+'" class="w3-bar-item w3-button">Change hourly request limit</div>\
+                                        <div id="reset_button_'+sort_string+'" class="w3-bar-item w3-button">Reset hourly request counter</div>\
+                                        <div id="delete_button_'+sort_string+'" class="w3-bar-item w3-button">Delete</div>\
+                                    </div></td>\
+                                <td class="updatable id entry_name">'+msg[i].name+'</td>\
+                                <td class="updatable w3-tiny"><span class="w3-theme w3-text-theme">'+msg[i].key+'</span></td>\
+                                <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
+                                <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>\
+                                <td class="updatable">'+msg[i].request_limit+'</td>\
+                                <td class="updatable">'+msg[i].total_request_counter+'</td>\
+                                <td class="updatable">'+msg[i].hourly_limit+'</td>\
+                                <td class="updatable">'+msg[i].current_request_counter+'</td>\
+                                </tr>');
+                                $('#data').append(item);
+
+                                $('#change\\_total\\_limit\\_button\\_'+sort_string).click(function() {
+                                    var the_name = name_string;
+                                    var the_key = msg[i].key;
+                                    var the_limit = msg[i].request_limit;
+                                    return function() {
+                                        $('#change\\_total\\_limit\\_name').val(the_name);
+                                        $('#change\\_total\\_limit\\_key').val(the_key);
+                                        $('#change\\_total\\_limit').val(the_limit);
+                                        document.getElementById('dia_change_total_limit').style.display='block';
+                                    };}()
+                                );
+                                $('#change\\_hourly\\_limit\\_button\\_'+sort_string).click(function() {
+                                    var the_name = name_string;
+                                    var the_key = msg[i].key;
+                                    var the_limit = msg[i].hourly_limit;
+                                    return function() {
+                                        $('#change\\_hourly\\_limit\\_name').val(the_name);
+                                        $('#change\\_hourly\\_limit\\_key').val(the_key);
+                                        $('#change\\_hourly\\_limit').val(the_limit);
+                                        document.getElementById('dia_change_hourly_limit').style.display='block';
+                                    };}()
+                                );
+                                $('#delete\\_button\\_'+sort_string).click(function() {
+                                    var the_name = name_string;
+                                    var the_key = msg[i].key;
+                                    return function() {
+                                        $('#del\\_from').val(the_name);
+                                        $('#del\\_key').val(the_key);
+                                        document.getElementById('dia_delete_key').style.display='block';
+                                    };}()
+                                );
+                                $('#reset\\_button\\_'+sort_string).click(function() {
+                                    var the_name = name_string;
+                                    var the_key = msg[i].key;
+                                    return function() {
+                                        $('#reset\\_from').val(the_name);
+                                        $('#res\\_key').val(the_key);
+                                        document.getElementById('dia_reset_key').style.display='block';
+                                    };}()
+                                );
+                            }
+                            else {
+                                item = jQuery('<td class="updatable id entry_name">'+msg[i].name+'</td>\
+                                <td class="updatable w3-tiny"><span class="w3-theme w3-text-theme">'+msg[i].key+'</span></td>\
+                                <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
+                                <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>\
+                                <td class="updatable">'+msg[i].request_limit+'</td>\
+                                <td class="updatable">'+msg[i].total_request_counter+'</td>\
+                                <td class="updatable">'+msg[i].hourly_limit+'</td>\
+                                <td class="updatable">'+msg[i].current_request_counter+'</td>');
+                                $('#entry\\_'+sort_string+' td.updatable').remove();
+                                $('#entry\\_'+sort_string).append(item)
+                                delete curr_list['entry_'+sort_string];
+                            }
                         }
-                        else
-                            $('#data').append(item);
-                        $('#actions\\_'+name_string).menu();
-                        $('#change\\_request\\_limit\\_'+name_string).click(change_request_limit.bind(null,msg[i].key));
-                        $('#change\\_hourly\\_limit\\_'+name_string).click(change_hourly_limit.bind(null,msg[i].key));
-                        $('#delete\\_'+name_string).click(delete_key.bind(null,msg[i].key));
-                        $('#counter_reset\\_'+name_string).click(reset_key.bind(null,msg[i].key));
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
                     }
-                    $('#data').append($('#data > div').get().sort(function (a, b) {
-                        return $(a)[0].id.localeCompare($(b)[0].id);
-                    }));
+                    if(added) {
+                        $('#data').append($('#data tbody tr').get().sort(function (a, b) {
+                            return $(a)[0].id.localeCompare($(b)[0].id);
+                        }));
+                    }
                 }
-                $('#page').unbind('keyup mouseup');
-                $('#pagesize').unbind('keyup mouseup');
-                $('#page').bind('keyup mouseup',update);
-                $('#pagesize').bind('keyup mouseup',update);
+                $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
+                $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
             });
         }
 
         function create_key() {
-            name = $("#create\\_name").val();
-            request_limit = $("#create\\_request\\_limit").val();
-            hourly_limit = $("#create\\_limit").val();
-            var data = {name: name, request_limit: request_limit, hourly_limit: hourly_limit} ;
+            var name = $("#create\\_name").val();
+            document.getElementById('create_key_button').style.display='none';
+            document.getElementById('create_key_button_wait').style.display='block';
+            total_limit = $("#create\\_total\\_limit").val();
+            hourly_limit = $("#create\\_total\\_limit").val();
+            var data = {name: name, hourly_limit: hourly_limit, request_limit: total_limit} ;
             $.ajax({
                 type: "POST",
                 url: "${key_auth_path}/create",
                 data: data})
-            .done(update)
+            .done(function() {
+                document.getElementById('dia_create_key').style.display='none';
+                document.getElementById('create_key_button').style.display='block';
+                document.getElementById('create_key_button_wait').style.display='none';
+                update();
+            })
             .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
+                document.getElementById('create_key_button').style.display='block';
+                document.getElementById('create_key_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
             });
             return false;
         };
 
-        function delete_key(key_name) {
-            if(!confirm('Please confirm the DELETE request, proceed?'))
-                return;
-            var sort_string = key_name.replace(/\W/g,'X')
-            $('#entry\\_'+key_name).hide();
+
+        function delete_key() {
+            document.getElementById('delete_key_button').style.display='none';
+            document.getElementById('delete_key_button_wait').style.display='block';
+            var key = $("#del\\_key").val();
             $.ajax({
                 type:'POST',
-                url:'${key_auth_path}/delete/'+key_name })
-            .done(update)
-            .fail(function () {
-                $('#entry\\_'+key_name).show();
+                url:'${key_auth_path}/delete/'+key })
+            .done(function() {
+                document.getElementById('dia_delete_key').style.display='none';
+                document.getElementById('delete_key_button').style.display='block';
+                document.getElementById('delete_key_button_wait').style.display='none';
+                update();
+            })
+            .fail(function(errMsg) {
+                document.getElementById('delete_key_button').style.display='block';
+                document.getElementById('delete_key_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
             });
+            return false;
         };
 
-        function reset_key(key_name) {
+        function reset_key() {
+            document.getElementById('reset_key_button').style.display='none';
+            document.getElementById('reset_key_button_wait').style.display='block';
+            var key = $("#res\\_key").val();
             $.ajax({
                 type:'POST',
-                url:'${key_auth_path}/set_current_request_counter/'+key_name })
-            .done(update)
-            .fail(update);
+                url:'${key_auth_path}/set_current_request_counter/'+key })
+            .done(function() {
+                document.getElementById('dia_reset_key').style.display='none';
+                document.getElementById('reset_key_button').style.display='block';
+                document.getElementById('reset_key_button_wait').style.display='none';
+                update();
+            })
+            .fail(function(errMsg) {
+                document.getElementById('reset_key_button').style.display='block';
+                document.getElementById('reset_key_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
+            });
+            return false;
         };
 
-        function change_hourly_limit(key_name) {
-            var name_string = key_name.replace(/\W/g,'X');
-            var change_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'diag_change_hourly_limit_'+name_string+'\'><div><label for="new_limit_'+name_string+'">New hourly limit:</label><input id="new_limit_'+name_string+'" type="number" value="100"></div></div>');
-            change_dialog.dialog({modal:true,
-                                    title:'Change hourly limit',
-                                    width: $(window).width()*0.5,
-                                    buttons: {
-                                        'Change': function() {
-                                            var new_limit = $('#new\\_limit\\_'+name_string).val();
-                                            var data = {key: key_name, hourly_limit: new_limit} ;
-                                            $.ajax({
-                                                type: "POST",
-                                                url: "${key_auth_path}/set_hourly_limit",
-                                                data: data})
-                                            .done(function() {
-                                                change_dialog.dialog('destroy').remove();
-                                                update();})
-                                            .fail(function(errMsg) {
-                                                change_dialog.dialog('destroy').remove();
-                                                custom_alert(errMsg.responseText);
-                                            });
-                                        },
-                                        'Cancel': function() {
-                                            $(this).dialog('destroy').remove();
-                                        }
-                                    },
-                                  });
+         function change_total_request_limit() {
+            var key = $("#change\\_total\\_limit\\_key").val();
+            document.getElementById('change_total_limit_button').style.display='none';
+            document.getElementById('change_total_limit_button_wait').style.display='block';
+            var limit = $("#change\\_total\\_limit").val();
+            var data = {key: key, request_limit: limit} ;
+            $.ajax({
+                type: "POST",
+                url: "${key_auth_path}/set_request_limit",
+                data: data})
+            .done(function() {
+                document.getElementById('dia_change_total_limit').style.display='none';
+                document.getElementById('change_total_limit_button').style.display='block';
+                document.getElementById('change_total_limit_button_wait').style.display='none';
+                update();
+            })
+            .fail(function(errMsg) {
+                document.getElementById('change_total_limit_button').style.display='block';
+                document.getElementById('change_total_limit_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
+            });
+            return false;
         };
 
-        function change_request_limit(key_name) {
-            var name_string = key_name.replace(/\W/g,'X');
-            var change_dialog =  jQuery('<div class=\'padded margined ui-widget-content hideoverflow\' id=\'diag_change_request_limit_'+name_string+'\'><div><label for="new_limit_'+name_string+'">New request limit:</label><input id="new_request_limit_'+name_string+'" type="number" value="10000"></div></div>');
-            change_dialog.dialog({modal:true,
-                                    title:'Change request limit',
-                                    width: $(window).width()*0.5,
-                                    buttons: {
-                                        'Change': function() {
-                                            var new_request_limit = $('#new\\_request\\_limit\\_'+name_string).val();
-                                            var data = {key: key_name, request_limit: new_request_limit} ;
-                                            $.ajax({
-                                                type: "POST",
-                                                url: "${key_auth_path}/set_request_limit",
-                                                data: data})
-                                            .done(function() {
-                                                change_dialog.dialog('destroy').remove();
-                                                update();})
-                                            .fail(function(errMsg) {
-                                                change_dialog.dialog('destroy').remove();
-                                                custom_alert(errMsg.responseText);
-                                            });
-                                        },
-                                        'Cancel': function() {
-                                            $(this).dialog('destroy').remove();
-                                        }
-                                    },
-                                  });
+         function change_hourly_request_limit() {
+            var key = $("#change\\_hourly\\_limit\\_key").val();
+            document.getElementById('change_hourly_limit_button').style.display='none';
+            document.getElementById('change_hourly_limit_button_wait').style.display='block';
+            var limit = $("#change\\_hourly\\_limit").val();
+            var data = {key: key, hourly_limit: limit} ;
+            $.ajax({
+                type: "POST",
+                url: "${key_auth_path}/set_hourly_limit",
+                data: data})
+            .done(function() {
+                document.getElementById('dia_change_hourly_limit').style.display='none';
+                document.getElementById('change_hourly_limit_button').style.display='block';
+                document.getElementById('change_hourly_limit_button_wait').style.display='none';
+                update();
+            })
+            .fail(function(errMsg) {
+                document.getElementById('change_hourly_limit_button').style.display='block';
+                document.getElementById('change_hourly_limit_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
+            });
+            return false;
         };
 
         $( document ).ready(function() {
-
-            $('#create\\_user').submit(create_key);
-
-            //$('#force\\_update').button().click(update);
-
-            $( "input[type=submit]" ).button();
-            $( "input[type=file]" ).button();
-
+            $('#create\\_key').submit(create_key);
+            $('#change\\_total\\_limit\\_form').submit(change_total_request_limit);
+            $('#change\\_hourly\\_limit\\_form').submit(change_hourly_request_limit);
+            $('#delete\\_key').submit(delete_key);
+            $('#reset\\_key').submit(reset_key);
             timed_update();
         });
 </script>
 </%block>
 
-<div id="main" class="padded ui-widget ui-widget-content">
-    <div id="sidebar">
-        <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
-        </div>-->
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="user_create">
-            <div class="padded ui-widget-header ui-corner-all">Create a Key:</div>
-            <form id="create_user" class="margined" action="#" method="post">
+<%block name="menu2">
+<section class="w3-navbar w3-theme-d4 ">
+    <div id="but_create_key" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_create_key').style.display='block'">Create Key
+    </div>
+</section>
+</%block>
+
+<section>
+    <div class="w3-panel w3-padding">
+        <div class="w3-card">
+            <div id="data_list">
+            </div>
+        </div>
+    </div>
+    <div id="dia_create_key" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_create_key').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Create Key</h3>
+            </header>
+            <form id="create_key" class="w3-container" action="#" method="post">
                 <p>
-                <label class="margined"  for="create_name">Key name:</label>
-                <input class="margined"  type="text" id="create_name" /> </p>
+                    <label for="create_name">Name:</label>
+                    <input class="w3-input" type="text" id="create_name"/></p>
                 <p>
+                    <label for="create_total_limit">Total limit:</label>
+                    <input class="w3-input" type="number" min="-1" value="1000" id="create_total_limit"/></p>
                 <p>
-                <label class="margined"  for="create_limit">Request limit:</label>
-                <input class="margined"  type="number" value="10000" id="create_request_limit" /> </p>
+                    <label for="create_hourly_limit">Hourly limit:</label>
+                    <input class="w3-input" type="number" min="-1" value="100" id="create_hourly_limit"/></p>
                 <p>
-                <label class="margined"  for="create_limit">Hourly limit:</label>
-                <input class="margined"  type="number" value="100" id="create_limit" /> </p>
-                <p><label></label>
-                <input class="margined"  type="submit" value="Create" />
+                    <input class="w3-input" id="create_key_button" type="submit" value="Create"/>
+                    <span class="w3-center" id="create_key_button_wait" style="display:none">Processing</span>
                 </p>
             </form>
         </div>
     </div>
-    <div id="center">
-        <div class="margined ui-corner-all ui-widget ui-widget-content" id="data_list">
+    <div id="dia_change_total_limit" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_change_total_limit').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Change total request limit</h3>
+            </header>
+            <form id="change_total_limit_form" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="change_total_limit_name">Name:</label>
+                    <input class="w3-input" type="text" readonly id="change_total_limit_name"/>
+                    <input class="w3-input" type="hidden" disabled id="change_total_limit_key"/>
+                </p>
+                <p>
+                    <label for="change_total_limit">Total limit:</label>
+                    <input class="w3-input" type="number" min="-1" id="change_total_limit"/></p>
+                <p>
+                    <input class="w3-input" id="change_total_limit_button" type="submit" value="Change total request limit"/>
+                    <span class="w3-center" id="change_total_limit_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
         </div>
     </div>
-</div>
+    <div id="dia_change_hourly_limit" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_change_hourly_limit').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Change hourly request limit</h3>
+            </header>
+            <form id="change_hourly_limit_form" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="change_hourly_limit_name">Name:</label>
+                    <input class="w3-input" type="text" readonly id="change_hourly_limit_name"/>
+                    <input class="w3-input" type="hidden" disabled id="change_hourly_limit_key"/>
+                </p>
+                <p>
+                    <label for="change_hourly_limit">Hourly limit:</label>
+                    <input class="w3-input" type="number" min="-1" id="change_hourly_limit"/></p>
+                <p>
+                    <input class="w3-input" id="change_hourly_limit_button" type="submit" value="Change hourly request limit"/>
+                    <span class="w3-center" id="change_hourly_limit_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_delete_key" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_delete_key').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Delete a Key</h3>
+            </header>
+            <form id="delete_key" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="del_from">Key to delete:</label>
+                    <input class="w3-input" type="text" disabled id="del_from"/>
+                    <input class="w3-input" type="hidden" disabled id="del_key"/>
+                </p>
+                <p>
+                    <input class="w3-input" id="delete_key_button" type="submit" value="Delete"/>
+                    <span class="w3-center" id="delete_key_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_reset_key" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_reset_key').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Reset hourly request counter</h3>
+            </header>
+            <form id="reset_key" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="reset_from">Counter to reset:</label>
+                    <input class="w3-input" type="text" disabled id="reset_from"/>
+                    <input class="w3-input" type="hidden" disabled id="res_key"/>
+                </p>
+                <p>
+                    <input class="w3-input" id="reset_key_button" type="submit" value="Reset counter"/>
+                    <span class="w3-center" id="reset_key_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+</section>

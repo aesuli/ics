@@ -1,17 +1,16 @@
 <%inherit file="admin_basewithmenu.html" />
 <%block name="head">
 ${parent.head()}
-    <script type="text/javascript">
-       update_interval=2000
-       delay_interval=500
+<script type="text/javascript">
+        update_interval=5000
         last_update = 0
-        page = 1;
         page_size = 20;
+        maxpage = 1
 
-        pagination_div = jQuery('<div id="pagination" class="right plain">\
-                         page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+        pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
+                         Page <input id="page" style="width:3em;" type="number" min="1" value="1"/>\
                          /<span id="pagecount">X</span>\
-                         count<select id="pagesize"><option value="10">10</option>\
+                         Count <select id="pagesize"><option value="10">10</option>\
                          <option value="20" selected>20</option><option value="50" >50</option>\
                          <option value="100">100</option><option value="200">200</option></select></div></div>');
 
@@ -22,16 +21,17 @@ ${parent.head()}
             setTimeout(timed_update,update_interval);
         }
 
-        function update() {
+        async function update() {
             last_update = Date.now();
             var count = parseInt($(pagination_div.children()[2]).val())
-            $.ajax({
+            await $.ajax({
                 type:'POST',
                 url:'${jobs_path}/lock_count',
                 dataType: 'json'})
             .done(function(msg) {
                 count = parseInt(msg);
-                var maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+                maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+                $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
                 $(pagination_div.children()[0]).attr({
                        "max" : maxpage
                     });
@@ -42,82 +42,145 @@ ${parent.head()}
                 url:'${jobs_path}/lock_info',
                 data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
                 dataType: 'json'})
-            .done(function(msg) {
+            .done( function(msg) {
                 if(msg.length==0) {
-                    $('#lock\\_list').html('<div id="nodata" class="padded ui-widget-header ui-corner-all">No locks</div>');
+                    $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No Locks</h4></div>');
                     $('#page').val(1);
                 }
                 else {
-                    if($('#gotlock').length==0) {
-                        $('#lock\\_list').html('<div id="gotlock" class="padded ui-widget-header ui-corner-all">Locks:</div>\
-                        <div id="lock" class="table margined ui-widget-content ui-corner-all">\
-                        <div id=""><div>Name</div>\
-                        <div>Locker</div>\
-                        <div>Created</div>\
-                        <div>Actions</div>\
-                        </div></div>');
-                        $('#gotlock').prepend(pagination_div);
+                    if($('#gotdata').length==0) {
+                        $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Locks:</h4></div>\
+                        <div><table id="data" class="w3-table-all">\
+                        <tr>\
+                        <th></th>\
+                        <th class="w3-small">Name</th>\
+                        <th class="w3-small">Locker</th>\
+                        <th class="w3-small">Created</th>\
+                        </tr></table></div>');
+                        $('#gotdata').prepend(pagination_div);
                     }
-                    var curr_list = {};
-                    $('#lock').children().each(function (index, value) {if(value.id.startsWith('lock_')) { curr_list[value.id]=true;}})
-                    for(var i = 0;i<msg.length;++i) {
-                        item = jQuery('<div id=\'lock_'+msg[i].name.replace(/(\W)/gi,'_')+'\'>\
-                        <div class="name">'+msg[i].name+'</div>\
-                        <div>'+msg[i].locker+'</div>\
-                        <div class="small">'+msg[i].creation.slice(0,-13)+'</div>\
-                        <div><div id="delete_'+msg[i].name.replace(/(\W)/gi,'_')+'">Delete</div></div>\
-                        </div>');
-                        if ($('#lock\\_'+msg[i].name.replace(/(\W)/gi,'_')).length!=0) {
-                            $('#lock\\_'+msg[i].name.replace(/(\W)/gi,'_')).replaceWith(item)
-                            delete curr_list['lock_'+msg[i].name.replace(/(\W)/gi,'_')];
+                    var start = 0;
+                    var end = msg.length;
+                    $('td.entry\\_name').each(function(i,item) {
+                        var found = false;
+                        for(var i = start;i<end;++i) {
+                            if($(item).text()==msg[i].name) {
+                                found = true;
+                                break;
+                            }
                         }
-                        else
-                            $('#lock').append(item);
-                        $('#delete\\_'+msg[i].name.replace(/(\W)/gi,'_')).button();
-                        $('#delete\\_'+msg[i].name.replace(/(\W)/gi,'_')).click(delete_lock.bind(null,msg[i].name));
+                        if(!found) {
+                            $(item).parent().remove();
+                        }
+                    });
+                    var curr_list = {};
+                    $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                    var updated_list = {};
+                    var added = false;
+                    for(var i = 0;i<msg.length;++i) {
+                        var name_string = msg[i].name;
+                        updated_list[name_string] = true;
+                        var sort_string = msg[i].name.replace(/\W/g,'X');
+                        if (i >=start && i<end) {
+                            if ($('#entry\\_'+sort_string).length==0) {
+                                item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
+                                <td class="w3-dropdown-hover w3-hover-theme">\
+                                    ☰\
+                                    <div class="w3-dropdown-content w3-bar-block w3-card">\
+                                        <div id="delete_button_'+sort_string+'" class="w3-bar-item w3-button">Delete</div>\
+                                    </div></td>\
+                                <td class="updatable id entry_name">'+msg[i].name+'</td>\
+                                <td class="updatable w3-small">'+msg[i].locker+'</td>\
+                                <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>\
+                                </tr>');
+                                $('#data').append(item);
+
+                                $('#delete\\_button\\_'+sort_string).click(function() {
+                                    var the_name = name_string;
+                                    return function() {
+                                        $('#del\\_from').val(the_name);
+                                        document.getElementById('dia_delete_lock').style.display='block';
+                                    };}()
+                                );
+                            }
+                            else {
+                                item = jQuery('<td class="updatable id entry_name">'+msg[i].name+'</td>\
+                                <td class="updatable w3-small">'+msg[i].locker+'</td>\
+                                <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>');
+                                $('#entry\\_'+sort_string+' td.updatable').remove();
+                                $('#entry\\_'+sort_string).append(item)
+                                delete curr_list['entry_'+sort_string];
+                            }
+                        }
                     }
                     for (var key in curr_list) {
                         $('#'+key).remove();
                     }
-                    $('#lock\\_list').append($('#lock\\_list > div').get().sort(function (a, b) {
-                        return $(a)[0].id.localeCompare($(b)[0].id);
-                    }));
+                    if(added) {
+                        $('#data').append($('#data tbody tr').get().sort(function (a, b) {
+                            return $(a)[0].id.localeCompare($(b)[0].id);
+                        }));
+                    }
                 }
-                $('#page').unbind('keyup mouseup');
-                $('#pagesize').unbind('keyup mouseup');
-                $('#page').bind('keyup mouseup',update);
-                $('#pagesize').bind('keyup mouseup',update);
+                $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
+                $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
             });
         }
 
-        function delete_lock(lock_id) {
-            if(!confirm('Please confirm the DELETE request, proceed?'))
-                return;
-            $('#lock\\_'+lock_id.replace(/(\W)/gi,'_')).hide();
+        function delete_lock() {
+            document.getElementById('delete_lock_button').style.display='none';
+            document.getElementById('delete_lock_button_wait').style.display='block';
+            var lock = $("#del\\_from").val();
             $.ajax({
                 type:'POST',
-                url:'${jobs_path}/lock_delete/'+lock_id})
-            .done(update())
-            .fail(function () {
-                    $('#lock\\_'+lock_id.replace(/(\W)/gi,'_')).show();
+                url:'${jobs_path}/lock_delete/'+lock })
+            .done(function() {
+                document.getElementById('dia_delete_lock').style.display='none';
+                document.getElementById('delete_lock_button').style.display='block';
+                document.getElementById('delete_lock_button_wait').style.display='none';
+                update();
+            })
+            .fail(function(errMsg) {
+                document.getElementById('delete_lock_button').style.display='block';
+                document.getElementById('delete_lock_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
             });
+            return false;
         };
 
-
         $( document ).ready(function() {
-            //$('#force\\_update').button().click(update);
+            $('#delete\\_lock').submit(delete_lock);
+
             timed_update();
         });
-    </script>
+</script>
 </%block>
-<div id="main" class="padded ui-widget ui-widget-content">
-    <div id="sidebar">
-        <div class="margined  ui-corner-all ui-widget ui-widget-content" id="actions">
+
+<section>
+    <div class="w3-panel w3-padding">
+        <div class="w3-card">
+            <div id="data_list">
+            </div>
         </div>
-        <!--<div class="padded ui-corner-all ui-widget ui-widget-content" id="force_update">Force update
-        </div>-->
     </div>
-    <div id="center">
-        <div id="lock_list" class="margined ui-widget-content suggestion-container"></div>
+    <div id="dia_delete_lock" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_delete_lock').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Delete a Lock</h3>
+            </header>
+            <form id="delete_lock" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="del_from">Lock to delete:</label>
+                    <input class="w3-input" type="text" disabled id="del_from"/>
+                </p>
+                <p>
+                    <input class="w3-input" id="delete_lock_button" type="submit" value="Delete"/>
+                    <span class="w3-center" id="delete_lock_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
     </div>
-</div>
+</section>

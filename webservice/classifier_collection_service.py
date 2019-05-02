@@ -263,6 +263,11 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
+    def classifier_type(self, name):
+        return self._db.get_classifier_type(name)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
     def delete(self, name):
         try:
             self._db.delete_classifier(name)
@@ -292,6 +297,49 @@ class ClassifierCollectionService(object):
             return 'Ok'
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def get_training_data_size(self, name):
+        if not self._db.classifier_exists(name):
+            cherrypy.response.status = 404
+            return '%s does not exits' % name
+        return str(self._db.get_classifier_examples_count(name))
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def get_training_data(self, name, page=None, page_size=50, filter=None):
+        if not self._db.classifier_exists(name):
+            cherrypy.response.status = 404
+            return '%s does not exits' % name
+        page_size = int(page_size)
+        if page is None:
+            offset = 0
+        else:
+            offset = int(page) * page_size
+        limit = page_size
+        batch = list()
+        classifier_type = self._db.get_classifier_type(name)
+        if classifier_type == SINGLE_LABEL:
+            for classification in self._db.get_classifier_examples(name, offset, limit, filter):
+                batch.append({'id': classification.id, 'update': str(classification.last_updated),
+                              'text': classification.document.text, 'label': '%s:%s' % (name, classification.label.name)})
+        elif classifier_type == MULTI_LABEL:
+            for classification in self._db.get_classifier_examples(name, offset, limit, filter):
+                batch.append({'id': classification.id, 'doc_id': classification.document_id, 'update': str(classification.last_updated),
+                              'text': classification.document.text})
+            for doc in batch:
+                doc['labels'] = [name + ':' + label for label in
+                                    self._db.get_label_from_training_id(name, doc['doc_id'])]
+                del doc['doc_id']
+        return batch
+
+    @cherrypy.expose
+    def delete_classifier_example(self, name, id):
+        if not self._db.classifier_exists(name):
+            cherrypy.response.status = 404
+            return '%s does not exits' % name
+        self._db.delete_classifier_example(name, id)
+
+    @cherrypy.expose
     def download_training_data(self, name):
         if not self._db.classifier_exists(name):
             cherrypy.response.status = 404
@@ -319,10 +367,12 @@ class ClassifierCollectionService(object):
                         block_size = MAX_BATCH_SIZE
                         while added:
                             offset = block_count * block_size
-                            docs = [(i + offset, classification.document.text) for i, classification in enumerate(
-                                self._db.get_classifier_examples(name, offset, block_size))]
-                            for i, text in docs:
-                                label_assignment = [name + ':' + label for label in self._db.get_label(name, text)]
+                            docs = [(i + offset, classification.document.id, classification.document.text) for i, classification in
+                                    enumerate(
+                                        self._db.get_classifier_examples(name, offset, block_size))]
+                            for i, id, text in docs:
+                                label_assignment = [name + ':' + label for label in
+                                                    self._db.get_label_from_training_id(name, id)]
                                 writer.writerow([i, text] + label_assignment)
                             block_count += 1
                             added = len(docs) > 0
@@ -419,7 +469,8 @@ class ClassifierCollectionService(object):
                 if len(labels) < 2 and classifiers_type[classifier_name] == SINGLE_LABEL:
                     cherrypy.response.status = 400
                     return 'Must specify at least two labels for classifier \'%s\'' % classifier_name
-                self.create(**{'name': classifier_name, 'labels': labels, 'type': classifiers_type[classifier_name]})
+                self.create(
+                    **{'name': classifier_name, 'labels': labels, 'type': classifiers_type[classifier_name]})
             else:
                 if not len(set(self._db.get_classifier_labels(classifier_name)).intersection(labels)) == len(
                         labels):
@@ -677,11 +728,12 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "4.3.1 (db: %s)" % self._db.version()
+        return "4.4.1 (db: %s)" % self._db.version()
 
 
 def _update_trainingset(db_connection_string, name, X, y):
-    cherrypy.log('ClassifierCollectionService._update_trainingset(name="' + name + '", len(X)="' + str(len(X)) + '")')
+    cherrypy.log(
+        'ClassifierCollectionService._update_trainingset(name="' + name + '", len(X)="' + str(len(X)) + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         with _lock_trainingset(db, name):
             db.create_training_examples(name, list(zip(X, y)))
@@ -689,7 +741,8 @@ def _update_trainingset(db_connection_string, name, X, y):
 
 def _update_model(db_connection_string, name, X, y):
     if len(X) > 0:
-        cherrypy.log('ClassifierCollectionService._update_model(name="' + name + '", len(X)="' + str(len(X)) + '")')
+        cherrypy.log(
+            'ClassifierCollectionService._update_model(name="' + name + '", len(X)="' + str(len(X)) + '")')
         with SQLAlchemyDB(db_connection_string) as db:
             with _lock_model(db, name):
                 model = db.get_classifier_model(name)
@@ -720,7 +773,7 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
                 example_classifier_name = example_classifier_name.strip()
                 label = label.strip()
                 if example_classifier_name is not None and example_classifier_name == classifier_name and \
-                                label is not None and len(label) > 0:
+                        label is not None and len(label) > 0:
                     X.append(text)
                     y.append(label)
             if len(X) >= MAX_BATCH_SIZE:
@@ -732,7 +785,8 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
 
 
 def _duplicate_model(db_connection_string, name, new_name):
-    cherrypy.log('ClassifierCollectionService._duplicate_model(name="' + name + '", new_name="' + new_name + '")')
+    cherrypy.log(
+        'ClassifierCollectionService._duplicate_model(name="' + name + '", new_name="' + new_name + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         source_type = db.get_classifier_type(name)
         new_type = db.get_classifier_type(new_name)
@@ -782,7 +836,8 @@ def _duplicate_model(db_connection_string, name, new_name):
 
 
 def _duplicate_trainingset(db_connection_string, name, new_name):
-    cherrypy.log('ClassifierCollectionService._duplicate_trainingset(name="' + name + '", new_name="' + new_name + '")')
+    cherrypy.log(
+        'ClassifierCollectionService._duplicate_trainingset(name="' + name + '", new_name="' + new_name + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         classifier_type = db.get_classifier_type(name)
         new_classifier_type = db.get_classifier_type(new_name)
@@ -915,7 +970,8 @@ def _combine_classifiers(db_connection_string, name, sources):
                     continue
                 if source in binary_sources:
                     if target_type == SINGLE_LABEL:
-                        example_numerator = db.get_classifier_examples_with_label(source, YES_LABEL, paddings[i],
+                        example_numerator = db.get_classifier_examples_with_label(source, YES_LABEL,
+                                                                                  paddings[i],
                                                                                   batchsize)
                         for example in example_numerator:
                             batchX.append(example.document.text)

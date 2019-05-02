@@ -1,17 +1,10 @@
 <%inherit file="base.html" />
 <%block name="head">
-    <script type="text/javascript">
-            $( document ).ready(function() {
-                $( "#nav #menu" ).menu();
-        });
-    </script>
 </%block>
 <%block name="menu">
-                <div id="nav">
-                    <ul id="menu">
-                        <li><a href="${mount_dir}/">Home</a></li>
-                        <li><a href="${mount_dir}/api">API/Code</a></li>
-                        <li><a href="${mount_dir}/about">About</a></li>
-                    </ul>
-                </div>
+<div class="w3-navbar w3-text-theme">
+    <a class="w3-bar-item w3-button" href="${mount_dir}/">Home</a>
+    <a class="w3-bar-item w3-button" href="${mount_dir}/api">API/Code</a>
+    <a class="w3-bar-item w3-button" href="${mount_dir}/about">About</a>
+</div>
 </%block>

@@ -1,6 +1,6 @@
 <%inherit file="base.html" />
 <%block name="head">
-    <script type="text/javascript">
+<script type="text/javascript">
         function logout() {
             $.ajax({
                 type: "POST",
@@ -12,24 +12,28 @@
         };
 
         $( document ).ready(function() {
-            $( "#nav #menu" ).menu();
             $('#logout').click(logout);
         });
-    </script>
+
+
+
+</script>
 </%block>
 <%block name="menu">
-
-                <div id="nav">
-                    <ul id="menu">
-                        <li><a href="${mount_dir}/datasets">Datasets</a></li>
-                        <li><a href="${mount_dir}/classifiers">Classifiers</a></li>
-                        <li><a>More</a><ul><li><a href="${mount_dir}/typeandcode">Type &amp; Code</a></li>
-                            <li><a href="${mount_dir}/users">Users</a></li>
-                            <li><a href="${admin_path}/">Admin</a></li>
-                            <li>-</li>
-                            <li><a href="${mount_dir}/about">About</a></li>
-                            <li>-</li>
-                            <li id="logout"><a>Logout ${username}</a></li></ul></li>
-                    </ul>
-                </div>
+<div class="w3-navbar w3-text-theme">
+    <a class="w3-bar-item w3-button" href="${mount_dir}/datasets">Datasets</a>
+    <a class="w3-bar-item w3-button" href="${mount_dir}/classifiers">Classifiers</a>
+    <div class="w3-dropdown-hover">
+        <span class="w3-button">More ⯆</span>
+        <div class="w3-dropdown-content w3-bar-block w3-card-4">
+            <a class="w3-bar-item w3-button" href="${mount_dir}/typeandcode">Type &amp; Code</a>
+            <a class="w3-bar-item w3-button" href="${mount_dir}/users">Users</a>
+            <a class="w3-bar-item w3-button" href="${admin_path}/">Admin</a>
+            <p class="w3-border w3-border-theme"></p>
+            <a class="w3-bar-item w3-button" href="${mount_dir}/about">About</a>
+            <p class="w3-border w3-border-theme"></p>
+            <a id="logout" class="w3-bar-item w3-button">Logout ${username}</a>
+        </div>
+    </div>
+</div>
 </%block>
