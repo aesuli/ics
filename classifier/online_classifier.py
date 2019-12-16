@@ -2,7 +2,7 @@ from functools import partial
 
 import numpy as np
 from sklearn.feature_extraction.text import HashingVectorizer
-from sklearn.linear_model import SGDClassifier
+from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.utils.multiclass import unique_labels
 
 from classifier.classifier import Classifier
@@ -14,10 +14,10 @@ __author__ = 'Andrea Esuli'
 class OnlineClassifier(Classifier):
     def __init__(self, name, classes, n_features=(2 ** 21), average=False):
         self._name = name
-        analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[4])
+        analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[5])
         # int(n_features/len(classes)) makes memory usage constant for the classifier as a whole
         self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), analyzer=analyzer)
-        self._clf = SGDClassifier(average=average, n_jobs=-1, max_iter=1000, tol=1e-3)
+        self._clf = PassiveAggressiveClassifier(average=average, n_jobs=-1, max_iter=1000, tol=1e-3)
         self._clf.partial_fit(self._vec.transform(['']), [classes[0]], classes)
 
     def partial_fit(self, X, y):
@@ -31,7 +31,7 @@ class OnlineClassifier(Classifier):
     def decision_function(self, X):
         if self._clf.classes_.shape[0] == 2:
             X = self._vec.transform(X)
-            return [(-score, score) for score in  self._clf.decision_function(X)]
+            return [(-score, score) for score in self._clf.decision_function(X)]
         else:
             X = self._vec.transform(X)
             return self._clf.decision_function(X)
@@ -48,4 +48,3 @@ class OnlineClassifier(Classifier):
 
     def labels(self):
         return list(self._clf.classes_)
-

@@ -413,17 +413,6 @@ class ServiceClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
-    def classifier_duplicate(self, name, new_name, type, overwrite=False):
-        url = self._build_url(self._classifier_path + '/duplicate/')
-        data = self._get_default_post_data()
-        data['name'] = name
-        data['new_name'] = new_name
-        data['type'] = type
-        data['overwrite'] = overwrite
-        r = self._session.post(url, data=data)
-        r.raise_for_status()
-        return json.loads(r.content.decode())
-
     def classifier_update(self, name, X, y):
         url = self._build_url(self._classifier_path + '/update/')
         data = self._get_default_post_data()
@@ -538,12 +527,14 @@ class ServiceClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
-    def classifier_combine(self, name, sources, type):
-        url = self._build_url(self._classifier_path + '/combine/')
+    def classifier_merge(self, name, sources, type, binary_by_name, overwrite=False):
+        url = self._build_url(self._classifier_path + '/merge/')
         data = self._get_default_post_data()
         data['name'] = name
         data['sources'] = sources
         data['type'] = type
+        data['binary_by_name'] = binary_by_name
+        data['overwrite'] = overwrite
         r = self._session.post(url, data=data)
         r.raise_for_status()
         return json.loads(r.content.decode())
