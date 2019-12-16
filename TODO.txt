@@ -21,6 +21,8 @@ TOMONITOR
 - strip input strings
 
 DONE
+- duplicate and combine functions are now implemented in the merge function
+- single label classifier with yes-no labels in combine can be merged by label name or by classifier name
 - table views
     * dataset table view
     * training table view

@@ -72,189 +72,186 @@ ${parent.head()}
                 url:'${classifier_path}/info',
                 dataType: 'json'})
             .done(function(msg) {
-                var valid_classifiers = {}
-                var added = false;
-                for(var i = 0;i<msg.length;++i) {
-                    valid_classifiers[msg[i].name] = true;
-                    if($('#use\\_opt\\_'+msg[i].name).length==0) {
-                        var single_label = msg[i].type=="Single-label";
-                        var labeltype='<span id="'+msg[i].name+'_single" class="w3-small w3-margin-left w3-right">S</span>';
-                        if(!single_label) {
-                            labeltype='<span id="'+msg[i].name+'_multi" class="w3-small w3-margin-left w3-right">M</span>'
-                        }
-                        added = true;
-                        $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
-                        $('#dup\\_from').append($('<option title="'+msg[i].description+'" id="dup_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
-                        var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'w3-col w3-card w3-margin-top w3-margin-right\' style=\'width:auto\'>\
-                        <div class="name w3-display-container w3-container w3-padding w3-theme">'+msg[i].name+labeltype+'</div>\
-                        <div id="assignments_'+msg[i].name+'"></div></div>');
-                        suggestion_div.appendTo('#pool');
-                        set_uncoded_count(single_label, dataset_name, msg[i].name);
-                        for(var j = 0;j<msg[i].labels.length;++j) {
-                            if(single_label) {
-                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="w3-left w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant">'+msg[i].labels[j]+'</div>');
-                                scoreline.click((function(single_label, classifier_name, label){
-                                    if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('assigned')) {
-                                        if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('suggested')) {
-                                            $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
-                                        }
-                                        else {
-                                            $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
-                                        }
-                                        var histsize = parseInt($("#histsize").val());
-                                        $('#history').children().slice(histsize).remove();
-                                        var total = $('#history').children().length;
-                                        var positive = $('#history').children('.yes').length;
-                                        $('#accuracy').text((positive/total*100).toFixed(0)+"%");
-
-                                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
-                                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
-                                        $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label).removeClass('not_relevant')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label).addClass('assigned')
-                                        $.ajax({
-                                            type:'POST',
-                                            url:'${classifier_path}/update',
-                                            data: { name: classifier_name, X: [last_text], y: [label]}})
-                                        .done((function(single_label, classifier_name) {
-                                            setTimeout(function() {
-                                                set_uncoded_count(single_label, dataset_name, classifier_name);
-                                            },1000);
-                                        }).bind(null, single_label, classifier_name))
-                                        .fail(function(msg) {
-                                            custom_alert(msg);
-                                        });
-                                    }
-                                }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                    var updated_list = {};
+                    var added = false;
+                    for(var i = 0;i<msg.length;++i) {
+                        var name_string = msg[i].name.replace(/\W/g,'X')
+                        updated_list[name_string] = true;
+                        if($('#use\\_opt\\_'+name_string).length==0) {
+                            var single_label = msg[i].type=="Single-label";
+                            var labeltype='<span id="'+name_string+'_single" class="w3-small w3-margin-left w3-right">S</span>';
+                            if(!single_label) {
+                                labeltype='<span id="'+name_string+'_multi" class="w3-small w3-margin-left w3-right">M</span>'
                             }
-                            else {
-                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="w3-col w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant multiyes" style="width:auto;">'+msg[i].labels[j]+'</div>');
-                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="w3-rest w3-hover-theme with w3-hover-opacity w3-right-align pointer scoreline not_relevant multino"">✗</div>');
-                                scoreline_yes.click((function(single_label, classifier_name, label){
-                                    if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('assigned')) {
-                                        if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('suggested')) {
-                                            $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
-                                        }
-                                        else {
-                                            $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
-                                        }
-                                        var histsize = parseInt($("#histsize").val());
-                                        $('#history').children().slice(histsize).remove();
-                                        var total = $('#history').children().length;
-                                        var positive = $('#history').children('.yes').length;
-                                        $('#accuracy').text((positive/total*100).toFixed(0)+"%");
+                            added = true;
+                            $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+name_string+'"/>').val(msg[i].name).text(msg[i].name));
+                            $('#comb\\_from').append($('<option title="'+msg[i].description+'" id="comb_opt_'+name_string+'"/>').val(msg[i].name).text(msg[i].name));
+                            var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'w3-col w3-card w3-margin-top w3-margin-right\' style=\'width:auto\'>\
+                            <div class="name w3-display-container w3-container w3-padding w3-theme">'+msg[i].name+labeltype+'</div>\
+                            <div id="assignments_'+msg[i].name+'"></div></div>');
+                            suggestion_div.appendTo('#pool');
+                            set_uncoded_count(single_label, dataset_name, msg[i].name);
+                            for(var j = 0;j<msg[i].labels.length;++j) {
+                                if(single_label) {
+                                    var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="w3-left w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant">'+msg[i].labels[j]+'</div>');
+                                    scoreline.click((function(single_label, classifier_name, label){
+                                        if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('assigned')) {
+                                            if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('suggested')) {
+                                                $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
+                                            }
+                                            else {
+                                                $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
+                                            }
+                                            var histsize = parseInt($("#histsize").val());
+                                            $('#history').children().slice(histsize).remove();
+                                            var total = $('#history').children().length;
+                                            var positive = $('#history').children('.yes').length;
+                                            $('#accuracy').text((positive/total*100).toFixed(0)+"%");
 
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('not_relevant')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('suggested')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').addClass('assigned')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('assigned')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('suggested')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').addClass('not_relevant')
-
-                                        $.ajax({
-                                            type:'POST',
-                                            url:'${classifier_path}/update',
-                                            data: { name: classifier_name, X: [last_text], y: [label+':yes']}})
-                                        .done((function(single_label, classifier_name) {
-                                            setTimeout(function() {
-                                                set_uncoded_count(single_label, dataset_name, classifier_name);
-                                            },1000);
-                                        }).bind(null, single_label, classifier_name))
-                                        .fail(function(msg) {
-                                            custom_alert(msg);
-                                        });
-                                    }
-                                }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
-                                scoreline_no.click((function(single_label, classifier_name, label){
-                                    if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('assigned')) {
-                                        if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('suggested')) {
-                                            $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
+                                            $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                                            $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                                            $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label).removeClass('not_relevant')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label).addClass('assigned')
+                                            $.ajax({
+                                                type:'POST',
+                                                url:'${classifier_path}/update',
+                                                data: { name: classifier_name, X: [last_text], y: [label]}})
+                                            .done((function(single_label, classifier_name) {
+                                                setTimeout(function() {
+                                                    set_uncoded_count(single_label, dataset_name, classifier_name);
+                                                },1000);
+                                            }).bind(null, single_label, classifier_name))
+                                            .fail(function(msg) {
+                                                custom_alert(msg);
+                                            });
                                         }
-                                        else {
-                                            $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
+                                    }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                                }
+                                else {
+                                    var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="w3-col w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant multiyes" style="width:auto;">'+msg[i].labels[j]+'</div>');
+                                    var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="w3-rest w3-hover-theme with w3-hover-opacity w3-right-align pointer scoreline not_relevant multino"">✗</div>');
+                                    scoreline_yes.click((function(single_label, classifier_name, label){
+                                        if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('assigned')) {
+                                            if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('suggested')) {
+                                                $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
+                                            }
+                                            else {
+                                                $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
+                                            }
+                                            var histsize = parseInt($("#histsize").val());
+                                            $('#history').children().slice(histsize).remove();
+                                            var total = $('#history').children().length;
+                                            var positive = $('#history').children('.yes').length;
+                                            $('#accuracy').text((positive/total*100).toFixed(0)+"%");
+
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('not_relevant')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('suggested')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').addClass('assigned')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('assigned')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('suggested')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').addClass('not_relevant')
+
+                                            $.ajax({
+                                                type:'POST',
+                                                url:'${classifier_path}/update',
+                                                data: { name: classifier_name, X: [last_text], y: [label+':yes']}})
+                                            .done((function(single_label, classifier_name) {
+                                                setTimeout(function() {
+                                                    set_uncoded_count(single_label, dataset_name, classifier_name);
+                                                },1000);
+                                            }).bind(null, single_label, classifier_name))
+                                            .fail(function(msg) {
+                                                custom_alert(msg);
+                                            });
                                         }
-                                        var histsize = parseInt($("#histsize").val());
-                                        $('#history').children().slice(histsize).remove();
-                                        var total = $('#history').children().length;
-                                        var positive = $('#history').children('.yes').length;
-                                        $('#accuracy').text((positive/total*100).toFixed(0)+"%");
+                                    }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                                    scoreline_no.click((function(single_label, classifier_name, label){
+                                        if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('assigned')) {
+                                            if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('suggested')) {
+                                                $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
+                                            }
+                                            else {
+                                                $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
+                                            }
+                                            var histsize = parseInt($("#histsize").val());
+                                            $('#history').children().slice(histsize).remove();
+                                            var total = $('#history').children().length;
+                                            var positive = $('#history').children('.yes').length;
+                                            $('#accuracy').text((positive/total*100).toFixed(0)+"%");
 
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('not_relevant')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('suggested')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').addClass('assigned')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('assigned')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('suggested')
-                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').addClass('not_relevant')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('not_relevant')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('suggested')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').addClass('assigned')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('assigned')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('suggested')
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').addClass('not_relevant')
 
-                                        $.ajax({
-                                            type:'POST',
-                                            url:'${classifier_path}/update',
-                                            data: { name: classifier_name, X: [last_text], y: [label+':no']}})
-                                        .done((function(single_label, classifier_name) {
-                                            setTimeout(function() {
-                                                set_uncoded_count(single_label, dataset_name, classifier_name);
-                                            },1000);
-                                        }).bind(null, single_label, classifier_name))
-                                        .fail(function(msg) {
-                                            custom_alert(msg);
-                                        });
-                                    }
-                                }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
-                                var scoreline = jQuery('<div class="w3-left w3-row multiscoreline"></div>');
-                                scoreline.append(scoreline_yes);
-                                scoreline.append(scoreline_no);
+                                            $.ajax({
+                                                type:'POST',
+                                                url:'${classifier_path}/update',
+                                                data: { name: classifier_name, X: [last_text], y: [label+':no']}})
+                                            .done((function(single_label, classifier_name) {
+                                                setTimeout(function() {
+                                                    set_uncoded_count(single_label, dataset_name, classifier_name);
+                                                },1000);
+                                            }).bind(null, single_label, classifier_name))
+                                            .fail(function(msg) {
+                                                custom_alert(msg);
+                                            });
+                                        }
+                                    }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                                    var scoreline = jQuery('<div class="w3-left w3-row multiscoreline"></div>');
+                                    scoreline.append(scoreline_yes);
+                                    scoreline.append(scoreline_no);
+                                }
+                                $('#assignments\\_'+msg[i].name).append(scoreline);
                             }
-                            $('#assignments\\_'+msg[i].name).append(scoreline);
                         }
                     }
-                }
-                if($('#all\\_correct').length==0) {
-                    var next_button = jQuery('<div id="next" class="w3-right w3-button w3-theme w3-round w3-margin-left" title="Press the right arrow key to move to next document">Next document</div>');
-                    next_button.click(next_doc);
-                    $('#buttons').append(next_button);
-                    var all_correct = jQuery('<div id="all_correct" class="w3-right w3-button w3-theme w3-round">All <span class="suggested w3-text-theme">suggestions</span> are correct</div>');
-                    all_correct.click(function() {
-                        $('#suggestions div div .suggested').each(function(i,item) {
-                            item.click();
+                    if($('#all\\_correct').length==0) {
+                        var next_button = jQuery('<div id="next" class="w3-right w3-button w3-theme w3-round w3-margin-left" title="Press the right arrow key to move to next document">Next document</div>');
+                        next_button.click(next_doc);
+                        $('#buttons').append(next_button);
+                        var all_correct = jQuery('<div id="all_correct" class="w3-right w3-button w3-theme w3-round">All <span class="suggested w3-text-theme">suggestions</span> are correct</div>');
+                        all_correct.click(function() {
+                            $('#suggestions div div .suggested').each(function(i,item) {
+                                item.click();
+                            });
                         });
-                    });
-                    if(!$('#showsugg').is(':checked')) {
-                        all_correct.hide();
-                        $('#historybox').hide();
+                        if(!$('#showsugg').is(':checked')) {
+                            all_correct.hide();
+                            $('#historybox').hide();
+                        }
+                        $('#buttons').append(all_correct);
                     }
-                    $('#buttons').append(all_correct);
-                }
-                $('#use').children().each(function (index, value) {
-                    if(!valid_classifiers[value.id.slice(8)]) {
-                        $('#'+value.id).remove();
-                        $('#suggestions\\_'+value.id.slice(8)).remove();
+                    $('#use').children().each(function (index, value) {
+                        if(!updated_list[value.id.slice(8)]) {
+                            $('#'+value.id).remove();
+                            $('#suggestions\\_'+value.id.slice(8)).remove();
+                        }
+                    });
+                    $('#comb\\_from').children().each(function (index, value) {if(!updated_list[value.id.slice(9)]) {$('#'+value.id).remove();}});
+                    if(added) {
+                        $('#use').append($('#use > option').get().sort(function (a, b) {
+                            return $(a)[0].id.localeCompare($(b)[0].id);
+                        }));
+                        $('#comb\\_from').append($('#comb\\_from > option').get().sort(function (a, b) {
+                            return $(a)[0].id.localeCompare($(b)[0].id);
+                        }));
+                        $('#use').attr('size',Math.min(10,Object.keys(updated_list).length));
+                        $("select[multiple]").off('select2:select').on('select2:select',function(msg){
+                            var name = msg.params.data.id;
+                            $('#suggestions\\_'+name).detach().appendTo('#suggestions');
+                            classify([name]);
+                            return false;
+                        });
+                        $("select[multiple]").off('select2:unselect').on('select2:unselect',function(msg){
+                            var name = msg.params.data.id;
+                            $('#suggestions\\_'+name).detach().appendTo('#pool');
+                            return false;
+                        });
                     }
-                });
-                $('#dup\\_from').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(8)]) {$('#'+value.id).remove();}});
-                if(added) {
-                    $('#use').append($('#use > option').get().sort(function (a, b) {
-                        return $(a)[0].id.localeCompare($(b)[0].id);
-                    }));
-                    $('#dup\\_from').append($('#dup\\_from > option').get().sort(function (a, b) {
-                        return $(a)[0].id.localeCompare($(b)[0].id);
-                    }));
-                    $('#use').attr('size',Math.min(10,Object.keys(valid_classifiers).length));
-                    $('#dup\\_from').select2({
-                        placeholder: 'Select the source classifier',
-                        width: '100%'
-                    });
-                    $("select[multiple]").off('select2:select').on('select2:select',function(msg){
-                        var name = msg.params.data.id;
-                        $('#suggestions\\_'+name).detach().appendTo('#suggestions');
-                        classify([name]);
-                        return false;
-                    });
-                    $("select[multiple]").off('select2:unselect').on('select2:unselect',function(msg){
-                        var name = msg.params.data.id;
-                        $('#suggestions\\_'+name).detach().appendTo('#pool');
-                        return false;
-                    });
-                }
             });
         }
 
@@ -502,20 +499,20 @@ ${parent.head()}
         }
 
         function create_classifier() {
-            name = $("#create\\_name").val();
+            var name = $("#create\\_name").val();
             if(!name.match(/^[a-zA-Z0-9_]+$/)) {
                 custom_error("The name of the classifier can only contain letters, numbers and the underscore character '_'");
                 return false;
             }
-            labelsString = $("#labels").val();
+            var labelsString = $("#labels").val();
             if(!labelsString.match(/^[a-zA-Z0-9_,]+$/)) {
                 custom_alert("The names of labels can only contain letters, numbers and the underscore character '_'");
                 return false;
             }
             document.getElementById('create_classifier_button').style.display='none';
             document.getElementById('create_classifier_button_wait').style.display='block';
-            labels = labelsString.split(',');
-            type = $("#type").val();
+            var labels = labelsString.split(',');
+            var type = $("#type").val();
             var data = {name: name, labels: labels, type: type} ;
             $.ajax({
                 type: "POST",
@@ -535,35 +532,37 @@ ${parent.head()}
             return false;
         };
 
-
-        function duplicate_classifier() {
-            name = $("#dup\\_name").val();
+        function merge_classifiers() {
+            var name = $("#merge\\_name").val();
+            var binary_by_name = $("#merge\\_binary\\_by\\_name").is(':checked');
             if(!name.match(/^[a-zA-Z0-9_]+$/)) {
                 custom_error("The name of the classifier can only contain letters, numbers and the underscore character '_'");
                 return false;
             }
-            document.getElementById('duplicate_classifier_button').style.display='none';
-            document.getElementById('duplicate_classifier_button_wait').style.display='block';
-            dup_from = $("#dup\\_from").val();
-            var duplicatetype = $("#dup\\_type").val();
-            var data = {name: dup_from, new_name: name, type: duplicatetype};
+            document.getElementById('merge_classifier_button').style.display='none';
+            document.getElementById('merge_classifier_button_wait').style.display='block';
+            var sources = $("#comb\\_from").val()
+            var mergetype = $("#mergetype").val();
+            var data = {name: name, sources: sources, type:mergetype, binary_by_name:binary_by_name};
             $.ajax({
                 type: "POST",
-                url: "${classifier_path}/duplicate",
+                url: "${classifier_path}/merge",
                 data: data})
             .done(function() {
-                document.getElementById('dia_duplicate_classifier').style.display='none';
-                document.getElementById('duplicate_classifier_button').style.display='block';
-                document.getElementById('duplicate_classifier_button_wait').style.display='none';
+                document.getElementById('dia_merge_form').style.display='none';
+                document.getElementById('merge_classifier_button').style.display='block';
+                document.getElementById('merge_classifier_button_wait').style.display='none';
                 update();
             })
             .fail(function(errMsg) {
-                document.getElementById('duplicate_classifier_button').style.display='block';
-                document.getElementById('duplicate_classifier_button_wait').style.display='none';
+                document.getElementById('merge_classifier_button').style.display='block';
+                document.getElementById('merge_classifier_button_wait').style.display='none';
                 custom_error(errMsg.responseText);
             });
-            return false ;
+            return false;
         };
+
+
 
         $( document ).ready(function() {
             var pathname = window.location.pathname;
@@ -604,7 +603,13 @@ ${parent.head()}
             });
 
             $('#create\\_classifier').submit(create_classifier);
-            $('#duplicate\\_classifier').submit(duplicate_classifier);
+            $('#merge\\_form').submit(merge_classifiers);
+
+            $('#comb\\_from').select2({
+                placeholder: 'Select the classifiers to merge',
+                allowClear: true,
+                width: '100%'
+            });
 
             $('#use').select2({
                 placeholder: 'Select the classifiers to use',
@@ -625,9 +630,8 @@ ${parent.head()}
          onclick="document.getElementById('dia_create_classifier').style.display='block'">Create
         new classifier
     </div>
-    <div id="but_duplicate_classifier" class="w3-bar-item w3-button"
-         onclick="document.getElementById('dia_duplicate_classifier').style.display='block'">
-        Copy a classifier
+    <div id="but_merge_form" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_merge_form').style.display='block'">Copy/Merge classifiers
     </div>
 </section>
 </%block>
@@ -697,33 +701,37 @@ ${parent.head()}
             </form>
         </div>
     </div>
-    <div id="dia_duplicate_classifier" class="w3-modal">
+    <div id="dia_merge_form" class="w3-modal">
         <div class="w3-modal-content w3-card-4">
             <header class="w3-container w3-theme">
                 <span
-                        onclick="document.getElementById('dia_duplicate_classifier').style.display='none'"
+                        onclick="document.getElementById('dia_merge_form').style.display='none'"
                         class="w3-button w3-display-topright">&times;</span>
-                <h3 class="w3-theme">Copy a classifier</h3>
+                <h3 class="w3-theme">Copy/Merge classifiers</h3>
             </header>
-            <form id="duplicate_classifier" class="w3-container" action="#" method="post">
+            <form id="merge_form" class="w3-container" action="#" method="post">
                 <p>
-                    <label for="dup_name">Name:</label>
-                    <input class="w3-input" type="text" id="dup_name"/></p>
+                    <label for="merge_name">Name:</label>
+                    <input class="w3-input" type="text" id="merge_name"/></p>
                 <p>
-                    <label for="dup_from">From:</label>
-                    <select class="w3-select" id="dup_from">
+                    <label for="comb_from">From:</label>
+                    <select class="w3-select" multiple id="comb_from" style="width:230px;">
                     </select></p>
                 <p>
-                    <label for="dup_type">Type:</label>
-                    <select class="w3-select" id="dup_type">
+                    <label for="merge_binary_by_name">Merge binary classifiers by name</label>
+                    <input type="checkbox" id="merge_binary_by_name" checked/>
+                </p>
+                <p>
+                    <label for="mergetype">Type:</label>
+                    <select class="w3-select" id="mergetype">
                         <%! from db import sqlalchemydb %>
                         % for classifier_type in sqlalchemydb.CLASSIFIER_TYPES:
                         <option value="${classifier_type}">${classifier_type}</option>
                         % endfor
                     </select></p>
                 <p>
-                    <input class="w3-input" id="duplicate_classifier_button" type="submit" value="Create"/>
-                    <span class="w3-center" id="duplicate_classifier_button_wait" style="display:none">Processing</span>
+                    <input class="w3-input" id="merge_classifier_button" type="submit" value="merge"/>
+                    <span class="w3-center" id="merge_classifier_button_wait" style="display:none">Processing</span>
                 </p>
             </form>
         </div>

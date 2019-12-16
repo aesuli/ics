@@ -220,9 +220,9 @@ ${parent.head()}
                             for(var i = 0;i<yhat.length;++i) {
                                 var sort_string = msg[i].id.replace(/\W/g,'X');
                                 var suggested = yhat[i];
-                                $('#assignments\\_'+sort_string).children('.scoreline').removeClass('assigned');
-                                $('#assignments\\_'+sort_string).children('.scoreline').removeClass('suggested');
-                                $('#assignments\\_'+sort_string).children('.scoreline').addClass('not_relevant');
+                                $('#suggestions\\_'+sort_string).children('.scoreline').removeClass('assigned');
+                                $('#suggestions\\_'+sort_string).children('.scoreline').removeClass('suggested');
+                                $('#suggestions\\_'+sort_string).children('.scoreline').addClass('not_relevant');
                                 if(suggested.startsWith('✍')) {
                                     var name = suggested.substring(1);
                                     $('#suggestion\\_'+sort_string+'\\_L\\_'+name).removeClass('not_relevant');
@@ -293,6 +293,12 @@ ${parent.head()}
             timed_update();
         });
 </script>
+</%block>
+
+<%block name="menu2">
+<section class="w3-navbar w3-theme-d4 ">
+    <a class="w3-bar-item w3-button" href="${mount_dir}/classify/${datasetname}">Batch classification</a>
+</section>
 </%block>
 
 <section>

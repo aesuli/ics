@@ -1,7 +1,7 @@
 from functools import partial
 
 from sklearn.feature_extraction.text import HashingVectorizer
-from sklearn.linear_model import SGDClassifier
+from sklearn.linear_model import PassiveAggressiveClassifier
 
 from classifier.classifier import Classifier
 from classifier.rich_analyzer import rich_analyzer
@@ -16,10 +16,11 @@ BINARY_LABELS = [YES_LABEL, NO_LABEL]
 class MultiLabelOnlineClassifier(Classifier):
     def __init__(self, name, classes, n_features=(2 ** 21), average=False):
         self._name = name
-        analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[4])
+        analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[5])
         # int(n_features/len(classes)) makes memory usage constant for the classifier as a whole
         self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), analyzer=analyzer)
-        self._clf = {label: SGDClassifier(average=average, n_jobs=-1, max_iter=1000, tol=1e-3) for label in classes}
+        self._clf = {label: PassiveAggressiveClassifier(average=average, n_jobs=-1, max_iter=1000, tol=1e-3) for label
+                     in classes}
         for label in self._clf:
             self._clf[label].partial_fit(self._vec.transform(['']), [NO_LABEL], BINARY_LABELS)
 
@@ -34,7 +35,7 @@ class MultiLabelOnlineClassifier(Classifier):
                 if y_label == label:
                     label_X_idx.append(idx)
                     label_y.append(y_value)
-            self._clf[label].partial_fit(X[label_X_idx,:], label_y, BINARY_LABELS)
+            self._clf[label].partial_fit(X[label_X_idx, :], label_y, BINARY_LABELS)
 
     def predict(self, X):
         X = self._vec.transform(X)
