@@ -6,6 +6,7 @@ from sklearn.linear_model import PassiveAggressiveClassifier
 from sklearn.utils.multiclass import unique_labels
 
 from classifier.classifier import Classifier
+from classifier.lri import LightweightRandomIndexingVectorizer
 from classifier.rich_analyzer import rich_analyzer
 
 __author__ = 'Andrea Esuli'
@@ -16,7 +17,7 @@ class OnlineClassifier(Classifier):
         self._name = name
         analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[5])
         # int(n_features/len(classes)) makes memory usage constant for the classifier as a whole
-        self._vec = HashingVectorizer(n_features=int(n_features / len(classes)), analyzer=analyzer)
+        self._vec = LightweightRandomIndexingVectorizer(n_features=int(n_features / len(classes)), analyzer=analyzer)
         self._clf = PassiveAggressiveClassifier(average=average, n_jobs=-1, max_iter=1000, tol=1e-3)
         self._clf.partial_fit(self._vec.transform(['']), [classes[0]], classes)
 
