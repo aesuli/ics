@@ -1,9 +1,16 @@
 TODO
+- user management
+    * ownership of datasets
+    * ownership of classifiers
+    * access list for datasets
+    * access list for classifiers
+    * tracking of who assigned labels
+    * majority vote on multiple labels
+    * users agreement
 - table views
     * different sort criteria
 - automatic DB creation
 - use ids rather than names in batch jobs
-- user authorization profiles
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
@@ -21,6 +28,7 @@ TOMONITOR
 - strip input strings
 
 DONE
+- lightweight random indexing
 - duplicate and combine functions are now implemented in the merge function
 - single label classifier with yes-no labels in combine can be merged by label name or by classifier name
 - table views
