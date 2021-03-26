@@ -7,9 +7,9 @@ from os import remove
 from os.path import exists
 from pprint import pprint
 
-from webservice.service_client_session import ServiceClientSession
-
 __author__ = 'Andrea Esuli'
+
+from client_session import ClientSession
 
 
 def print_exception(fn):
@@ -25,8 +25,8 @@ def print_exception(fn):
 class CommandLine(Cmd):
     def __init__(self, protocol, host, port, classifier_path, dataset_path,
                  jobs_path, user_auth_path, key_auth_path, ip_auth_path):
-        self._sc = ServiceClientSession(protocol, host, port, classifier_path, dataset_path, jobs_path, user_auth_path,
-                                        key_auth_path, ip_auth_path)
+        self._sc = ClientSession(protocol, host, port, classifier_path, dataset_path, jobs_path, user_auth_path,
+                                 key_auth_path, ip_auth_path)
         Cmd.__init__(self)
         self.prompt = '> '
 
@@ -473,7 +473,7 @@ class CommandLine(Cmd):
 
     def help_job_wait(self):
         print('''
-        Does not returns until the jobs listed by their id are not completed
+        Does not return until the jobs listed by their id are not completed
         > wait_for_jobs 42 23 56
         ''')
 
