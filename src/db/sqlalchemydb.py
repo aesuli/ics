@@ -41,12 +41,14 @@ dataset_name_length = 100
 document_name_length = 100
 
 
+class LabelSource(Enum):
+    HUMAN_LABEL = '\\H'
+    MACHINE_LABEL = '\\M'
+
+
 class ClassificationMode(Enum):
     MULTI_LABEL = "Multi-label"
     SINGLE_LABEL = "Single-label"
-
-HUMAN_LABEL = '\\H'
-MACHINE_LABEL = '\\M'
 
 
 class Tracker(Base):
@@ -115,7 +117,7 @@ class KeyTracker(Tracker):
         self.name = name
 
 
-class IPTracker(Tracker):
+class IP(Tracker):
     __tablename__ = 'ip'
     id = Column(Integer, ForeignKey('tracker.id', onupdate='CASCADE',
                                     ondelete='CASCADE'), primary_key=True)
@@ -136,7 +138,7 @@ class User(Tracker):
     name = Column(String(user_name_length), unique=True)
     salted_password = Column(String())
     __mapper_args__ = {
-        'polymorphic_identity': 'usertracker',
+        'polymorphic_identity': 'user',
     }
 
     def __init__(self, name: str, password: str, hourly_limit=_NO_HOURLY_LIMIT,
@@ -1247,73 +1249,73 @@ class SQLAlchemyDB(object):
     def ipaddresses(self):
         with self.session_scope() as session:
             return self._flatten_list(
-                session.query(IPTracker.ip).order_by(IPTracker.ip))
+                session.query(IP.ip).order_by(IP.ip))
 
     def get_iptracker_creation_time(self, ip: str):
         with self.session_scope() as session:
-            return session.query(IPTracker.creation).filter(
-                IPTracker.ip == ip).scalar()
+            return session.query(IP.creation).filter(
+                IP.ip == ip).scalar()
 
     def get_iptracker_last_update_time(self, ip: str):
         with self.session_scope() as session:
-            return session.query(IPTracker.last_updated).filter(
-                IPTracker.ip == ip).scalar()
+            return session.query(IP.last_updated).filter(
+                IP.ip == ip).scalar()
 
     def get_iptracker_hourly_limit(self, ip: str):
         with self.session_scope() as session:
-            return session.query(IPTracker.hourly_limit).filter(
-                IPTracker.ip == ip).scalar()
+            return session.query(IP.hourly_limit).filter(
+                IP.ip == ip).scalar()
 
     def set_iptracker_hourly_limit(self, ip: str, hourly_limit: int):
         with self.session_scope() as session:
-            iptracker = session.query(IPTracker).filter(
-                IPTracker.ip == ip).scalar()
+            iptracker = session.query(IP).filter(
+                IP.ip == ip).scalar()
             iptracker.hourly_limit = hourly_limit
 
     def get_iptracker_request_limit(self, ip: str):
         with self.session_scope() as session:
-            return session.query(IPTracker.request_limit).filter(
-                IPTracker.ip == ip).scalar()
+            return session.query(IP.request_limit).filter(
+                IP.ip == ip).scalar()
 
     def set_iptracker_request_limit(self, ip: str, request_limit: int):
         with self.session_scope() as session:
-            iptracker = session.query(IPTracker).filter(
-                IPTracker.ip == ip).scalar()
+            iptracker = session.query(IP).filter(
+                IP.ip == ip).scalar()
             iptracker.request_limit = request_limit
 
     def get_iptracker_total_request_counter(self, ip: str):
         with self.session_scope() as session:
-            return session.query(IPTracker.total_request_counter).filter(
-                IPTracker.ip == ip).scalar()
+            return session.query(IP.total_request_counter).filter(
+                IP.ip == ip).scalar()
 
     def get_iptracker_current_request_counter(self, ip: str):
         with self.session_scope() as session:
-            iptracker = session.query(IPTracker).filter(
-                IPTracker.ip == ip).scalar()
+            iptracker = session.query(IP).filter(
+                IP.ip == ip).scalar()
             return iptracker.check_current_request_counter()
 
     def set_iptracker_current_request_counter(self, ip: str, count: int):
         with self.session_scope() as session:
-            iptracker = session.query(IPTracker).filter(
-                IPTracker.ip == ip).scalar()
+            iptracker = session.query(IP).filter(
+                IP.ip == ip).scalar()
             iptracker.current_request_counter = count
 
     def iptracker_check_and_count_request(self, ip: str, cost: int):
         with self.session_scope() as session:
-            iptracker = session.query(IPTracker).filter(
-                IPTracker.ip == ip).scalar()
+            iptracker = session.query(IP).filter(
+                IP.ip == ip).scalar()
             if iptracker is None:
                 raise LookupError()
             return iptracker.check_and_count_request(cost)
 
     def create_iptracker(self, ip: str, hourly_limit: int, request_limit: int):
         with self.session_scope() as session:
-            iptracker = IPTracker(ip, hourly_limit, request_limit)
+            iptracker = IP(ip, hourly_limit, request_limit)
             session.add(iptracker)
 
     def delete_iptracker(self, ip: str):
         with self.session_scope() as session:
-            ip = session.query(IPTracker).filter(IPTracker.ip == ip).scalar()
+            ip = session.query(IP).filter(IP.ip == ip).scalar()
             if ip is not None:
                 session.delete(ip)
 

@@ -9,7 +9,7 @@ import numpy as np
 from cherrypy.lib.static import serve_file
 
 from classifier.classifier import NO_LABEL, YES_LABEL
-from db.sqlalchemydb import SQLAlchemyDB, Job, ClassificationMode, HUMAN_LABEL, MACHINE_LABEL
+from db.sqlalchemydb import SQLAlchemyDB, Job, ClassificationMode, LabelSource
 from util.util import get_fully_portable_file_name, bool_to_string
 
 __author__ = 'Andrea Esuli'
@@ -458,14 +458,18 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
                         for classifier in classification_modes:
                             classification_mode = classification_modes[classifier]
                             if classification_mode == ClassificationMode.SINGLE_LABEL:
-                                cols.append([f'{classifier}:{label}{bool_to_string(gold,HUMAN_LABEL,MACHINE_LABEL)}' for label, gold in
-                                             db.classify(classifier, X, classification_mode=classification_mode)])
+                                cols.append([
+                                                f'{classifier}:{label}{bool_to_string(gold, LabelSource.HUMAN_LABEL.value, LabelSource.MACHINE_LABEL.value)}'
+                                                for label, gold in
+                                                db.classify(classifier, X, classification_mode=classification_mode)])
                             elif classification_mode == ClassificationMode.MULTI_LABEL:
                                 label_lists = zip(*db.classify(classifier, X, classification_mode=classification_mode))
                                 for label_list in label_lists:
                                     cols.append(
-                                        [f'{classifier}:{label}:{bool_to_string(assigned,YES_LABEL,NO_LABEL)}{bool_to_string(gold,HUMAN_LABEL,MACHINE_LABEL)}' for label, assigned, gold
-                                         in label_list])
+                                        [
+                                            f'{classifier}:{label}:{bool_to_string(assigned, YES_LABEL, NO_LABEL)}{bool_to_string(gold, LabelSource.HUMAN_LABEL.value, LabelSource.MACHINE_LABEL.value)}'
+                                            for label, assigned, gold
+                                            in label_list])
                         for row in zip(*cols):
                             writer.writerow(row)
                         found = True
