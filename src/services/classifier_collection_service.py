@@ -11,7 +11,7 @@ import numpy
 from cherrypy.lib.static import serve_file
 
 from classifier.classifier import BINARY_LABELS, YES_LABEL, NO_LABEL
-from db.sqlalchemydb import SQLAlchemyDB, ClassificationMode, HUMAN_LABEL, MACHINE_LABEL
+from db.sqlalchemydb import SQLAlchemyDB, ClassificationMode, LabelSource
 from util.util import get_fully_portable_file_name, bool_to_string
 
 __author__ = 'Andrea Esuli'
@@ -362,12 +362,12 @@ class ClassifierCollectionService(object):
                             if classification_mode == ClassificationMode.SINGLE_LABEL:
                                 for label, assigned in labels:
                                     if assigned:
-                                        row.append(f'{name}:{label}{HUMAN_LABEL}')
+                                        row.append(f'{name}:{label}{LabelSource.HUMAN_LABEL.value}')
                                         break
                             else:
                                 for label, assigned in labels:
                                     row.append(
-                                        f'{name}:{label}:{bool_to_string(assigned, YES_LABEL, NO_LABEL)}{HUMAN_LABEL}')
+                                        f'{name}:{label}:{bool_to_string(assigned, YES_LABEL, NO_LABEL)}{LabelSource.HUMAN_LABEL.value}')
                             writer.writerow(row)
                         added = len(rows) > 0
             except:
@@ -426,10 +426,10 @@ class ClassifierCollectionService(object):
                 if len(row) < 3:
                     continue
                 for classifier_label in row[2:]:
-                    if classifier_label.endswith(HUMAN_LABEL):
-                        classifier_label = classifier_label[:-len(HUMAN_LABEL)]
-                    elif classifier_label.endswith(MACHINE_LABEL):
-                        classifier_label = classifier_label[:-len(MACHINE_LABEL)]
+                    if classifier_label.endswith(LabelSource.HUMAN_LABEL.value):
+                        classifier_label = classifier_label[:-len(LabelSource.HUMAN_LABEL.value)]
+                    elif classifier_label.endswith(LabelSource.MACHINE_LABEL.value):
+                        classifier_label = classifier_label[:-len(LabelSource.MACHINE_LABEL.value)]
                     split_values = classifier_label.split(':')
                     if len(split_values) == 2:
                         classifier_name, label = split_values
@@ -801,10 +801,10 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
             text = row[1]
             classifiers_labels = row[2:]
             for classifier_label in classifiers_labels:
-                if classifier_label.endswith(HUMAN_LABEL):
-                    classifier_label = classifier_label[:-len(HUMAN_LABEL)]
-                elif classifier_label.endswith(MACHINE_LABEL):
-                    classifier_label = classifier_label[:-len(MACHINE_LABEL)]
+                if classifier_label.endswith(LabelSource.HUMAN_LABEL.value):
+                    classifier_label = classifier_label[:-len(LabelSource.HUMAN_LABEL.value)]
+                elif classifier_label.endswith(LabelSource.MACHINE_LABEL.value):
+                    classifier_label = classifier_label[:-len(LabelSource.MACHINE_LABEL.value)]
 
                 try:
                     example_fields = classifier_label.split(':')
