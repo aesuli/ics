@@ -1,0 +1,33 @@
+<%!
+def inherit( context ):
+    return context.get('base_template','basewithmenu.html')
+%>
+<%inherit file="${inherit(context)}"/>
+<div class="w3-container">
+    <h2>Copyright</h2>
+    <code>${name}<br/>
+        Copyright (c) 2015-2020 Andrea Esuli (andrea@esuli.it).<br/>
+        All rights reserved.</code>
+
+    <h2>About</h2>
+    <p><i>"${name}"</i>is software that implements a number of tools for the creation and use of automatic text
+        classifiers.</p>
+    <p>The software includes a web client user interface and a web service API.</p>
+    <p>The public interface of the service publishes a set of predefined classifiers.</p>
+    <p>Classification requests are limited to a maximum hourly rate. The counter for the limit is reset every
+        hour.</p>
+
+    <h2>Disclaimer</h2>
+    <code> THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+        ARE DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE FOR
+        ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+        LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+        OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+        DAMAGE.</code>
+
+</div>

@@ -1,4 +1,5 @@
 TODO
+- twitter integration
 - user management
     * ownership of datasets
     * ownership of classifiers
@@ -6,7 +7,7 @@ TODO
     * access list for classifiers
     * tracking of who assigned labels
     * majority vote on multiple labels
-    * users agreement
+    * user agreement
 - table views
     * different sort criteria
 - automatic DB creation
@@ -14,20 +15,22 @@ TODO
 - cleaning
     * purge unreferenced documents
     * periodically clean download directory
-- check for sql/js/etc code injection
 - other tools:
     * terminology extraction
 - versioning
 - backup of deleted data
-- twitter integration
 - richer classifier info
     * estimated accuracy
-- store source of classification (which user?)
 
 TOMONITOR
-- strip input strings
+- check for code injection
 
 DONE
+- fix training example error when doing data import (duplicate values)
+- multi-label and single-label is only an option of data input and output
+- create no label or one label classifiers
+- add/remove single label
+- true binary classifiers
 - lightweight random indexing
 - duplicate and combine functions are now implemented in the merge function
 - single label classifier with yes-no labels in combine can be merged by label name or by classifier name
