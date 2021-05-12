@@ -26,6 +26,8 @@ TOMONITOR
 - check for code injection
 
 DONE
+- next document should always use filter
+- add incomplete labeling browsing option
 - fix training example error when doing data import (duplicate values)
 - multi-label and single-label is only an option of data input and output
 - create no label or one label classifiers

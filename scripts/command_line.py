@@ -27,14 +27,14 @@ class CommandLine(Cmd):
                  jobs_path, user_auth_path, key_auth_path, ip_auth_path):
         self._sc = ClientSession(protocol, host, port, classifier_path, dataset_path, jobs_path, user_auth_path,
                                  key_auth_path, ip_auth_path)
-        Cmd.__init__(self)
+        super().__init__(self)
         self.prompt = '> '
 
     def emptyline(self):
         pass
 
     def help_exit(self):
-        print('Exit')
+        print('Exit the program')
 
     def do_exit(self, args):
         sys.exit()

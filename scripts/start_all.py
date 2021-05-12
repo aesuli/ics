@@ -71,7 +71,7 @@ def setup_background_processor_log(access_filename, app_filename):
 
 if __name__ == "__main__":
     parser = ArgParser()
-    parser.add_argument('-c', '--config', help='configuration file', is_config_file=True)
+    parser.add_argument('-c', '--config', help='configuration file', default='start_all.conf', is_config_file=True)
     parser.add_argument('--db_connection_string', type=str, required=True)
     parser.add_argument('--media_dir', help='local directory with static files (html templates, css, js)', type=str,
                         default=os.path.join(os.getcwd(), 'media'))

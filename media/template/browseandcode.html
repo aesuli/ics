@@ -14,21 +14,22 @@ ${parent.head()}
 
         datasetsize = 1;
 
-        single = 'single';
-        multi = 'multi';
-
-        browse_diff = 'Optimized for ML';
+        browse_diff = 'Active learning';
         browse_next = 'Upload order';
         browse_prev = 'Reverse upload order';
-        browse_random = 'Random unlabeled';
         browse_rnd = 'Random';
+        browse_next_unlbl = 'Upload order, unlabeled';
+        browse_prev_unlbl = 'Reverse upload order, unlabeled';
+        browse_rnd_unlbl = 'Random, unlabeled';
 
         autobrowsevalues = [
-            [browse_diff,single],
-            [browse_next,multi],
-            [browse_prev,multi],
-            [browse_random,multi],
-            [browse_rnd,multi],
+            browse_diff,
+            browse_next,
+            browse_next_unlbl,
+            browse_prev,
+            browse_prev_unlbl,
+            browse_rnd,
+            browse_rnd_unlbl,
         ];
 
         autobrowse = 0;
@@ -427,7 +428,7 @@ ${parent.head()}
             autobrowse += 1;
             if(autobrowse>= autobrowsevalues.length)
                 autobrowse = 0;
-            $('#direction').text(autobrowsevalues[autobrowse][0]);
+            $('#direction').text(autobrowsevalues[autobrowse]);
         }
 
         function reset_labels() {
@@ -447,6 +448,27 @@ ${parent.head()}
             });
         }
 
+        function pick_random_position() {
+            if($('#filter').val().trim()=="") {
+                var newposition = Math.floor(Math.random() * datasetsize);
+                $('#position').val(newposition).change();
+            }
+            else {
+                $.ajax({
+                    type:'POST',
+                    url:'${dataset_path}/random_document_id',
+                    data: { name: dataset_name , filter: $('#filter').val() },
+                    dataType: 'json'})
+                .done(function(msg) {
+                    var newposition = parseInt(msg);
+                    $('#position').val(newposition).change();
+                })
+                .fail(function(errMsg) {
+                    custom_alert(errMsg.responseText);
+                });
+            }
+        }
+
         function next_doc() {
             var classifier_name = null;
             var class_count = $('#suggestions > div > .name').length
@@ -454,32 +476,99 @@ ${parent.head()}
                 classifier_name = $('#suggestions > div > .name')[Math.floor(Math.random() * class_count)].textContent;
                 classifier_name = classifier_name.substr(0,classifier_name.length - 1)
             }
-            if(autobrowsevalues[autobrowse][0]==browse_next) {
+            var get_next = false;
+            var get_prev = false;
+            if(autobrowsevalues[autobrowse]==browse_next_unlbl) {
+                if(classifier_name==null) {
+                    get_next = true;
+                }
+                else {
+                    var newposition = parseInt($("#position").val())+1;
+                    if(newposition<=datasetsize) {
+                        $.ajax({
+                            type:'POST',
+                            url:'${dataset_path}/next_unlabeled_document_id',
+                            data: { name: dataset_name , classifier_name: classifier_name, start_from: newposition, filter: $('#filter').val() },
+                            dataType: 'json'})
+                        .done(function(msg) {
+                            var newposition = parseInt(msg);
+                            $('#position').val(newposition).change();
+                        })
+                        .fail(function(errMsg) {
+                            custom_alert(errMsg.responseText);
+                        });
+                    }
+                }
+            }
+            if(autobrowsevalues[autobrowse]==browse_prev_unlbl) {
+                if(classifier_name==null) {
+                    get_prev = true;
+                }
+                else {
+                    var newposition = parseInt($("#position").val())-1;
+                    if(newposition>=0) {
+                        $.ajax({
+                            type:'POST',
+                            url:'${dataset_path}/prev_unlabeled_document_id',
+                            data: { name: dataset_name , classifier_name: classifier_name, start_from: newposition, filter: $('#filter').val() },
+                            dataType: 'json'})
+                        .done(function(msg) {
+                            var newposition = parseInt(msg);
+                            $('#position').val(newposition).change();
+                        })
+                        .fail(function(errMsg) {
+                            custom_alert(errMsg.responseText);
+                        });
+                    }
+                }
+            }
+            if(autobrowsevalues[autobrowse]==browse_next || get_next) {
                 var newposition = parseInt($("#position").val())+1;
                 if(newposition<=datasetsize) {
-                    $('#position').val(newposition).change();
+                    if($('#filter').val().trim()=="") {
+                        $('#position').val(newposition).change();
+                    }
+                    else {
+                        $.ajax({
+                            type:'POST',
+                            url:'${dataset_path}/next_document_id',
+                            data: { name: dataset_name , start_from: newposition, filter: $('#filter').val() },
+                            dataType: 'json'})
+                        .done(function(msg) {
+                            var newposition = parseInt(msg);
+                            $('#position').val(newposition).change();
+                        })
+                        .fail(function(errMsg) {
+                            custom_alert(errMsg.responseText);
+                        });
+                    }
                 }
             }
-            else if(autobrowsevalues[autobrowse][0]==browse_prev) {
+            if(autobrowsevalues[autobrowse]==browse_prev || get_prev) {
                 var newposition = parseInt($("#position").val())-1;
                 if(newposition>=0) {
-                    $('#position').val(newposition).change();
+                    if($('#filter').val().trim()=="") {
+                        $('#position').val(newposition).change();
+                    }
+                    else {
+                        $.ajax({
+                            type:'POST',
+                            url:'${dataset_path}/prev_document_id',
+                            data: { name: dataset_name , start_from: newposition, filter: $('#filter').val() },
+                            dataType: 'json'})
+                        .done(function(msg) {
+                            var newposition = parseInt(msg);
+                            $('#position').val(newposition).change();
+                        })
+                        .fail(function(errMsg) {
+                            custom_alert(errMsg.responseText);
+                        });
+                    }
                 }
             }
-            if(autobrowsevalues[autobrowse][0]==browse_random) {
+            else if(autobrowsevalues[autobrowse]==browse_rnd_unlbl) {
                 if(classifier_name==null) {
-                    $.ajax({
-                        type:'POST',
-                        url:'${dataset_path}/random_document_id',
-                        data: { name: dataset_name , filter: $('#filter').val() },
-                        dataType: 'json'})
-                    .done(function(msg) {
-                        var newposition = parseInt(msg);
-                        $('#position').val(newposition).change();
-                    })
-                    .fail(function(errMsg) {
-                        custom_alert(errMsg.responseText);
-                    });
+                    pick_random_position();
                 }
                 else {
                     $.ajax({
@@ -496,20 +585,9 @@ ${parent.head()}
                     });
                 }
             }
-            else if(autobrowsevalues[autobrowse][0]==browse_diff) {
+            else if(autobrowsevalues[autobrowse]==browse_diff) {
                 if(classifier_name==null) {
-                    $.ajax({
-                        type:'POST',
-                        url:'${dataset_path}/random_document_id',
-                        data: { name: dataset_name , filter: $('#filter').val() },
-                        dataType: 'json'})
-                    .done(function(msg) {
-                        var newposition = parseInt(msg);
-                        $('#position').val(newposition).change();
-                    })
-                    .fail(function(errMsg) {
-                        custom_alert(errMsg.responseText);
-                    });
+                    pick_random_position();
                 }
                 else {
                     $.ajax({
@@ -526,9 +604,8 @@ ${parent.head()}
                     });
                 }
             }
-            else if(autobrowsevalues[autobrowse][0]==browse_rnd) {
-                var newposition = Math.floor(Math.random() * datasetsize);
-                $('#position').val(newposition).change();
+            else if(autobrowsevalues[autobrowse]==browse_rnd) {
+                pick_random_position();
             }
         }
 
@@ -568,7 +645,7 @@ ${parent.head()}
             dataset_name = pathname.substring(pathname.lastIndexOf('/')+1)
             $('#datasetname').text(dataset_name);
 
-            $('#direction').text(autobrowsevalues[autobrowse][0]);
+            $('#direction').text(autobrowsevalues[autobrowse]);
 
             $("#textbox").on("keyup",function() {
                 text = $("#textbox").val();
@@ -623,10 +700,10 @@ ${parent.head()}
 
 <%block name="menu2">
 <section class="w3-navbar w3-theme-d4 ">
-    <a class="w3-bar-item w3-button" href="${mount_dir}/classify/${datasetname}">Batch classification</a>
     <div id="but_view_classification" class="w3-bar-item w3-button"
          onclick="document.getElementById('dia_view_classification').style.display='block'">Live classification
     </div>
+    <a class="w3-bar-item w3-button" href="${mount_dir}/classify/${datasetname}">Automatic classification</a>
 </section>
 </%block>
 
@@ -643,7 +720,6 @@ ${parent.head()}
                 <p><label for="showsugg">Show labeling <span class="suggested">suggestions</span></label>
                     <input type="checkbox" id="showsugg" checked/>
                 </p>
-                <span id="browse_autobrowse">Order of presentation: <span id='direction' class="w3-button w3-text-theme w3-round">NULL</span></span>
             </form>
             <div class="w3-container">
                 <div class="w3-tooltip w3-left">Current document: <input id='position' type="number" min=0 max=0 value=0>/<span id="size">NULL</span>
@@ -652,8 +728,8 @@ ${parent.head()}
                         <div>Uploaded: <span id="uploaded">NULL</span></div>
                     </div>
                 </div>
-                <div class="w3-right">Search: <input type="text" id="filter" placeholder="Text filter"/></div>
-                <div class="w3-container"></div>
+                <div class="w3-right w3-margin-left">Filter: <input type="text" id="filter" placeholder="Text filter"/></div>
+                <div  class="w3-right" id="browse_autobrowse">Next document selection mode: <div id='direction' class="w3-button w3-text-theme w3-round">NULL</div></div>
                 <textarea id="textbox" class="w3-block w3-margin-top" placeholder="Text to code" style="height:33%;"></textarea>
                 <div id="buttons" class="w3-container w3-panel"></div>
                 <div id="suggestions" class="w3-container w3-margin-bottom"></div>

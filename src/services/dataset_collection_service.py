@@ -314,6 +314,58 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
+    def next_document_id(self, name, start_from, filter=None):
+        try:
+            doc_id = self._db.get_dataset_next_documents(name, start_from, filter, 1)[0].id
+            return self._db.get_dataset_document_position_by_id(name, doc_id)
+        except:
+            cherrypy.response.status = 400
+            if len(filter) == 0:
+                return f'No succeeding documents in dataset \'{name}\' starting from position {start_from}'
+            else:
+                return f'No succeeding documents in dataset \'{name}\' for text filter \'{filter}\' starting from position {start_from}'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def next_unlabeled_document_id(self, name, classifier_name, start_from, filter=None):
+        try:
+            doc_id = self._db.get_dataset_next_documents_without_labels(name, classifier_name, start_from, filter, 1)[0].id
+            return self._db.get_dataset_document_position_by_id(name, doc_id)
+        except:
+            cherrypy.response.status = 400
+            if len(filter) == 0:
+                return f'No succeeding unlabeled documents in dataset \'{name}\' starting from position {start_from}'
+            else:
+                return f'No succeeding unlabeled documents in dataset \'{name}\' for text filter \'{filter}\' starting from position {start_from}'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def prev_document_id(self, name, start_from, filter=None):
+        try:
+            doc_id = self._db.get_dataset_prev_documents(name, start_from, filter, 1)[0].id
+            return self._db.get_dataset_document_position_by_id(name, doc_id)
+        except:
+            cherrypy.response.status = 400
+            if len(filter) == 0:
+                return f'No preceeding documents in dataset \'{name}\' starting from position {start_from}'
+            else:
+                return f'No preceeding documents in dataset \'{name}\' for text filter \'{filter}\' starting from position {start_from}'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def prev_unlabeled_document_id(self, name, classifier_name, start_from, filter=None):
+        try:
+            doc_id = self._db.get_dataset_prev_documents_without_labels(name, classifier_name, start_from, filter, 1)[0].id
+            return self._db.get_dataset_document_position_by_id(name, doc_id)
+        except:
+            cherrypy.response.status = 400
+            if len(filter) == 0:
+                return f'No preceeding unlabeled documents in dataset \'{name}\' starting from position {start_from}'
+            else:
+                return f'No preceeding unlabeled documents in dataset \'{name}\' for text filter \'{filter}\' starting from position {start_from}'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
     def classify(self, **data):
         try:
             datasetname = data['name']

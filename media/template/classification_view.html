@@ -14,7 +14,7 @@ ${parent.head()}
                          Count <select id="pagesize" class="w3-margin-right"><option value="5">5</option>\
                          <option value="10" selected>10</option>\
                          <option value="20">20</option><option value="50" >50</option></select>\
-                         Search: <input type="text" id="filter" placeholder="Text filter" value="'+filter+'"/></div>\
+                         Filter: <input type="text" id="filter" placeholder="Text filter" value="'+filter+'"/></div>\
                          ');
 
         function timed_update() {
@@ -340,10 +340,10 @@ ${parent.head()}
 
 <%block name="menu2">
 <section class="w3-navbar w3-theme-d4 ">
-    <a class="w3-bar-item w3-button" href="${mount_dir}/classify/${datasetname}">Batch classification</a>
     <div id="but_view_classification" class="w3-bar-item w3-button"
          onclick="document.getElementById('dia_view_classification').style.display='block'">Live classification
     </div>
+    <a class="w3-bar-item w3-button" href="${mount_dir}/classify/${datasetname}">Automatic classification</a>
     <a class="w3-bar-item w3-button" href="${mount_dir}/browseandcode/${datasetname}">Browse & code</a>
 </section>
 </%block>
