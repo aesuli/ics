@@ -45,12 +45,12 @@ ${parent.head()}
                 dataType: 'json'})
             .done(function(msg) {
                 if(msg.length==0) {
-                    $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No batch classification available for dataset <b>${datasetname}</b></h4></div>');
+                    $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No automatic classification available for dataset <b>${datasetname}</b></h4></div>');
                     $('#page').val(1);
                 }
                 else {
                     if($('#gotdata').length==0) {
-                        $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Batch classifications of dataset <b>${datasetname}</b>:</h4></div>\
+                        $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Automatic classifications of dataset <b>${datasetname}</b>:</h4></div>\
                         <div><table id="data" class="w3-table-all">\
                         <tr>\
                         <th></th>\
@@ -240,7 +240,7 @@ ${parent.head()}
 <%block name="menu2">
 <section class="w3-navbar w3-theme-d4 ">
     <div id="but_create_classification" class="w3-bar-item w3-button"
-         onclick="document.getElementById('dia_create_classification').style.display='block'">New batch classification
+         onclick="document.getElementById('dia_create_classification').style.display='block'">New automatic classification
     </div>
     <div id="but_view_classification" class="w3-bar-item w3-button"
          onclick="document.getElementById('dia_view_classification').style.display='block'">Live classification
@@ -262,7 +262,7 @@ ${parent.head()}
                 <span
                         onclick="document.getElementById('dia_create_classification').style.display='none'"
                         class="w3-button w3-display-topright">&times;</span>
-                <h3 class="w3-theme">Batch classification of documents</h3>
+                <h3 class="w3-theme">Automatic classification of documents</h3>
             </header>
             <form id="create_classifier" class="w3-container" action="#" method="post">
                 <p>

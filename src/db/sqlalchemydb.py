@@ -1067,6 +1067,128 @@ class SQLAlchemyDB(object):
                     .limit(limit)
                     )
 
+    def get_dataset_next_documents(self, name: str, start_from: int, filter: str = None, limit: int = None):
+        if filter is None:
+            filter = ''
+
+        start_document_id = self.get_dataset_document_by_position(name, start_from).id
+
+        with self.session_scope() as session:
+            return (session.query(DatasetDocument)
+                    .filter(DatasetDocument.id >= start_document_id)
+                    .filter(DatasetDocument.text.like('%' + filter + '%'))
+                    .filter(Dataset.name == name)
+                    .join(DatasetDocument.dataset)
+                    .order_by(DatasetDocument.id)
+                    .limit(limit)
+                    )
+
+    def get_dataset_next_documents_without_labels(self, dataset_name: str, classifier_name: str, start_from: int,
+                                                  filter: str = None, limit: int = None, require_all_labels=True):
+        if filter is None:
+            filter = ''
+
+        start_document_id = self.get_dataset_document_by_position(dataset_name, start_from).id
+
+        with self.session_scope() as session:
+            missing = list(
+                session.query(DatasetDocument.text, DatasetDocument.id)
+                    .join(DatasetDocument.dataset)
+                    .filter(Dataset.name == dataset_name)
+                    .filter(DatasetDocument.id >= start_document_id)
+                    .filter(DatasetDocument.text.like('%' + filter + '%'))
+                    .filter(not_(exists().where(
+                    and_(DatasetDocument.md5 == TrainingDocument.md5,
+                         Classification.classifier_id == Classifier.id,
+                         Classifier.name == classifier_name,
+                         TrainingDocument.id == Classification.document_id))))
+                    .order_by(DatasetDocument.id)
+                    .limit(limit)
+            )
+            if len(missing) > 0 or not require_all_labels:
+                return missing
+
+            labels = self.get_classifier_labels(classifier_name)
+            partial = list(
+                session.query(DatasetDocument.text, DatasetDocument.id)
+                    .join(DatasetDocument.dataset)
+                    .filter(Dataset.name == dataset_name)
+                    .filter(DatasetDocument.id >= start_document_id)
+                    .filter(DatasetDocument.text.like('%' + filter + '%'))
+                    .filter(DatasetDocument.md5 == TrainingDocument.md5)
+                    .filter(
+                    TrainingDocument.id == Classification.document_id)
+                    .filter(Classification.classifier_id == Classifier.id)
+                    .filter(Label.name.in_(labels))
+                    .group_by(DatasetDocument.id)
+                    .having(
+                    count(Classification.id) != len(labels))
+                    .order_by(DatasetDocument.id)
+                    .limit(limit)
+            )
+            return partial
+
+    def get_dataset_prev_documents(self, name: str, start_from: int, filter: str = None, limit: int = None):
+        if filter is None:
+            filter = ''
+
+        start_document = self.get_dataset_document_by_position(name, start_from)
+
+        with self.session_scope() as session:
+            return (session.query(DatasetDocument)
+                    .filter(DatasetDocument.id <= start_document.id)
+                    .filter(DatasetDocument.text.like('%' + filter + '%'))
+                    .filter(Dataset.name == name)
+                    .join(DatasetDocument.dataset)
+                    .order_by(DatasetDocument.id.desc())
+                    .limit(limit)
+                    )
+
+    def get_dataset_prev_documents_without_labels(self, dataset_name: str, classifier_name: str, start_from: int,
+                                                  filter: str = None, limit: int = None, require_all_labels=True):
+        if filter is None:
+            filter = ''
+
+        start_document_id = self.get_dataset_document_by_position(dataset_name, start_from).id
+
+        with self.session_scope() as session:
+            missing = list(
+                session.query(DatasetDocument.text, DatasetDocument.id)
+                    .join(DatasetDocument.dataset)
+                    .filter(Dataset.name == dataset_name)
+                    .filter(DatasetDocument.id <= start_document_id)
+                    .filter(DatasetDocument.text.like('%' + filter + '%'))
+                    .filter(not_(exists().where(
+                    and_(DatasetDocument.md5 == TrainingDocument.md5,
+                         Classification.classifier_id == Classifier.id,
+                         Classifier.name == classifier_name,
+                         TrainingDocument.id == Classification.document_id))))
+                    .order_by(DatasetDocument.id.desc())
+                    .limit(limit)
+            )
+            if len(missing) > 0 or not require_all_labels:
+                return missing
+
+            labels = self.get_classifier_labels(classifier_name)
+            partial = list(
+                session.query(DatasetDocument.text, DatasetDocument.id)
+                    .join(DatasetDocument.dataset)
+                    .filter(Dataset.name == dataset_name)
+                    .filter(DatasetDocument.id <= start_document_id)
+                    .filter(DatasetDocument.text.like('%' + filter + '%'))
+                    .filter(DatasetDocument.md5 == TrainingDocument.md5)
+                    .filter(
+                    TrainingDocument.id == Classification.document_id)
+                    .filter(Classification.classifier_id == Classifier.id)
+                    .filter(Label.name.in_(labels))
+                    .group_by(DatasetDocument.id)
+                    .having(
+                    count(Classification.id) != len(labels))
+                    .order_by(DatasetDocument.id.desc())
+                    .limit(limit)
+            )
+            return partial
+
     def get_dataset_documents(self, name: str, filter: str = None, offset=0, limit: int = None):
         if filter is None:
             filter = ''
