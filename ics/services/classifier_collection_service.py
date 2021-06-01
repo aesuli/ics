@@ -10,9 +10,9 @@ import cherrypy
 import numpy
 from cherrypy.lib.static import serve_file
 
-from classifier.classifier import BINARY_LABELS, YES_LABEL, NO_LABEL
-from db.sqlalchemydb import SQLAlchemyDB, ClassificationMode, LabelSource
-from util.util import get_fully_portable_file_name, bool_to_string
+from ics.classifier.classifier import BINARY_LABELS, YES_LABEL, NO_LABEL
+from ics.db.sqlalchemydb import SQLAlchemyDB, ClassificationMode, LabelSource
+from ics.util.util import get_fully_portable_file_name, bool_to_string
 
 __author__ = 'Andrea Esuli'
 
@@ -753,7 +753,8 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return f"6.2.1 (db: {self._db.version()})"
+        import ics
+        return ics.__version__
 
 
 def _update_trainingset(db_connection, name, X, y):

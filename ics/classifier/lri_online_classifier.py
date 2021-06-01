@@ -5,12 +5,11 @@ import numpy as np
 from sklearn import clone
 from sklearn.linear_model import PassiveAggressiveClassifier
 
-from classifier.classifier import Classifier, NO_LABEL, YES_LABEL, BINARY_LABELS
-from classifier.lri import LightweightRandomIndexingVectorizer
+from ics.classifier.classifier import Classifier, NO_LABEL, YES_LABEL, BINARY_LABELS
+from ics.classifier.lri import LightweightRandomIndexingVectorizer
+from ics.classifier.rich_analyzer import rich_analyzer
 
 __author__ = 'Andrea Esuli'
-
-from classifier.rich_analyzer import rich_analyzer
 
 
 class LRIOnlineClassifier(Classifier):

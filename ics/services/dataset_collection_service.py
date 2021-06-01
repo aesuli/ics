@@ -8,9 +8,9 @@ import cherrypy
 import numpy as np
 from cherrypy.lib.static import serve_file
 
-from classifier.classifier import NO_LABEL, YES_LABEL
-from db.sqlalchemydb import SQLAlchemyDB, Job, ClassificationMode, LabelSource
-from util.util import get_fully_portable_file_name, bool_to_string
+from ics.classifier.classifier import NO_LABEL, YES_LABEL
+from ics.db.sqlalchemydb import SQLAlchemyDB, Job, ClassificationMode, LabelSource
+from ics.util.util import get_fully_portable_file_name, bool_to_string
 
 __author__ = 'Andrea Esuli'
 
@@ -470,7 +470,8 @@ class DatasetCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "4.1.1 (db: %s)" % self._db.version()
+        import ics
+        return ics.__version__
 
 
 def _classify(db_connection_string, datasetname, classifiers, fullpath):

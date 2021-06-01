@@ -1,10 +1,9 @@
 import cherrypy
 
-from db.sqlalchemydb import SQLAlchemyDB
+from ics.db.sqlalchemydb import SQLAlchemyDB
+from ics.services.auth_controller_service import USER_SESSION_KEY, require
 
 __author__ = 'Andrea Esuli'
-
-from services.auth_controller_service import USER_SESSION_KEY, require
 
 
 def logged_in():
@@ -199,4 +198,5 @@ class UserControllerService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "1.4.1 (db: %s)" % self._db.version()
+        import ics
+        return ics.__version__

@@ -1,10 +1,10 @@
 import inspect
 import pkgutil
 
-import services
+import ics
 
 if __name__ == '__main__':
-    package = services
+    package = ics
     for importer, module_name, _ in pkgutil.walk_packages(path=package.__path__,
                                                           prefix=package.__name__ + '.',
                                                           onerror=lambda x: None):

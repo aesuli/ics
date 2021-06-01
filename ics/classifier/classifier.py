@@ -8,7 +8,7 @@ BINARY_LABELS = [NO_LABEL, YES_LABEL]
 
 
 def create_classifier_model(name, labels):
-    from classifier.lri_online_classifier import LRIOnlineClassifier
+    from ics.classifier.lri_online_classifier import LRIOnlineClassifier
     return LRIOnlineClassifier(name, labels)
 
 
