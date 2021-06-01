@@ -3,7 +3,7 @@ import os
 import cherrypy
 from mako.lookup import TemplateLookup
 
-from db.sqlalchemydb import SQLAlchemyDB
+from ics.db import SQLAlchemyDB
 
 __author__ = 'Andrea Esuli'
 
@@ -100,4 +100,6 @@ class WebAdmin(object):
 
     @cherrypy.expose
     def version(self):
-        return "1.1.1"
+        import ics
+        return ics.__version__
+

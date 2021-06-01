@@ -1,11 +1,10 @@
 import cherrypy
 
-from db.sqlalchemydb import SQLAlchemyDB
+from ics.db.sqlalchemydb import SQLAlchemyDB
+from ics.services.auth_controller_service import require
+from ics.services.user_controller_service import name_is
 
 __author__ = 'Andrea Esuli'
-
-from services.auth_controller_service import require
-from services.user_controller_service import name_is
 
 
 class KeyControllerService(object):
@@ -130,4 +129,5 @@ class KeyControllerService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "0.3.2 (db: %s)" % self._db.version()
+        import ics
+        return ics.__version__

@@ -7,9 +7,9 @@ from os import remove
 from os.path import exists
 from pprint import pprint
 
-__author__ = 'Andrea Esuli'
+from ics.client import ClientSession
 
-from client_session import ClientSession
+__author__ = 'Andrea Esuli'
 
 
 def print_exception(fn):
@@ -27,7 +27,7 @@ class CommandLine(Cmd):
                  jobs_path, user_auth_path, key_auth_path, ip_auth_path):
         self._sc = ClientSession(protocol, host, port, classifier_path, dataset_path, jobs_path, user_auth_path,
                                  key_auth_path, ip_auth_path)
-        super().__init__(self)
+        super().__init__()
         self.prompt = '> '
 
     def emptyline(self):

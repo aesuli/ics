@@ -3,12 +3,12 @@ import os
 import cherrypy
 from mako.lookup import TemplateLookup
 
-from db.sqlalchemydb import SQLAlchemyDB
+from ics.db import SQLAlchemyDB
 
 __author__ = 'Andrea Esuli'
 
 
-class WebClient(object):
+class WebApp(object):
     def __init__(self, db_connection_string, media_dir, user_auth_path, admin_path, classifier_path,
                  dataset_path, jobs_path, name):
         self._db = SQLAlchemyDB(db_connection_string)
@@ -145,4 +145,5 @@ class WebClient(object):
 
     @cherrypy.expose
     def version(self):
-        return "4.2.1"
+        import ics
+        return ics.__version__

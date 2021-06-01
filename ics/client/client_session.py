@@ -7,8 +7,8 @@ __author__ = 'Andrea Esuli'
 
 
 class ClientSession:
-    def __init__(self, protocol, host, port, classifier_path, dataset_path, jobs_path, user_auth_path, key_auth_path,
-                 ip_auth_path):
+    def __init__(self, protocol, host, port, classifier_path=None, dataset_path=None, jobs_path=None,
+                 user_auth_path=None, key_auth_path=None, ip_auth_path=None):
         self._protocol = protocol
         self._host = host
         if type(port) == int:
@@ -726,19 +726,24 @@ class ClientSession:
     def version(self):
         return "0.3.2"
 
+
 if __name__ == '__main__':
     protocol = 'http'
     host = 'label.esuli.it'
     port = 80
     classifier_path = 'service/classifiers'
+    dataset_path = 'service/datasets'
+    jobs_path = 'service/jobs'
+    user_auth_path = 'service/userauth'
     ip_auth_path = 'service/ipauth'
     key_auth_path = 'service/keyauth'
 
     key = 'you_key_here'
 
-    client = ClientSession(protocol, host, port, classifier_path, ip_auth_path, key_auth_path)
+    client = ClientSession(protocol, host, port, classifier_path, dataset_path, jobs_path, user_auth_path,
+                           key_auth_path, ip_auth_path)
 
-    classifiers = client.classifiers()
+    classifiers = client.classifier_info()
 
     test_texts = ['this is a text', 'this is another one']
 

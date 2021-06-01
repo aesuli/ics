@@ -7,24 +7,23 @@ from logging import handlers
 import cherrypy
 from configargparse import ArgParser
 
-from db.sqlalchemydb import SQLAlchemyDB
-from util.util import str_to_bool
+from ics.apps import WebAdmin
+from ics.apps import WebApp
+from ics.apps import WebDemo
+from ics.db.sqlalchemydb import SQLAlchemyDB
+from ics.services import BackgroundProcessor
+from ics.services import ClassifierCollectionService
+from ics.services import DatasetCollectionService
+from ics.services import IPControllerService
+from ics.services import JobsService
+from ics.services import KeyControllerService
+from ics.services import UserControllerService
+from ics.services.auth_controller_service import enable_controller_service, any_of, redirect, fail_with_error_message, \
+    arg_len_cost_function
+from ics.services.user_controller_service import logged_in, name_is
+from ics.util.util import str_to_bool
 
 __author__ = 'Andrea Esuli'
-
-from services.auth_controller_service import enable_controller_service, any_of, redirect, fail_with_error_message, \
-    arg_len_cost_function
-
-from services.background_processor_service import BackgroundProcessor
-from services.classifier_collection_service import ClassifierCollectionService
-from services.dataset_collection_service import DatasetCollectionService
-from services.ip_controller_service import IPControllerService
-from services.jobs_service import JobsService
-from services.key_controller_service import KeyControllerService
-from services.user_controller_service import UserControllerService, logged_in, name_is
-from app.web_admin import WebAdmin
-from app.web_app import WebClient
-from app.web_demo import WebDemo
 
 
 def setup_log(access_filename, app_filename):
@@ -71,7 +70,7 @@ def setup_background_processor_log(access_filename, app_filename):
 
 if __name__ == "__main__":
     parser = ArgParser()
-    parser.add_argument('-c', '--config', help='configuration file', default='start_all.conf', is_config_file=True)
+    parser.add_argument('-c', '--config', help='configuration file', is_config_file=True)
     parser.add_argument('--db_connection_string', type=str, required=True)
     parser.add_argument('--media_dir', help='local directory with static files (html templates, css, js)', type=str,
                         default=os.path.join(os.getcwd(), 'media'))
@@ -103,8 +102,8 @@ if __name__ == "__main__":
     with BackgroundProcessor(args.db_connection_string, os.cpu_count() - 2, initializer=setup_background_processor_log,
                              initargs=(os.path.join(args.log_dir, 'bpaccess'),
                                        os.path.join(args.log_dir, 'bpapp'))) as background_processor, \
-            WebClient(args.db_connection_string, args.media_dir, args.user_auth_path, args.admin_path,
-                      args.classifier_path, args.dataset_path, args.jobs_path, args.name) as client, \
+            WebApp(args.db_connection_string, args.media_dir, args.user_auth_path, args.admin_path,
+                   args.classifier_path, args.dataset_path, args.jobs_path, args.name) as client, \
             WebDemo(args.db_connection_string, args.media_dir, args.ip_auth_path, args.key_auth_path,
                     args.classifier_path, args.name) as demo, \
             WebAdmin(args.db_connection_string, args.media_dir, args.client_path, args.user_auth_path,

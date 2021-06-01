@@ -19,7 +19,7 @@ from sqlalchemy.orm import scoped_session, deferred, relationship, \
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.functions import count
 
-from classifier.classifier import create_classifier_model, YES_LABEL
+from ics.classifier.classifier import create_classifier_model, YES_LABEL
 
 __author__ = 'Andrea Esuli'
 
@@ -1555,7 +1555,8 @@ class SQLAlchemyDB(object):
 
     @staticmethod
     def version():
-        return "6.1.1"
+        import ics
+        return ics.__version__
 
 
 class DBLock(object):

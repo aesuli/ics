@@ -2,12 +2,11 @@ import ipaddress
 
 import cherrypy
 
-from db.sqlalchemydb import SQLAlchemyDB
-from services.auth_controller_service import require
+from ics.db.sqlalchemydb import SQLAlchemyDB
+from ics.services.auth_controller_service import require
+from ics.services.user_controller_service import name_is
 
 __author__ = 'Andrea Esuli'
-
-from services.user_controller_service import name_is
 
 
 class IPControllerService(object):
@@ -134,4 +133,5 @@ class IPControllerService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "1.3.1 (db: %s)" % self._db.version()
+        import ics
+        return ics.__version__

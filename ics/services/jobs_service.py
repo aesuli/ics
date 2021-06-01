@@ -1,6 +1,6 @@
 import cherrypy
 
-from db.sqlalchemydb import SQLAlchemyDB, Job
+from ics.db.sqlalchemydb import SQLAlchemyDB, Job
 
 __author__ = 'Andrea Esuli'
 
@@ -105,4 +105,5 @@ class JobsService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def version(self):
-        return "0.6.1 (db: %s)" % self._db.version()
+        import ics
+        return ics.__version__
