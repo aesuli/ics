@@ -8,15 +8,13 @@ from ics.client import ClientSession
 
 
 def create_uploader(client):
-
     def uploader(data):
         print(client)
 
     return uploader
 
 
-if __name__ == '__main__':
-
+def main():
     protocol = 'http'
     host = 'label.esuli.it'
     port = 80
@@ -45,3 +43,7 @@ if __name__ == '__main__':
     twigetcli._twiget.add_callback('uploader', create_uploader(client))
 
     twigetcli.cmdloop()
+
+
+if __name__ == '__main__':
+    main()
