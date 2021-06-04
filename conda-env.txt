@@ -1,2 +1,0 @@
-# A conda environment can be created with the command:
-conda create -n ics cherrypy configargparse mako passlib psycopg2 requests scikit-learn sqlalchemy

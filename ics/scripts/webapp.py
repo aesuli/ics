@@ -68,7 +68,7 @@ def setup_background_processor_log(access_filename, app_filename):
     cherrypy.log.access_log.addHandler(access_handler)
 
 
-if __name__ == "__main__":
+def main():
     parser = ArgParser()
     parser.add_argument('-c', '--config', help='configuration file', is_config_file=True)
     parser.add_argument('--db_connection_string', type=str, required=True)
@@ -222,3 +222,7 @@ if __name__ == "__main__":
 
         cherrypy.engine.start()
         cherrypy.engine.block()
+
+
+if __name__ == "__main__":
+    main()

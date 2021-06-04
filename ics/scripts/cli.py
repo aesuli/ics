@@ -1091,7 +1091,7 @@ class CommandLine(Cmd):
         print('dataset service: ', self._sc.dataset_version())
 
 
-if __name__ == "__main__":
+def main():
     parser = ArgumentParser()
     parser.add_argument('--protocol', help='host protocol', type=str, default='http')
     parser.add_argument('--host', help='host server address', type=str, default='127.0.0.1')
@@ -1114,3 +1114,7 @@ if __name__ == "__main__":
                                args.jobs_path, args.user_auth_path, args.key_auth_path, args.ip_auth_path)
 
     command_line.cmdloop('Welcome, type help to have a list of commands')
+
+
+if __name__ == "__main__":
+    main()

@@ -3,7 +3,8 @@ import pkgutil
 
 import ics
 
-if __name__ == '__main__':
+
+def main():
     package = ics
     for importer, module_name, _ in pkgutil.walk_packages(path=package.__path__,
                                                           prefix=package.__name__ + '.',
@@ -15,3 +16,7 @@ if __name__ == '__main__':
                 print(f'## {module_name}.{class_name}')
                 for method_name, method in method_list:
                     print(f'{class_name}.{method_name}{inspect.signature(method)} {method.__doc__}')
+
+
+if __name__ == '__main__':
+    main()
