@@ -4,21 +4,22 @@ import cherrypy
 from mako.lookup import TemplateLookup
 
 from ics.db import SQLAlchemyDB
+import ics.apps.media as media
 
 __author__ = 'Andrea Esuli'
 
 
 class WebDemo(object):
-    def __init__(self, db_connection_string, media_dir, ip_auth_path, key_auth_path, classifier_path, name):
+    def __init__(self, db_connection_string, ip_auth_path, key_auth_path, classifier_path, name):
         self._db = SQLAlchemyDB(db_connection_string)
-        self._media_dir = media_dir
+        self._media_dir = media.__path__[0]
         self._template_data = {'ip_auth_path': ip_auth_path,
                                'key_auth_path': key_auth_path,
                                'classifier_path': classifier_path,
                                'name': name,
                                'version': self.version(),
                                'base_template': 'demo_basewithmenu.html'}
-        self._lookup = TemplateLookup(os.path.join(media_dir, 'template'), input_encoding='utf-8',
+        self._lookup = TemplateLookup(os.path.join(self._media_dir, 'template'), input_encoding='utf-8',
                                       output_encoding='utf-8')
 
     def get_config(self):
@@ -45,23 +46,24 @@ class WebDemo(object):
         self.close()
         return False
 
+    @property
     def session_data(self):
         return {'ip': cherrypy.request.remote.ip, 'mount_dir': cherrypy.request.app.script_name}
 
     @cherrypy.expose
     def index(self):
         template = self._lookup.get_template('demo_typeandcode.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
     def about(self):
         template = self._lookup.get_template('about.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
     def api(self):
         template = self._lookup.get_template('demo_api.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
     def version(self):
