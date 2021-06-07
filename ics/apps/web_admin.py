@@ -4,15 +4,16 @@ import cherrypy
 from mako.lookup import TemplateLookup
 
 from ics.db import SQLAlchemyDB
+import ics.apps.media as media
 
 __author__ = 'Andrea Esuli'
 
 
 class WebAdmin(object):
-    def __init__(self, db_connection_string, media_dir, client_path, user_auth_path, ip_auth_path, key_auth_path,
+    def __init__(self, db_connection_string, client_path, user_auth_path, ip_auth_path, key_auth_path,
                  classifier_path, dataset_path, jobs_path, name):
         self._db = SQLAlchemyDB(db_connection_string)
-        self._media_dir = media_dir
+        self._media_dir = media.__path__[0]
         self._template_data = {'client_path': client_path,
                                'user_auth_path': user_auth_path,
                                'ip_auth_path': ip_auth_path,
@@ -23,7 +24,7 @@ class WebAdmin(object):
                                'name': name,
                                'version': self.version(),
                                'base_template': 'admin_basewithmenu.html'}
-        self._lookup = TemplateLookup(os.path.join(media_dir, 'template'), input_encoding='utf-8',
+        self._lookup = TemplateLookup(os.path.join(self._media_dir, 'template'), input_encoding='utf-8',
                                       output_encoding='utf-8')
 
     def get_config(self):
@@ -50,6 +51,7 @@ class WebAdmin(object):
         self.close()
         return False
 
+    @property
     def session_data(self):
         return {'username': cherrypy.request.login, 'mount_dir': cherrypy.request.app.script_name}
 
@@ -62,7 +64,7 @@ class WebAdmin(object):
             if error_message is None:
                 error_message = ""
             return template.render(
-                **{**self._template_data, **self.session_data(), **{'username': name, 'msg': error_message}})
+                **{**self._template_data, **self.session_data, **{'username': name, 'msg': error_message}})
 
     @cherrypy.expose
     def index(self):
@@ -71,32 +73,32 @@ class WebAdmin(object):
     @cherrypy.expose
     def users(self):
         template = self._lookup.get_template('users.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
     def ips(self):
         template = self._lookup.get_template('ips.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
     def keys(self):
         template = self._lookup.get_template('keys.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
     def jobs(self):
         template = self._lookup.get_template('jobs.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
     def locks(self):
         template = self._lookup.get_template('locks.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
     def about(self):
         template = self._lookup.get_template('about.html')
-        return template.render(**{**self._template_data, **self.session_data()})
+        return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
     def version(self):

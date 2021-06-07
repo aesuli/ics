@@ -71,44 +71,47 @@ def setup_background_processor_log(access_filename, app_filename):
 def main():
     parser = ArgParser()
     parser.add_argument('-c', '--config', help='configuration file', is_config_file=True)
-    parser.add_argument('--db_connection_string', type=str, required=True)
-    parser.add_argument('--media_dir', help='local directory with static files (html templates, css, js)', type=str,
-                        default=os.path.join(os.getcwd(), 'media'))
-    parser.add_argument('--log_dir', help='local directory for log files', type=str,
-                        default='log')
+    parser.add_argument('--db_connection_string', type=str, default='postgresql://ics:ics@localhost:5432/ics')
+    parser.add_argument('--log_dir', help='local directory for log files', type=str, default='log')
     parser.add_argument('--data_dir', help='local directory where uploaded/downloaded file are placed', type=str,
                         default=os.path.join(os.getcwd(), 'data'))
-    parser.add_argument('--name', help='name to show in the client app', type=str, required=True)
-    parser.add_argument('--host', help='host server address', type=str, required=True)
-    parser.add_argument('--port', help='host server port', type=int, required=True)
-    parser.add_argument('--client_path', help='server path of the web client app', type=str, required=True)
-    parser.add_argument('--admin_path', help='server path of the web admin app', type=str, required=True)
-    parser.add_argument('--demo_path', help='server path of the web demo app', type=str, required=True)
-    parser.add_argument('--ip_hourly_limit', help='ip hourly request limit', type=int, required=True)
-    parser.add_argument('--ip_request_limit', help='ip total request limit', type=int, required=True)
+    parser.add_argument('--name', help='name to show in the client app', type=str,
+                        default='ICS - Interactive Classification System')
+    parser.add_argument('--host', help='host server address', type=str, default='127.0.0.1')
+    parser.add_argument('--port', help='host server port', type=int, default=8080)
+    parser.add_argument('--main_app_path', help='server path of the web client app', type=str, default='/')
+    parser.add_argument('--admin_app_path', help='server path of the web admin app', type=str, default='/admin/')
+    parser.add_argument('--demo_app_path', help='server path of the web demo app', type=str, default='/demo/')
+    parser.add_argument('--ip_hourly_limit', help='ip hourly request limit', type=int, default=100)
+    parser.add_argument('--ip_request_limit', help='ip total request limit', type=int, default=-1)
     parser.add_argument('--allow_unknown_ips', help='allow unknown IPs with rate limit', type=str_to_bool,
-                        required=True)
-    parser.add_argument('--user_auth_path', help='server path of the user auth web service', type=str, required=True)
-    parser.add_argument('--ip_auth_path', help='server path of the ip auth web service', type=str, required=True)
-    parser.add_argument('--key_auth_path', help='server path of the key auth web service', type=str, required=True)
-    parser.add_argument('--classifier_path', help='server path of the classifier web service', type=str, required=True)
-    parser.add_argument('--dataset_path', help='server path of the dataset web service', type=str, required=True)
+                        default=True)
+    parser.add_argument('--user_auth_path', help='server path of the user auth web service', type=str,
+                        default='/service/userauth/')
+    parser.add_argument('--ip_auth_path', help='server path of the ip auth web service', type=str,
+                        default='/service/ipauth/')
+    parser.add_argument('--key_auth_path', help='server path of the key auth web service', type=str,
+                        default='/service/keyauth/')
+    parser.add_argument('--classifier_path', help='server path of the classifier web service', type=str,
+                        default='/service/classifiers/')
+    parser.add_argument('--dataset_path', help='server path of the dataset web service', type=str,
+                        default='/service/datasets/')
     parser.add_argument('--jobs_path', help='server path of the jobs web service', type=str,
-                        required=True)
-    parser.add_argument('--min_password_length', help='minimum password length', type=int, required=True)
+                        default='/service/jobs/')
+    parser.add_argument('--min_password_length', help='minimum password length', type=int, default=8)
     args = parser.parse_args(sys.argv[1:])
 
     setup_log(os.path.join(args.log_dir, 'access'), os.path.join(args.log_dir, 'app'))
     with BackgroundProcessor(args.db_connection_string, os.cpu_count() - 2, initializer=setup_background_processor_log,
                              initargs=(os.path.join(args.log_dir, 'bpaccess'),
                                        os.path.join(args.log_dir, 'bpapp'))) as background_processor, \
-            WebApp(args.db_connection_string, args.media_dir, args.user_auth_path, args.admin_path,
-                   args.classifier_path, args.dataset_path, args.jobs_path, args.name) as client, \
-            WebDemo(args.db_connection_string, args.media_dir, args.ip_auth_path, args.key_auth_path,
-                    args.classifier_path, args.name) as demo, \
-            WebAdmin(args.db_connection_string, args.media_dir, args.client_path, args.user_auth_path,
+            WebApp(args.db_connection_string, args.user_auth_path, args.admin_app_path,
+                   args.classifier_path, args.dataset_path, args.jobs_path, args.name) as main_app, \
+            WebDemo(args.db_connection_string, args.ip_auth_path, args.key_auth_path,
+                    args.classifier_path, args.name) as demo_app, \
+            WebAdmin(args.db_connection_string, args.main_app_path, args.user_auth_path,
                      args.ip_auth_path, args.key_auth_path, args.classifier_path, args.dataset_path, args.jobs_path,
-                     args.name) as admin, \
+                     args.name) as admin_app, \
             ClassifierCollectionService(args.db_connection_string, args.data_dir) as classifier_service, \
             DatasetCollectionService(args.db_connection_string, args.data_dir) as dataset_service, \
             JobsService(args.db_connection_string) as jobs_service, \
@@ -123,26 +126,26 @@ def main():
 
         enable_controller_service()
 
-        conf_demo = {
+        conf_demo_app = {
         }
 
-        conf_client = {
+        conf_main_app = {
             '/': {
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
-                'tools.icsauth.require': [any_of(logged_in(), redirect(args.client_path + 'login'))],
+                'tools.icsauth.require': [any_of(logged_in(), redirect(args.main_app_path + 'login'))],
             },
             '/login': {
                 'tools.icsauth.require': [],
             },
         }
 
-        conf_admin = {
+        conf_admin_app = {
             '/': {
                 'tools.sessions.on': True,
                 'tools.icsauth.on': True,
                 'tools.icsauth.require': [any_of(name_is(SQLAlchemyDB.admin_name()),
-                                                 redirect(args.admin_path + 'login'))],
+                                                 redirect(args.admin_app_path + 'login'))],
             },
             '/login': {
                 'tools.icsauth.require': [],
@@ -208,9 +211,9 @@ def main():
             },
         }
 
-        cherrypy.tree.mount(demo, args.demo_path, config={**demo.get_config(), **conf_demo})
-        cherrypy.tree.mount(client, args.client_path, config={**client.get_config(), **conf_client})
-        cherrypy.tree.mount(admin, args.admin_path, config={**admin.get_config(), **conf_admin})
+        cherrypy.tree.mount(demo_app, args.demo_app_path, config={**demo_app.get_config(), **conf_demo_app})
+        cherrypy.tree.mount(main_app, args.main_app_path, config={**main_app.get_config(), **conf_main_app})
+        cherrypy.tree.mount(admin_app, args.admin_app_path, config={**admin_app.get_config(), **conf_admin_app})
         cherrypy.tree.mount(classifier_service, args.classifier_path, config=conf_classifier_service)
         cherrypy.tree.mount(dataset_service, args.dataset_path, config=conf_generic_service_with_login)
         cherrypy.tree.mount(user_auth_controller, args.user_auth_path, config=conf_user_auth_service)
