@@ -27,13 +27,19 @@
 </%block>
 <section class="w3-container">
     <div class="w3-center w3-card">
-        <h3 class="w3-theme">Please login</h3>
+        <h3 class="w3-theme">Main app - login required</h3>
         <form id="login" ,ethod="post" action="#" autocomplete="on">
             <p><label for="username">Username:</label> <input id="username" type="text" name="username"
                                                               value="${username}" autofocus/></p>
             <p><label for="password">Password:</label> <input id="password" type="password" name="password"/></p>
-            <p> <input class="w3-hover-theme w3-button w3-margin-bottom" type="submit" value="Log in"/></p>
+            <p> <input class="w3-hover-theme w3-button w3-margin-bottom w3-border" type="submit" value="Log in"/></p>
         </form>
         <p id="msg" class="w3-text-red">${msg}</p>
     </div>
+    % if public_path:
+    <div class="w3-center w3-card">
+        <h3 class="w3-theme">Public access</h3>
+        <a class="w3-hover-theme w3-button w3-margin-bottom w3-border" href="${public_path}">Go to public access interface</a>
+    </div>
+    % endif
 </section>

@@ -9,7 +9,7 @@ from configargparse import ArgParser
 
 from ics.apps import WebAdmin
 from ics.apps import WebApp
-from ics.apps import WebDemo
+from ics.apps import WebPublic
 from ics.db.sqlalchemydb import SQLAlchemyDB
 from ics.services import BackgroundProcessor
 from ics.services import ClassifierCollectionService
@@ -81,7 +81,7 @@ def main():
     parser.add_argument('--port', help='host server port', type=int, default=8080)
     parser.add_argument('--main_app_path', help='server path of the web client app', type=str, default='/')
     parser.add_argument('--admin_app_path', help='server path of the web admin app', type=str, default='/admin/')
-    parser.add_argument('--demo_app_path', help='server path of the web demo app', type=str, default='/demo/')
+    parser.add_argument('--public_app_path', help='server path of the web public app', type=str, default='/public/')
     parser.add_argument('--ip_hourly_limit', help='ip hourly request limit', type=int, default=100)
     parser.add_argument('--ip_request_limit', help='ip total request limit', type=int, default=-1)
     parser.add_argument('--allow_unknown_ips', help='allow unknown IPs with rate limit', type=str_to_bool,
@@ -106,9 +106,9 @@ def main():
                              initargs=(os.path.join(args.log_dir, 'bpaccess'),
                                        os.path.join(args.log_dir, 'bpapp'))) as background_processor, \
             WebApp(args.db_connection_string, args.user_auth_path, args.admin_app_path,
-                   args.classifier_path, args.dataset_path, args.jobs_path, args.name) as main_app, \
-            WebDemo(args.db_connection_string, args.ip_auth_path, args.key_auth_path,
-                    args.classifier_path, args.name) as demo_app, \
+                   args.classifier_path, args.dataset_path, args.jobs_path, args.name, args.public_app_path) as main_app, \
+            WebPublic(args.db_connection_string, args.ip_auth_path, args.key_auth_path,
+                    args.classifier_path, args.name, args.main_app_path) as public_app, \
             WebAdmin(args.db_connection_string, args.main_app_path, args.user_auth_path,
                      args.ip_auth_path, args.key_auth_path, args.classifier_path, args.dataset_path, args.jobs_path,
                      args.name) as admin_app, \
@@ -126,7 +126,7 @@ def main():
 
         enable_controller_service()
 
-        conf_demo_app = {
+        conf_public_app = {
         }
 
         conf_main_app = {
@@ -211,7 +211,7 @@ def main():
             },
         }
 
-        cherrypy.tree.mount(demo_app, args.demo_app_path, config={**demo_app.get_config(), **conf_demo_app})
+        cherrypy.tree.mount(public_app, args.public_app_path, config={**public_app.get_config(), **conf_public_app})
         cherrypy.tree.mount(main_app, args.main_app_path, config={**main_app.get_config(), **conf_main_app})
         cherrypy.tree.mount(admin_app, args.admin_app_path, config={**admin_app.get_config(), **conf_admin_app})
         cherrypy.tree.mount(classifier_service, args.classifier_path, config=conf_classifier_service)

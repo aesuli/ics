@@ -58,6 +58,7 @@ ${parent.head()}
                         <th class="w3-small">Description</th>\
                         <th class="w3-small">Mode</th>\
                         <th class="w3-small">Size</th>\
+                        <th class="w3-small">Public</th>\
                         <th class="w3-small">Created</th>\
                         <th class="w3-small">Updated</th>\
                         </tr></table></div>');
@@ -99,6 +100,7 @@ ${parent.head()}
                                         <div id="add_label_button_'+name_string+'" class="w3-bar-item w3-button">Add label</div>\
                                         <div id="delete_label_button_'+name_string+'" class="w3-bar-item w3-button">Delete label</div>\
                                         <div id="description_button_'+name_string+'" class="w3-bar-item w3-button">Change description</div>\
+                                        <div id="public_button_'+name_string+'" class="w3-bar-item w3-button">Switch public status</div>\
                                         <div id="extract_button_'+name_string+'" class="w3-bar-item w3-button">Extract labels as classifiers</div>\
                                         <div id="view_button_'+name_string+'" class="w3-bar-item w3-button">View training data</div>\
                                         <div id="download_button_'+name_string+'" class="w3-bar-item w3-button">Download training data</div>\
@@ -110,6 +112,7 @@ ${parent.head()}
                                 <td class="updatable w3-tiny" id="classifier_description_'+msg[i].name+'">'+msg[i].description+'</td>\
                                 <td class="updatable w3-small">'+msg[i].mode+'</td>\
                                 <td class="updatable w3-small">'+msg[i].size+'</td>\
+                                <td class="updatable w3-small">'+msg[i].public+'</td>\
                                 <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
                                 <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>\
                                 </tr>');
@@ -142,6 +145,7 @@ ${parent.head()}
                                 <td class="updatable w3-tiny" id="classifier_description_'+name_string+'">'+msg[i].description+'</td>\
                                 <td class="updatable w3-small">'+msg[i].mode+'</td>\
                                 <td class="updatable w3-small">'+msg[i].size+'</td>\
+                                <td class="updatable w3-small">'+msg[i].public+'</td>\
                                 <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
                                 <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>');
                                 $('#entry\\_'+name_string+' td.updatable').remove();
@@ -190,6 +194,18 @@ ${parent.head()}
                                         width: '100%'
                                     });
                                     document.getElementById('dia_delete_label_classifier').style.display='block';
+                                };}()
+                            );
+                            $('#public\\_button\\_'+name_string).unbind('click').click(function() {
+                                var the_name = msg[i].name;
+                                var new_status = !msg[i].public;
+                                return function() {
+                                    var data = {name: the_name, public: new_status} ;
+                                    $.ajax({
+                                        type: "POST",
+                                        url: "${classifier_path}/set_public",
+                                        data: data})
+                                    .done(update);
                                 };}()
                             );
 
@@ -628,7 +644,7 @@ ${parent.head()}
                 <p>
                     <label for="mode">Mode:</label>
                     <select class="w3-select" id="mode">
-                        <%! from db import sqlalchemydb %>
+                        <%! from ics.db import sqlalchemydb %>
                         % for classification_mode in sqlalchemydb.ClassificationMode:
                         <option value="${classification_mode.value}">${classification_mode.value}</option>
                         % endfor
@@ -663,7 +679,7 @@ ${parent.head()}
                 <p>
                     <label for="mergemode">Mode:</label>
                     <select class="w3-select" id="mergemode">
-                        <%! from db import sqlalchemydb %>
+                        <%! from ics.db import sqlalchemydb %>
                         % for classification_mode in sqlalchemydb.ClassificationMode:
                         <option value="${classification_mode.value}">${classification_mode.value}</option>
                         % endfor
@@ -710,7 +726,7 @@ ${parent.head()}
                 <p>
                     <label for="modelmode">Mode:</label>
                     <select class="w3-select" id="modelmode">
-                        <%! from db import sqlalchemydb %>
+                        <%! from ics.db import sqlalchemydb %>
                         % for classification_mode in sqlalchemydb.ClassificationMode:
                         <option value="${classification_mode.value}">${classification_mode.value}</option>
                         % endfor

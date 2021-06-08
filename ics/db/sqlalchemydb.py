@@ -196,6 +196,7 @@ class Classifier(Base):
     name = Column(String(classifier_name_length), unique=True)
     description = Column(String(classifier_description_length),
                          default="No description")
+    public = Column(Boolean(), default=False)
     preferred_classification_mode = Column(SQLEnum(ClassificationMode))
     model = deferred(Column(PickleType()))
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
@@ -458,11 +459,18 @@ class SQLAlchemyDB(object):
             key_obj = session.query(User).filter(User.name == name).scalar()
             key_obj.current_request_counter = count
 
-    def classifier_names(self):
-        with self.session_scope() as session:
-            return self._flatten_list(session.query(Classifier.name)
-                                      .order_by(Classifier.name)
-                                      .all())
+    def classifier_names(self, only_public_classifiers=False):
+        if only_public_classifiers:
+            with self.session_scope() as session:
+                return self._flatten_list(session.query(Classifier.name)
+                                          .where(Classifier.public)
+                                          .order_by(Classifier.name)
+                                          .all())
+        else:
+            with self.session_scope() as session:
+                return self._flatten_list(session.query(Classifier.name)
+                                          .order_by(Classifier.name)
+                                          .all())
 
     def classifier_exists(self, name: str):
         with self.session_scope() as session:
@@ -478,10 +486,22 @@ class SQLAlchemyDB(object):
                 label_obj = Label(label, classifier.id)
                 session.add(label_obj)
 
+    def classifier_is_public(self, name):
+        with self.session_scope() as session:
+            classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
+            return classifier.public
+
+    def classifier_set_public(self, name, public: bool = None):
+        with self.session_scope() as session:
+            classifier = session.query(Classifier).filter(Classifier.name == name).scalar()
+            if public is None:
+                classifier.public = not classifier.public
+            else:
+                classifier.public = public
+
     def add_classifier_label(self, classifier_name: str, label_name: str):
         with self.session_scope() as session:
-            classifier = session.query(Classifier).filter(
-                Classifier.name == classifier_name).scalar()
+            classifier = session.query(Classifier).filter(Classifier.name == classifier_name).scalar()
             label = (session.query(Label)
                      .filter(Label.name == label_name)
                      .join(Label.classifier)

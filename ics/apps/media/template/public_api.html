@@ -1,4 +1,4 @@
-<%inherit file="demo_basewithmenu.html"/>
+<%inherit file="public_basewithmenu.html"/>
 <%block name="head">
 ${parent.head()}
 <link rel="stylesheet"
@@ -14,7 +14,7 @@ ${parent.head()}
     </ul>
     <a name="api"><h1>API</h1></a>
 
-    <p>The demo interface of the classification service publishes two methods, <a href="#info"><code>info</code></a> and
+    <p>The public interface of the classification service publishes two methods, <a href="#info"><code>info</code></a> and
         <a href="#classify"><code>classify</code></a>.</p>
 
     <h2><a name="info">${classifier_path}info</a></h2>
@@ -25,7 +25,7 @@ ${parent.head()}
         <li><code>name</code> - name of the classifier</li>
         <li><code>type</code> - type of the classifier, i.e., a name that indicates the type of machine learning
             algorithm on which the classifier is based. Current classifier types are
-            <%! from db import sqlalchemydb %>
+            <%! from ics.db import sqlalchemydb %>
             % for classifier_type in sqlalchemydb.ClassificationMode:
             "<code>${classifier_type.value}</code>"
             % endfor
