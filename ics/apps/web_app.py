@@ -11,7 +11,7 @@ __author__ = 'Andrea Esuli'
 
 class WebApp(object):
     def __init__(self, db_connection_string, user_auth_path, admin_path, classifier_path,
-                 dataset_path, jobs_path, name):
+                 dataset_path, jobs_path, name, public_path = None):
         self._db = SQLAlchemyDB(db_connection_string)
         self._media_dir = media.__path__[0]
         self._template_data = {'user_auth_path': user_auth_path,
@@ -19,6 +19,7 @@ class WebApp(object):
                                'classifier_path': classifier_path,
                                'dataset_path': dataset_path,
                                'jobs_path': jobs_path,
+                               'public_path': public_path,
                                'name': name,
                                'version': self.version()}
         self._lookup = TemplateLookup(os.path.join(self._media_dir, 'template'), input_encoding='utf-8',

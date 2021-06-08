@@ -26,6 +26,8 @@ TOMONITOR
 - check for code injection
 
 DONE
+- add public flag to classifiers
+- rename demo to public
 - next document should always use filter
 - add incomplete labeling browsing option
 - fix training example error when doing data import (duplicate values)

@@ -29,6 +29,9 @@
             <a class="w3-bar-item w3-button" href="${mount_dir}/typeandcode">Type &amp; Code</a>
             <a class="w3-bar-item w3-button" href="${mount_dir}/users">Users</a>
             <a class="w3-bar-item w3-button" href="${admin_path}/">Admin</a>
+            % if public_path:
+            <a class="w3-bar-item w3-button" href="${public_path}">Public access interface</a>
+            % endif
             <p class="w3-border w3-border-theme"></p>
             <a class="w3-bar-item w3-button" href="${mount_dir}/about">About</a>
             <p class="w3-border w3-border-theme"></p>

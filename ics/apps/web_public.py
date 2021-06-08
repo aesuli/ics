@@ -9,16 +9,17 @@ import ics.apps.media as media
 __author__ = 'Andrea Esuli'
 
 
-class WebDemo(object):
-    def __init__(self, db_connection_string, ip_auth_path, key_auth_path, classifier_path, name):
+class WebPublic(object):
+    def __init__(self, db_connection_string, ip_auth_path, key_auth_path, classifier_path, name, main_path=None):
         self._db = SQLAlchemyDB(db_connection_string)
         self._media_dir = media.__path__[0]
         self._template_data = {'ip_auth_path': ip_auth_path,
                                'key_auth_path': key_auth_path,
                                'classifier_path': classifier_path,
+                               'main_path': main_path,
                                'name': name,
                                'version': self.version(),
-                               'base_template': 'demo_basewithmenu.html'}
+                               'base_template': 'public_basewithmenu.html'}
         self._lookup = TemplateLookup(os.path.join(self._media_dir, 'template'), input_encoding='utf-8',
                                       output_encoding='utf-8')
 
@@ -52,7 +53,7 @@ class WebDemo(object):
 
     @cherrypy.expose
     def index(self):
-        template = self._lookup.get_template('demo_typeandcode.html')
+        template = self._lookup.get_template('public_typeandcode.html')
         return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose
@@ -62,7 +63,7 @@ class WebDemo(object):
 
     @cherrypy.expose
     def api(self):
-        template = self._lookup.get_template('demo_api.html')
+        template = self._lookup.get_template('public_api.html')
         return template.render(**{**self._template_data, **self.session_data})
 
     @cherrypy.expose

@@ -41,17 +41,18 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def info(self, page=None, page_size=50):
+        only_public_classifiers = cherrypy.request.login is None
+        names = self._db.classifier_names(only_public_classifiers)
+        if page is not None:
+            names = names[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         result = []
-        if page is None:
-            names = self._db.classifier_names()
-        else:
-            names = self._db.classifier_names()[int(page) * int(page_size):(int(page) + 1) * int(page_size)]
         for name in names:
             classifier_info = dict()
             classifier_info['name'] = name
             classifier_info['mode'] = self._db.get_preferred_classification_mode(name).value
             classifier_info['labels'] = self._db.get_classifier_labels(name)
             classifier_info['description'] = self._db.get_classifier_description(name)
+            classifier_info['public'] = self._db.classifier_is_public(name)
             classifier_info['created'] = str(self._db.get_classifier_creation_time(name))
             classifier_info['updated'] = str(self._db.get_classifier_last_update_time(name))
             classifier_info['size'] = self._db.get_training_document_count(name)
@@ -61,7 +62,8 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def count(self):
-        return str(len(list(self._db.classifier_names())))
+        only_public_classifiers = cherrypy.request.login is None
+        return str(len(list(self._db.classifier_names(only_public_classifiers))))
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -88,7 +90,7 @@ class ClassifierCollectionService(object):
             cherrypy.response.status = 400
             return f'Classifier type must be one of {self.classification_modes()}'
 
-            labels = []
+        labels = []
         try:
             labels = data['labels']
         except KeyError:
@@ -157,9 +159,9 @@ class ClassifierCollectionService(object):
             try:
                 y = data['y[]']
             except KeyError:
+                idx = 0
+                y = []
                 try:
-                    idx = 0
-                    y = []
                     while True:
                         y.append(data['y[' + str(idx) + '][]'])
                         idx += 1
@@ -210,6 +212,24 @@ class ClassifierCollectionService(object):
             overwrite = False
         try:
             self._db.rename_classifier(name, new_name, overwrite)
+        except KeyError:
+            cherrypy.response.status = 404
+            return '%s does not exist' % name
+        except Exception as e:
+            cherrypy.response.status = 500
+            return 'Error (%s)' % str(e)
+        else:
+            return 'Ok'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def set_public(self, name, public):
+        if public == 'false' or public == 'False':
+            public = False
+        elif public == 'true' or public == 'True':
+            public = True
+        try:
+            self._db.classifier_set_public(name, public)
         except KeyError:
             cherrypy.response.status = 404
             return '%s does not exist' % name
@@ -543,6 +563,8 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def classify(self, **data):
+        only_public_classifiers = cherrypy.request.login is None
+
         try:
             name = data['name']
         except KeyError:
@@ -551,6 +573,11 @@ class ClassifierCollectionService(object):
         if len(name.strip()) == 0:
             cherrypy.response.status = 400
             return 'Must specify a name'
+
+        if only_public_classifiers:
+            if not self._db.classifier_is_public(name):
+                cherrypy.response.status = 403
+                return 'Access denied'
 
         try:
             X = data['X']
