@@ -48,6 +48,7 @@ class DatasetCollectionService(object):
         for name in names:
             dataset_info = dict()
             dataset_info['name'] = name
+            dataset_info['description'] = self._db.get_dataset_description(name)
             dataset_info['created'] = str(self._db.get_dataset_creation_time(name))
             dataset_info['updated'] = str(self._db.get_dataset_last_update_time(name))
             dataset_info['size'] = self._db.get_dataset_size(name)
@@ -74,7 +75,7 @@ class DatasetCollectionService(object):
     def add_document(self, name, document_name, document_content):
         if not self._db.dataset_exists(name):
             self._db.create_dataset(name)
-        self._db.create_dataset_documents(name, (document_name, document_content))
+        self._db.create_dataset_documents(name, ((document_name, document_content),))
         return 'Ok'
 
     @cherrypy.expose
@@ -113,6 +114,13 @@ class DatasetCollectionService(object):
                                      description='upload to dataset \'%s\'' % dataset_name)
 
         return [job_id]
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def set_description(self, name, description):
+        if description is not None:
+            self._db.set_dataset_description(name, description)
+        return 'Ok'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

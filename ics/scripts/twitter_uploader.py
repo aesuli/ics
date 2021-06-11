@@ -1,3 +1,4 @@
+import getpass
 import sys
 from pathlib import Path
 
@@ -7,26 +8,34 @@ from twiget_cli import TwiGetCLIBase
 from ics.client import ClientSession
 
 
-def create_uploader(client):
+def create_uploader(client: ClientSession):
     def uploader(data):
-        print(client)
+        id = data['data']['id']
+        text = data['data']['text']
+        for rule in data['matching_rules']:
+            try:
+                client.dataset_add_document(rule['tag'], id, text)
+            except Exception as e:
+                print(e)
 
     return uploader
 
 
 def main():
-    protocol = 'http'
-    host = 'label.esuli.it'
-    port = 80
-    dataset_path = 'service/datasets'
-    user_auth_path = 'service/userauth'
+    parser = ArgParser()
+    parser.add_argument('-c', '--config', help='configuration file', is_config_file=True)
+    parser.add_argument('--protocol', help='host protocol (http)', type=str, default='http')
+    parser.add_argument('--host', help='host server address', type=str, default='127.0.0.1')
+    parser.add_argument('--port', help='host server port', type=int, default=8080)
+    parser.add_argument('--dataset_path', help='server path of the dataset web service', type=str,
+                        default='/service/datasets/')
+    parser.add_argument('--user_auth_path', help='server path of the user auth web service', type=str,
+                        default='/service/userauth/')
 
     default_bearer_filename = '.twiget.conf'
 
-    parser = ArgParser()
-    parser.add_argument('-c', '--config', help='configuration file', default='twitter_uploader.conf',
-                        is_config_file=True)
     parser.add_argument('-b', '--bearer_filename', type=str, default=Path.home() / default_bearer_filename)
+
     args = parser.parse_args(sys.argv[1:])
 
     try:
@@ -36,7 +45,16 @@ def main():
         print(f'Cannot load the bearer token from {args.bearer_filename}')
         exit(-1)
 
-    client = ClientSession(protocol, host, port, dataset_path=dataset_path, user_auth_path=user_auth_path)
+    client = ClientSession(args.protocol, args.host, args.port, dataset_path=args.dataset_path,
+                           user_auth_path=args.user_auth_path)
+
+    print(f'Logging into {args.protocol}://{args.host}:{args.port}{args.user_auth_path}')
+    username = input('Username: ').strip()
+    try:
+        client.login(username, getpass.getpass('Password: '))
+    except Exception as e:
+        print(f'Login failed: {e.args[0]}')
+        exit(-1)
 
     twigetcli = TwiGetCLIBase(bearer)
 

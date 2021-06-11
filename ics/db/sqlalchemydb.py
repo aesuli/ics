@@ -38,6 +38,7 @@ ipaddress_length = 45
 key_length = 30
 label_name_length = 50
 dataset_name_length = 100
+dataset_description_length = 300
 document_name_length = 100
 
 
@@ -158,6 +159,8 @@ class Dataset(Base):
     __tablename__ = 'dataset'
     id = Column(Integer(), primary_key=True)
     name = Column(String(dataset_name_length), unique=True)
+    description = Column(String(dataset_description_length),
+                         default="No description")
     creation = Column(DateTime(timezone=True), default=datetime.datetime.now)
     last_updated = Column(DateTime(timezone=True),
                           default=datetime.datetime.now,
@@ -852,6 +855,19 @@ class SQLAlchemyDB(object):
         with self.session_scope() as session:
             dataset = Dataset(name)
             session.add(dataset)
+
+    def get_dataset_description(self, name: str):
+        with self.session_scope() as session:
+            return session.query(Dataset.description).filter(
+                Dataset.name == name).scalar()
+
+    def set_dataset_description(self, name: str, description: str):
+        with self.session_scope() as session:
+            dataset = session.query(Dataset).filter(
+                Dataset.name == name).scalar()
+            if dataset is None:
+                return
+            dataset.description = description
 
     def rename_dataset(self, name: str, newname: str):
         with self.session_scope() as session:
