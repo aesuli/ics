@@ -1,5 +1,4 @@
 TODO
-- twitter integration
 - user management
     * ownership of datasets
     * ownership of classifiers
@@ -26,6 +25,7 @@ TOMONITOR
 - check for code injection
 
 DONE
+- twitter integration
 - add public flag to classifiers
 - rename demo to public
 - next document should always use filter
