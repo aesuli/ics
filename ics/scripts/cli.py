@@ -54,8 +54,7 @@ class CommandLine(Cmd):
         username = args.strip()
         if len(username) == 0:
             username = input('Username: ').strip()
-        password = getpass.getpass('Password: ')
-        pprint(self._sc.login(username, password))
+        pprint(self._sc.login(username, getpass.getpass('Password: ')))
 
     def help_whoami(self):
         print('''
@@ -632,6 +631,25 @@ class CommandLine(Cmd):
             overwrite = True
         pprint(self._sc.classifier_rename(name, new_name, overwrite))
 
+    def help_classifier_set_public(self):
+        print('''
+        Makes classifier public or not public
+        > classifier_set_public name [true|false]
+        ''')
+
+    @print_exception
+    def do_classifier_set_public(self, args):
+        args = re.split('[,\s]+', args.strip())
+        name = args[0]
+        if args[1] in ['true','True','t','T']:
+            public = True
+        elif args[1] in ['false','False','f','F']:
+            public = False
+        else:
+            pprint(f'Flag not in [true,false]: {args[1]}')
+            return
+        pprint(self._sc.classifier_set_public(name, public))
+
     def help_classifier_label_info(self):
         print('''
         Prints the labes for a classifier
@@ -885,6 +903,19 @@ class CommandLine(Cmd):
         dataset_name = args[0]
         document_name = args[1]
         pprint(self._sc.dataset_delete_document(dataset_name, document_name))
+
+    def help_dataset_description(self):
+        print('''
+        Sets a description for a dataset
+        > dataset_description dataset_name description
+        ''')
+
+    @print_exception
+    def do_dataset_description(self, args):
+        match = re.match('^([^,\s]+)[,\s]+(.+)$', args.strip())
+        name = match.group(1)
+        description = match.group(2)
+        pprint(self._sc.dataset_set_description(name, description))
 
     def help_dataset_rename(self):
         print('''

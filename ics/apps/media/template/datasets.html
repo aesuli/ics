@@ -55,6 +55,7 @@ ${parent.head()}
                         <th></th>\
                         <th class="w3-small">Name</th>\
                         <th class="w3-small">Size</th>\
+                        <th class="w3-small">Description</th>\
                         <th class="w3-small">Created</th>\
                         <th class="w3-small">Updated</th>\
                         </tr></table></div>');
@@ -95,11 +96,13 @@ ${parent.head()}
                                         <div id="browse_button_'+name_string+'" class="w3-bar-item w3-button">Browse &amp; code</div>\
                                         <div id="classify_button_'+name_string+'" class="w3-bar-item w3-button">Classify</div>\
                                         <div id="rename_button_'+name_string+'" class="w3-bar-item w3-button">Rename</div>\
+                                        <div id="description_button_'+name_string+'" class="w3-bar-item w3-button">Change description</div>\
                                         <div id="download_button_'+name_string+'" class="w3-bar-item w3-button">Download</div>\
                                         <div id="del_button_'+name_string+'" class="w3-bar-item w3-button">Delete</div>\
                                     </div></td>\
                                 <td class="updatable id entry_name">'+msg[i].name+'</td>\
                                 <td class="updatable w3-small">'+msg[i].size+'</td>\
+                                <td class="updatable w3-tiny" id="dataset_description_'+msg[i].name+'">'+msg[i].description+'</td>\
                                 <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
                                 <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>\
                                 </tr>');
@@ -143,12 +146,22 @@ ${parent.head()}
                             else {
                                 item = jQuery('<td class="updatable id entry_name">'+msg[i].name+'</td>\
                                 <td class="updatable w3-small">'+msg[i].size+'</td>\
+                                <td class="updatable w3-tiny" id="dataset_description_'+name_string+'">'+msg[i].description+'</td>\
                                 <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
                                 <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>');
                                 $('#entry\\_'+sort_string+' td.updatable').remove();
                                 $('#entry\\_'+sort_string).append(item)
                                 delete curr_list['entry_'+sort_string];
                             }
+                            $('#description\\_button\\_'+name_string).unbind('click').click(function() {
+                                var the_name = msg[i].name;
+                                var the_description = msg[i].description;
+                                return function() {
+                                    $('#descr\\_from').val(the_name);
+                                    $('#descr\\_text').val(the_description);
+                                    document.getElementById('dia_description_dataset').style.display='block';
+                                };}()
+                            );
                         }
                     }
                     for (var key in curr_list) {
@@ -235,6 +248,28 @@ ${parent.head()}
             return false;
         };
 
+        function dataset_description() {
+            var dataset_name = $('#descr\\_from').val();
+            var dataset_description = $('#descr\\_text').val();
+            document.getElementById('description_dataset_button').style.display='none';
+            document.getElementById('description_dataset_button_wait').style.display='block';
+            $.ajax({
+                type: "POST",
+                url: "${dataset_path}/set_description/"+dataset_name+"/"+dataset_description})
+            .done(function() {
+                document.getElementById('dia_description_dataset').style.display='none';
+                document.getElementById('description_dataset_button').style.display='block';
+                document.getElementById('description_dataset_button_wait').style.display='none';
+                update();
+            })
+            .fail(function(errMsg) {
+                document.getElementById('description_dataset_button').style.display='block';
+                document.getElementById('description_dataset_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
+            });
+            return false;
+        };
+
         function delete_dataset() {
             document.getElementById('delete_dataset_button').style.display='none';
             document.getElementById('delete_dataset_button_wait').style.display='block';
@@ -266,6 +301,7 @@ ${parent.head()}
             $("#upload\\_form").submit(upload_dataset);
 
             $('#rename\\_dataset').submit(rename_dataset);
+            $('#description\\_dataset').submit(dataset_description);
             $('#delete\\_dataset').submit(delete_dataset);
 
             $('#up\\_to').select2({
@@ -339,6 +375,29 @@ ${parent.head()}
                 <p>
                     <input class="w3-input" id="rename_dataset_button" type="submit" value="Rename"/>
                     <span class="w3-center" id="rename_dataset_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_description_dataset" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_description_dataset').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Change description</h3>
+            </header>
+            <form id="description_dataset" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="descr_from">Dataset:</label>
+                    <input class="w3-input" type="text" disabled id="descr_from"/>
+                </p>
+                <p>
+                    <label for="descr_text">Description:</label>
+                    <input class="w3-input" type="text" id="descr_text"/></p>
+                <p>
+                    <input class="w3-input" id="description_dataset_button" type="submit" value="Change description"/>
+                    <span class="w3-center" id="description_dataset_button_wait" style="display:none">Processing</span>
                 </p>
             </form>
         </div>

@@ -7,8 +7,8 @@ __author__ = 'Andrea Esuli'
 
 
 class ClientSession:
-    def __init__(self, protocol, host, port, classifier_path=None, dataset_path=None, jobs_path=None,
-                 user_auth_path=None, key_auth_path=None, ip_auth_path=None):
+    def __init__(self, protocol='http', host='127.0.0.1', port=8080, classifier_path=None, dataset_path=None,
+                 jobs_path=None, user_auth_path=None, key_auth_path=None, ip_auth_path=None):
         self._protocol = protocol
         self._host = host
         if type(port) == int:
@@ -432,6 +432,15 @@ class ClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
+    def classifier_set_public(self, name, public):
+        url = self._build_url(self._classifier_path + '/set_public/')
+        data = self._get_default_post_data()
+        data['name'] = name
+        data['public'] = public
+        r = self._session.post(url, data=data)
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
     def classifier_rename(self, name, new_name, overwrite=False):
         url = self._build_url(self._classifier_path + '/rename/')
         data = self._get_default_post_data()
@@ -587,6 +596,15 @@ class ClientSession:
         data = self._get_default_post_data()
         data['name'] = dataset_name
         data['document_name'] = document_name
+        r = self._session.post(url, data=data)
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
+    def dataset_set_description(self, name, description):
+        url = self._build_url(self._dataset_path + '/set_description/')
+        data = self._get_default_post_data()
+        data['name'] = name
+        data['description'] = description
         r = self._session.post(url, data=data)
         r.raise_for_status()
         return json.loads(r.content.decode())
