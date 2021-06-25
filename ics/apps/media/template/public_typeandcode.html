@@ -89,12 +89,12 @@ ${parent.head()}
                         suggestion_div.appendTo('#pool');
                         for(var j = 0;j<msg[i].labels.length;++j) {
                             if(single_label) {
-                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="w3-left w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant">'+msg[i].labels[j]+'</div>');
+                                var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="w3-left w3-hover-theme w3-hover-opacity pointer scoreline not_relevant">'+msg[i].labels[j]+'</div>');
                             }
                             else {
-                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="w3-col w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant multiyes" style="width:auto;">'+msg[i].labels[j]+'</div>');
-                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="w3-rest w3-hover-theme with w3-hover-opacity w3-right-align pointer scoreline not_relevant multino"">✗</div>');
-                                var scoreline = jQuery('<div class="w3-left w3-row multiscoreline"></div>');
+                                var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="w3-col w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multiyes" style="width:auto;">yes</div>');
+                                var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="w3-rest w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multino" style="width:auto;">no</div>');
+                                var scoreline = jQuery('<div class="w3-left w3-row multiscoreline"><div>'+msg[i].labels[j]+'</div></div>');
                                 scoreline.append(scoreline_yes);
                                 scoreline.append(scoreline_no);
                             }
