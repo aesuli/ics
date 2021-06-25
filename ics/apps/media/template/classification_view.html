@@ -157,8 +157,8 @@ ${parent.head()}
                                         }).bind(null, single_label, sort_string,  msg[i].text, labels[j]));
                                     }
                                     else {
-                                        var scoreline_yes = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'_yes" class="w3-col w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant multiyes" style="width:auto;">'+labels[j]+'</div>');
-                                        var scoreline_no = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'_no" class="w3-rest w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant multino" >✗</div>');
+                                        var scoreline_yes = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'_yes" class="w3-col w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multiyes" style="width:50%;">yes</div>');
+                                        var scoreline_no = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'_no" class="w3-rest w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multino" style="width:auto;">no</div>');
                                         scoreline_yes.click((function(single_label, id, text, label){
                                             if(!$('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').hasClass('assigned')) {
                                                 $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').removeClass('not_relevant');
@@ -191,7 +191,7 @@ ${parent.head()}
                                                 });
                                             }
                                         }).bind(null, single_label, sort_string, msg[i].text, labels[j]));
-                                        var scoreline = jQuery('<div class="w3-left w3-row multiscoreline" style="min-width:'+max_label_length+'em;"></div>');
+                                        var scoreline = jQuery('<div class="w3-left w3-row multiscoreline" style="min-width:'+max_label_length+'em;"><div>'+labels[j]+'</div></div>');
                                         scoreline.append(scoreline_yes);
                                         scoreline.append(scoreline_no);
                                     }
