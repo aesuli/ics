@@ -675,14 +675,13 @@ class ClassifierCollectionService(object):
             with self._db._lock_classifier_training_documents(new_name[label]), self._db._lock_classifier_model(
                     new_name[label]):
                 if not self._db.classifier_exists(new_name[label]):
-                    self._db.create_classifier(new_name[label], [new_name[label]], ClassificationMode.MULTI_LABEL)
+                    self._db.create_classifier(new_name[label], [label], ClassificationMode.MULTI_LABEL)
                 elif not overwrite:
                     cherrypy.response.status = 403
                     return f'A classifier with name {new_name[label]} is already in the collection'
-
                 else:
-                    self.delete(label)
-                    self._db.create_classifier(new_name[label], [new_name[label]], ClassificationMode.MULTI_LABEL)
+                    self.delete(new_name[label])
+                    self._db.create_classifier(new_name[label], [label], ClassificationMode.MULTI_LABEL)
                 jobs.append(self._db.create_job(_extract_label_classifier,
                                                 (self._db_connection_string, name, label, new_name[label]),
                                                 description=f'extract label classifier \'{new_name[label]}\''))
@@ -709,7 +708,7 @@ class ClassifierCollectionService(object):
                 sources = data['sources[]']
             except KeyError:
                 cherrypy.response.status = 400
-                return 'Must specify the source binary classifiers'
+                return 'Must specify the source classifiers'
         if type(sources) is str:
             sources = [sources]
         if type(sources) is not list:
@@ -735,19 +734,9 @@ class ClassifierCollectionService(object):
         except KeyError:
             overwrite = False
 
-        try:
-            binary_by_name = data['binary_by_name']
-            if binary_by_name == 'false' or binary_by_name == 'False':
-                binary_by_name = False
-        except KeyError:
-            binary_by_name = False
-
         labels = set()
         for source_name in sources:
-            if set(self._db.get_classifier_labels(source_name)) == set(BINARY_LABELS) and binary_by_name:
-                labels.add(source_name)
-            else:
-                labels.update(self._db.get_classifier_labels(source_name))
+            labels.update(self._db.get_classifier_labels(source_name))
 
         labels = list(labels)
 
@@ -769,12 +758,12 @@ class ClassifierCollectionService(object):
 
             jobs = list()
             jobs.append(self._db.create_job(_merge, (
-                self._db_connection_string, _update_trainingset, name, sources, binary_by_name),
-                                            description=f'merging classifiers from {sources} to "{name}" (binary_by_name={binary_by_name})'))
+                self._db_connection_string, _update_trainingset, name, sources),
+                                            description=f'merging classifiers from {sources} to "{name}"'))
             if not model_merged:
                 jobs.append(self._db.create_job(_merge, (
-                    self._db_connection_string, _update_model, name, sources, binary_by_name),
-                                                description=f'merging models from {sources} to "{name}" (binary_by_name={binary_by_name})'))
+                    self._db_connection_string, _update_model, name, sources),
+                                                description=f'merging models from {sources} to "{name}"'))
         return jobs
 
     @cherrypy.expose
@@ -859,7 +848,7 @@ def _extract_label_classifier(db_connection_string, classifier, label_to_extract
         f'ClassifierCollectionService._extract_label_classifier(classifier="{classifier}", label="{label_to_extract}")')
     with SQLAlchemyDB(db_connection_string) as db:
         model = db.get_classifier_model(classifier)
-        db.update_classifier_model(label_to_extract, model.get_label_classifier(label_to_extract))
+        db.update_classifier_model(new_name, model.get_label_classifier(label_to_extract))
         batchsize = MAX_BATCH_SIZE
         block = 0
         added = True
@@ -868,7 +857,7 @@ def _extract_label_classifier(db_connection_string, classifier, label_to_extract
             added = False
             for example in db.get_classifier_examples_with_label(classifier, label_to_extract, block * batchsize,
                                                                  batchsize):
-                batch.append((example.document.text, label_to_extract, example.assigned))
+                batch.append((example.document.text, (label_to_extract, example.assigned)))
                 added = True
             if len(batch) > 0:
                 with db._lock_classifier_training_documents(new_name):
@@ -876,25 +865,17 @@ def _extract_label_classifier(db_connection_string, classifier, label_to_extract
             block += 1
 
 
-def _merge(db_connection_string, merge_function, name, sources, binary_by_name):
+def _merge(db_connection_string, merge_function, name, sources):
     sources = list(sources)
     cherrypy.log(
-        f'ClassifierCollectionService._merge_classifiers(merge_function={merge_function}, name="{name}", sources={sources}, binary_by_name={binary_by_name})')
+        f'ClassifierCollectionService._merge_classifiers(merge_function={merge_function}, name="{name}", sources={sources})')
     with SQLAlchemyDB(db_connection_string) as db:
         target_mode = db.get_preferred_classification_mode(name)
 
-        binary_sources = set()
-        for source in sources:
-            if db.get_preferred_classification_mode(source) == ClassificationMode.SINGLE_LABEL and set(
-                    db.get_classifier_labels(source)) == set(BINARY_LABELS) and binary_by_name:
-                binary_sources.add(source)
         sizes = list()
 
         for source in sources:
-            if target_mode == ClassificationMode.SINGLE_LABEL and source in binary_sources:
-                sizes.append(db.get_classifier_examples_with_label_count(source, YES_LABEL))
-            else:
-                sizes.append(db.get_training_document_count(source))
+            sizes.append(db.get_training_document_count(source))
         max_size = max(sizes)
         paddings = list()
         for size in sizes:
@@ -911,46 +892,27 @@ def _merge(db_connection_string, merge_function, name, sources, binary_by_name):
                     paddings[i] += batchsize
                     paddings[i] = min(paddings[i], 0)
                     continue
-                if source in binary_sources:
-                    if target_mode == ClassificationMode.SINGLE_LABEL:
-                        for example in db.get_classifier_examples_with_label(source, YES_LABEL, paddings[i], batchsize):
-                            batchX.append(example.document.text)
-                            batchy.append(source)
-                            added = True
-                    elif target_mode == ClassificationMode.MULTI_LABEL:
-                        text_and_id = [(example.text, example.id) for example in
-                                       db.get_training_documents(source, paddings[i], batchsize)]
-                        for text, id in text_and_id:
-                            for label, assigned in db.get_labels_of_training_id(source, id):
-                                if label == YES_LABEL:
-                                    batchX.append(text)
-                                    if assigned:
-                                        batchy.append((source, YES_LABEL))
-                                    else:
-                                        batchy.append((source, NO_LABEL))
-                                    added = True
-                else:
-                    if target_mode == ClassificationMode.SINGLE_LABEL:
-                        text_and_id = [(example.text, example.id) for example in
-                                       db.get_training_documents(source, paddings[i], batchsize)]
-                        for text, id in text_and_id:
-                            for label, assigned in db.get_labels_of_training_id(source, id, by_last_update=True):
-                                if assigned:
-                                    batchX.append(text)
-                                    batchy.append(label)
-                                    added = True
-                                    break
-                    elif target_mode == ClassificationMode.MULTI_LABEL:
-                        text_and_id = [(example.text, example.id) for example in
-                                       db.get_training_documents(source, paddings[i], batchsize)]
-                        for text, id in text_and_id:
-                            for label, assigned in db.get_labels_of_training_id(source, id):
+                if target_mode == ClassificationMode.SINGLE_LABEL:
+                    text_and_id = [(example.text, example.id) for example in
+                                   db.get_training_documents(source, paddings[i], batchsize)]
+                    for text, id in text_and_id:
+                        for label, assigned in db.get_labels_of_training_id(source, id, by_last_update=True):
+                            if assigned:
                                 batchX.append(text)
-                                if assigned:
-                                    batchy.append((label, YES_LABEL))
-                                else:
-                                    batchy.append((label, NO_LABEL))
+                                batchy.append(label)
                                 added = True
+                                break
+                elif target_mode == ClassificationMode.MULTI_LABEL:
+                    text_and_id = [(example.text, example.id) for example in
+                                   db.get_training_documents(source, paddings[i], batchsize)]
+                    for text, id in text_and_id:
+                        for label, assigned in db.get_labels_of_training_id(source, id):
+                            batchX.append(text)
+                            if assigned:
+                                batchy.append((label, YES_LABEL))
+                            else:
+                                batchy.append((label, NO_LABEL))
+                            added = True
                 paddings[i] += batchsize
             if len(batchX) > 0:
                 pairs = list(zip(batchX, batchy))
