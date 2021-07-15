@@ -530,7 +530,6 @@ ${parent.head()}
 
         function merge_classifiers() {
             var name = $("#merge\\_name").val();
-            var binary_by_name = $("#merge\\_binary\\_by\\_name").is(':checked');
             if(!name.match(/^[a-zA-Z0-9_]+$/)) {
                 custom_error("The name of the classifier can only contain letters, numbers and the underscore character '_'");
                 return false;
@@ -539,7 +538,7 @@ ${parent.head()}
             document.getElementById('merge_classifier_button_wait').style.display='block';
             var sources = $("#comb\\_from").val()
             var mergemode = $("#mergemode").val();
-            var data = {name: name, sources: sources, mode:mergemode, binary_by_name:binary_by_name};
+            var data = {name: name, sources: sources, mode:mergemode};
             $.ajax({
                 type: "POST",
                 url: "${classifier_path}/merge",
@@ -672,10 +671,6 @@ ${parent.head()}
                     <label for="comb_from">From:</label>
                     <select class="w3-select" multiple id="comb_from" style="width:230px;">
                     </select></p>
-                <p>
-                    <label for="merge_binary_by_name">Merge binary classifiers by name</label>
-                    <input type="checkbox" id="merge_binary_by_name" checked/>
-                </p>
                 <p>
                     <label for="mergemode">Mode:</label>
                     <select class="w3-select" id="mergemode">

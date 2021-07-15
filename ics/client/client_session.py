@@ -536,13 +536,12 @@ class ClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
-    def classifier_merge(self, name, sources, type, binary_by_name, overwrite=False):
+    def classifier_merge(self, name, sources, type, overwrite=False):
         url = self._build_url(self._classifier_path + '/merge/')
         data = self._get_default_post_data()
         data['name'] = name
         data['sources'] = sources
         data['type'] = type
-        data['binary_by_name'] = binary_by_name
         data['overwrite'] = overwrite
         r = self._session.post(url, data=data)
         r.raise_for_status()

@@ -814,23 +814,7 @@ class CommandLine(Cmd):
         type = args[1]
         args = args[2:]
         sources = args
-        pprint(self._sc.classifier_merge(name, sources, type, binary_by_name=False))
-
-    def help_classifier_merge_bin(self):
-        print('''
-        Merges the labels of a set of classifiers into a new classifier
-        Any single-label classifier that has only 'yes' and 'no' labels is considered itself as a label, using only yes-labeled documents as relevant examples
-        > classifier_merge new_classifier type classifier1 classifier2 classifier3...
-        ''')
-
-    @print_exception
-    def do_classifier_merge_bin(self, args):
-        args = re.split('[,\s]+', args.strip())
-        name = args[0]
-        type = args[1]
-        args = args[2:]
-        sources = args
-        pprint(self._sc.classifier_merge(name, sources, type, binary_by_name=True))
+        pprint(self._sc.classifier_merge(name, sources, type))
 
     def help_classifier_version(self):
         print('''

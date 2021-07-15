@@ -1,8 +1,8 @@
 from collections import defaultdict
+from copy import deepcopy
 from functools import partial
 
 import numpy as np
-from sklearn import clone
 from sklearn.linear_model import PassiveAggressiveClassifier
 
 from ics.classifier.classifier import Classifier, NO_LABEL, YES_LABEL, BINARY_LABELS
@@ -111,6 +111,6 @@ class LRIOnlineClassifier(Classifier):
                                           BINARY_LABELS)
 
     def get_label_classifier(self, label_name):
-        classifier = LRIOnlineClassifier(label_name, label_name)
-        classifier._clf[label_name] = clone(self._clf[label_name])
+        classifier = LRIOnlineClassifier(label_name, [label_name])
+        classifier._clf[label_name] = deepcopy(self._clf[label_name])
         return classifier
