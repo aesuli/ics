@@ -12,7 +12,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text, \
     create_engine, PickleType, UniqueConstraint, exists, not_, and_, func, \
     Enum as SQLEnum, Boolean
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ResourceClosedError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, deferred, relationship, \
     configure_mappers, backref
@@ -612,94 +612,102 @@ class SQLAlchemyDB(object):
     def create_training_examples(self, classifier_name: str, text_and_labels):
         if len(text_and_labels) == 0:
             return
-        with self.session_scope() as session:
+        retry_on_resource_closed = 10
+        sleep_on_resource_closed = 10
+        while True:
             try:
-                text_set = list(set((text for text, _ in text_and_labels)))
-                stmt = insert(TrainingDocument.__table__).values(
-                    [{'text': text,
-                      'md5': md5(text.encode('utf-8')).hexdigest()}
-                     for text in text_set])
-                stmt = \
-                    stmt.on_conflict_do_update(index_elements=['md5'],
-                                               set_={
-                                                   'last_updated':
-                                                       datetime.datetime.now()})
-                stmt = stmt.returning(TrainingDocument.id)
-                with self._lock_all_training_documents():
-                    text_set_ids = [id_[0] for id_ in session.execute(stmt)]
+                with self.session_scope() as session:
+                    text_set = list(set((text for text, _ in text_and_labels)))
+                    stmt = insert(TrainingDocument.__table__).values(
+                        [{'text': text,
+                          'md5': md5(text.encode('utf-8')).hexdigest()}
+                         for text in text_set])
+                    stmt = \
+                        stmt.on_conflict_do_update(index_elements=['md5'],
+                                                   set_={
+                                                       'last_updated':
+                                                           datetime.datetime.now()})
+                    stmt = stmt.returning(TrainingDocument.id)
+                    with self._lock_all_training_documents():
+                        text_set_ids = [id_[0] for id_ in session.execute(stmt)]
 
-                text_id_map = dict()
-                for text, text_set_id in zip(text_set, text_set_ids):
-                    text_id_map[text] = text_set_id
+                    text_id_map = dict()
+                    for text, text_set_id in zip(text_set, text_set_ids):
+                        text_id_map[text] = text_set_id
 
-                classifier_id = session.query(Classifier.id).filter(
-                    Classifier.name == classifier_name).scalar()
+                    classifier_id = session.query(Classifier.id).filter(
+                        Classifier.name == classifier_name).scalar()
 
-                labeling = dict()
+                    labeling = dict()
 
-                if type(text_and_labels[0][1]) == str:
-                    label_set = self.get_classifier_labels(classifier_name)
+                    if type(text_and_labels[0][1]) == str:
+                        label_set = self.get_classifier_labels(classifier_name)
 
-                    label_id_map = dict()
+                        label_id_map = dict()
 
-                    for label in label_set:
-                        label_id = (session.query(Label.id)
-                                    .filter(
-                            Label.classifier_id == classifier_id)
-                                    .filter(Label.name == label)
-                                    .scalar()
-                                    )
-                        label_id_map[label] = label_id
-
-                    for text, assigned_label in text_and_labels:
-                        text_id = text_id_map[text]
                         for label in label_set:
-                            if label == assigned_label:
-                                labeling[(text_id, label_id_map[label])] = True
-                            else:
-                                labeling[(text_id, label_id_map[label])] = False
+                            label_id = (session.query(Label.id)
+                                        .filter(
+                                Label.classifier_id == classifier_id)
+                                        .filter(Label.name == label)
+                                        .scalar()
+                                        )
+                            label_id_map[label] = label_id
 
+                        for text, assigned_label in text_and_labels:
+                            text_id = text_id_map[text]
+                            for label in label_set:
+                                if label == assigned_label:
+                                    labeling[(text_id, label_id_map[label])] = True
+                                else:
+                                    labeling[(text_id, label_id_map[label])] = False
+
+                    else:
+                        label_set = set(label for _, (label, _) in text_and_labels)
+
+                        label_id_map = dict()
+                        for label in label_set:
+                            label_id = (session.query(Label.id)
+                                        .filter(
+                                Label.classifier_id == classifier_id)
+                                        .filter(Label.name == label)
+                                        .scalar()
+                                        )
+                            label_id_map[label] = label_id
+
+                        for text, (label, y_value) in text_and_labels:
+                            if type(y_value) is str:
+                                y_value = y_value == YES_LABEL or y_value == 'True' or y_value == 'true' or y_value == '1' \
+                                          or y_value == '+1' or y_value == 'yes' or y_value == 'YES' or y_value == 'y' \
+                                          or y_value == 'Y' or y_value == 'TRUE' or y_value == 'T' or y_value == True
+                            elif type(y_value) is int:
+                                y_value = y_value > 0
+                            labeling[(text_id_map[text], label_id_map[label])] = y_value
+
+                    values = [{'document_id': document_id,
+                               'label_id': label_id,
+                               'classifier_id': classifier_id,
+                               'assigned': assigned} for
+                              (document_id, label_id), assigned
+                              in labeling.items()]
+
+                    stmt = insert(Classification.__table__).values(
+                        values)
+                    to_update = {c.name: c for c in stmt.excluded}
+                    del to_update['id']
+                    del to_update['creation']
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=['document_id', 'label_id'],
+                        set_=to_update)
+                    session.execute(stmt)
+            except ResourceClosedError as e:
+                retry_on_resource_closed -= 1
+                if retry_on_resource_closed > 0:
+                    time.sleep(sleep_on_resource_closed)
+                    continue
                 else:
-                    label_set = set(label for _, (label, _) in text_and_labels)
-
-                    label_id_map = dict()
-                    for label in label_set:
-                        label_id = (session.query(Label.id)
-                                    .filter(
-                            Label.classifier_id == classifier_id)
-                                    .filter(Label.name == label)
-                                    .scalar()
-                                    )
-                        label_id_map[label] = label_id
-
-                    for text, (label, y_value) in text_and_labels:
-                        if type(y_value) is str:
-                            y_value = y_value == YES_LABEL or y_value == 'True' or y_value == 'true' or y_value == '1' \
-                                      or y_value == '+1' or y_value == 'yes' or y_value == 'YES' or y_value == 'y' \
-                                      or y_value == 'Y' or y_value == 'TRUE' or y_value == 'T' or y_value == True
-                        elif type(y_value) is int:
-                            y_value = y_value > 0
-                        labeling[(text_id_map[text], label_id_map[label])] = y_value
-
-                values = [{'document_id': document_id,
-                           'label_id': label_id,
-                           'classifier_id': classifier_id,
-                           'assigned': assigned} for
-                          (document_id, label_id), assigned
-                          in labeling.items()]
-
-                stmt = insert(Classification.__table__).values(
-                    values)
-                to_update = dict(stmt.excluded._data)
-                del to_update['id']
-                del to_update['creation']
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=['document_id', 'label_id'],
-                    set_=dict(to_update))
-                session.execute(stmt)
-            except (OperationalError, MemoryError) as e:
-                session.rollback()
-                raise e
+                    raise e
+            return
 
     def classify(self, classifier_name: str, X, classification_mode: ClassificationMode = None,
                  show_gold_labels=True):
@@ -915,7 +923,7 @@ class SQLAlchemyDB(object):
                 list(values.values()))
             stmt = stmt.on_conflict_do_update(
                 index_elements=['dataset_id', 'external_id'],
-                set_=dict(stmt.excluded._data))
+                set_=dict(stmt.excluded))
             ret = session.execute(stmt)
             dataset.last_updated = datetime.datetime.now()
 
@@ -978,7 +986,7 @@ class SQLAlchemyDB(object):
         if filter is None:
             filter = ''
         with self.session_scope() as session:
-            return (session.query(TrainingDocument)
+            return (session.query(TrainingDocument.text, TrainingDocument.id)
                     .filter(TrainingDocument.text.like(f'%{filter}%'))
                     .join(Classification.document)
                     .join(Classification.classifier)
