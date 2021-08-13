@@ -1,5 +1,4 @@
 import logging
-import multiprocessing
 import os
 import sys
 from logging import handlers
@@ -20,6 +19,7 @@ from ics.services import KeyControllerService
 from ics.services import UserControllerService
 from ics.services.auth_controller_service import enable_controller_service, any_of, redirect, fail_with_error_message, \
     arg_len_cost_function
+from ics.services.background_processor_service import setup_background_processor_log
 from ics.services.user_controller_service import logged_in, name_is
 from ics.util.util import str_to_bool
 
@@ -41,29 +41,6 @@ def setup_log(access_filename, app_filename):
     cherrypy.log.error_log.addHandler(error_handler)
 
     access_handler = handlers.TimedRotatingFileHandler(access_filename + '.log', when='midnight')
-    access_handler.setLevel(logging.DEBUG)
-    cherrypy.log.access_log.addHandler(access_handler)
-
-
-def setup_background_processor_log(access_filename, app_filename):
-    path = os.path.dirname(access_filename)
-    os.makedirs(path, exist_ok=True)
-    path = os.path.dirname(app_filename)
-    os.makedirs(path, exist_ok=True)
-
-    cherrypy.config.update({  # 'environment': 'production',
-        'log.error_file': '',
-        'log.access_file': ''})
-
-    process = multiprocessing.current_process()
-
-    error_handler = handlers.TimedRotatingFileHandler(app_filename + '-' + str(process.name) + '.log',
-                                                      when='midnight')
-    error_handler.setLevel(logging.DEBUG)
-    cherrypy.log.error_log.addHandler(error_handler)
-
-    access_handler = handlers.TimedRotatingFileHandler(access_filename + '-' + str(process.name) + '.log',
-                                                       when='midnight')
     access_handler.setLevel(logging.DEBUG)
     cherrypy.log.access_log.addHandler(access_handler)
 
@@ -106,9 +83,10 @@ def main():
                              initargs=(os.path.join(args.log_dir, 'bpaccess'),
                                        os.path.join(args.log_dir, 'bpapp'))) as background_processor, \
             WebApp(args.db_connection_string, args.user_auth_path, args.admin_app_path,
-                   args.classifier_path, args.dataset_path, args.jobs_path, args.name, args.public_app_path) as main_app, \
+                   args.classifier_path, args.dataset_path, args.jobs_path, args.name,
+                   args.public_app_path) as main_app, \
             WebPublic(args.db_connection_string, args.ip_auth_path, args.key_auth_path,
-                    args.classifier_path, args.name, args.main_app_path) as public_app, \
+                      args.classifier_path, args.name, args.main_app_path) as public_app, \
             WebAdmin(args.db_connection_string, args.main_app_path, args.user_auth_path,
                      args.ip_auth_path, args.key_auth_path, args.classifier_path, args.dataset_path, args.jobs_path,
                      args.name) as admin_app, \

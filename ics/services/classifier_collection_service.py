@@ -10,7 +10,7 @@ import cherrypy
 import numpy
 from cherrypy.lib.static import serve_file
 
-from ics.classifier.classifier import BINARY_LABELS, YES_LABEL, NO_LABEL
+from ics.classifier.classifier import YES_LABEL, NO_LABEL
 from ics.db.sqlalchemydb import SQLAlchemyDB, ClassificationMode, LabelSource
 from ics.util.util import get_fully_portable_file_name, bool_to_string
 
@@ -322,8 +322,8 @@ class ClassifierCollectionService(object):
         batch = list()
         classification_mode = self._db.get_preferred_classification_mode(name)
 
-        for trainingdocument in self._db.get_training_documents(name, offset, limit, filter):
-            batch.append({'id': trainingdocument.id, 'text': trainingdocument.text})
+        for text, id in self._db.get_training_documents(name, offset, limit, filter):
+            batch.append({'id': id, 'text': text})
 
         for entry in batch:
             id_ = entry['id']
@@ -373,8 +373,8 @@ class ClassifierCollectionService(object):
                         offset = block_count * block_size
                         block_count += 1
                         rows = list()
-                        for trainingdocument in self._db.get_training_documents(name, offset, MAX_BATCH_SIZE):
-                            rows.append([trainingdocument.id, trainingdocument.text])
+                        for text, id in self._db.get_training_documents(name, offset, MAX_BATCH_SIZE):
+                            rows.append([id, text])
 
                         for id_, text in rows:
                             labels = self._db.get_labels_of_training_id(name, id_)
@@ -893,9 +893,7 @@ def _merge(db_connection_string, merge_function, name, sources):
                     paddings[i] = min(paddings[i], 0)
                     continue
                 if target_mode == ClassificationMode.SINGLE_LABEL:
-                    text_and_id = [(example.text, example.id) for example in
-                                   db.get_training_documents(source, paddings[i], batchsize)]
-                    for text, id in text_and_id:
+                    for text, id in db.get_training_documents(source, paddings[i], batchsize):
                         for label, assigned in db.get_labels_of_training_id(source, id, by_last_update=True):
                             if assigned:
                                 batchX.append(text)
@@ -903,9 +901,7 @@ def _merge(db_connection_string, merge_function, name, sources):
                                 added = True
                                 break
                 elif target_mode == ClassificationMode.MULTI_LABEL:
-                    text_and_id = [(example.text, example.id) for example in
-                                   db.get_training_documents(source, paddings[i], batchsize)]
-                    for text, id in text_and_id:
+                    for text, id in db.get_training_documents(source, paddings[i], batchsize):
                         for label, assigned in db.get_labels_of_training_id(source, id):
                             batchX.append(text)
                             if assigned:
