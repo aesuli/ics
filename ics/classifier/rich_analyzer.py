@@ -2,13 +2,13 @@ import re
 
 __author__ = 'Andrea Esuli'
 
-urlre = re.compile(r'http[s]{,1}://[^ ]+')
+urlre = re.compile(r'https?://[^ ]+')
 mentionre = re.compile(r'@[\w]+')
 hashre = re.compile(r'#[\w]+')
 emotre = re.compile(
     r'(:\w+\:|\<[\/\\]?3|[\(\)\\\D|\*\$][\-\^]?[\:\;\=]|[\:\;\=B8][\-\^]?[3DOPp\@\$\*\\\)\(\/\|])(?=\s|[\!\.\?]|$)')
 featre = re.compile(
-    r'(http[s]{,1}://[^ ]+|[\w\-]+|#\w+|@\w+|\:\w+\:|\<[\/\\]?3|[\(\)\\\D|\*\$][\-\^]?[\:\;\=]|[\:\;\=B8][\-\^]?[3DOPp\@\$\*\\\)\(\/\|])(?=\s|[;:,\!\.\?]|$)')
+    r'(https?://[^ ]+|[\w\-]+|#\w+|@\w+|\:\w+\:|\<[\/\\]?3|[\(\)\\\D|\*\$][\-\^]?[\:\;\=]|[\:\;\=B8][\-\^]?[3DOPp\@\$\*\\\)\(\/\|])(?=\s|[;:,\!\.\?]|$)')
 
 
 def clean_html(html):
@@ -53,9 +53,3 @@ def rich_analyzer(doc, word_ngrams=None, char_ngrams=None, stopwords=None):
     for alttag, regex in [('_URL', urlre), ('_MENTION', mentionre), ('_HASHTAG', hashre), ('_EMOTICON', emotre)]:
         output.extend([alttag for _ in regex.findall(doc)])
     return output
-
-
-if __name__ == '__main__':
-    example = 'nel @me_2zzo y < x http://www.es.com/ <br /> <p> <a href=\'ff\'> ddd </a>  :del: https://wd.d cammin ;) e < r  r >= d f): di #nos22tr-fa, #vita.'
-    output = rich_analyzer(example, [2, 3], [2, 3])
-    print(output)

@@ -14,7 +14,9 @@ __author__ = 'Andrea Esuli'
 
 class LRIOnlineClassifier(Classifier):
 
-    def __init__(self, name, classes, n_features=(2 ** 18), average=False):
+    def __init__(self, name, classes, n_features=(2 ** 18), average=False, C=1.0, fit_intercept=True, max_iter=1000,
+                 tol=1e-3, early_stopping=False, validation_fraction=0.1, n_iter_no_change=5, shuffle=True, verbose=0,
+                 loss="hinge"):
         self._name = name
         self.average = average
         analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[5])
@@ -22,7 +24,10 @@ class LRIOnlineClassifier(Classifier):
                                                         analyzer=analyzer)
         self._clf = {
             label: PassiveAggressiveClassifier(average=average, n_jobs=-1,
-                                               max_iter=1000, tol=1e-3) for
+                                               max_iter=max_iter, tol=tol, C=C, fit_intercept=fit_intercept,
+                                               early_stopping=early_stopping, validation_fraction=validation_fraction,
+                                               n_iter_no_change=n_iter_no_change, shuffle=shuffle, verbose=verbose,
+                                               loss=loss) for
             label in classes}
         for label in self._clf:
             self._clf[label].partial_fit(self._vec.transform(['']), [NO_LABEL],
