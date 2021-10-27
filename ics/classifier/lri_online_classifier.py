@@ -20,7 +20,7 @@ class LRIOnlineClassifier(Classifier):
         self._name = name
         self.average = average
         analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[5])
-        self._vec = LightweightRandomIndexingVectorizer(n_features,
+        self._vec = LightweightRandomIndexingVectorizer(n_features=n_features,
                                                         analyzer=analyzer)
         self._clf = {
             label: PassiveAggressiveClassifier(average=average, n_jobs=-1,
@@ -37,7 +37,7 @@ class LRIOnlineClassifier(Classifier):
         if len(y) == 0:
             return
         X = self._vec.transform(X)
-        if type(y[0]) == list:
+        if type(y[0]) == list or type(y[0]) == tuple:
             label_X_idx = defaultdict(list)
             label_y = defaultdict(list)
             for idx, y_x in enumerate(y):
