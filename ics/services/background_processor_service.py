@@ -1,15 +1,12 @@
 import logging
 import multiprocessing
 import os
-import sys
 from functools import partial
 from logging import handlers
 from multiprocessing import BoundedSemaphore
 from multiprocessing.pool import Pool
 from threading import Thread
 from time import sleep
-import tblib.pickling_support
-tblib.pickling_support.install()
 
 import cherrypy
 
@@ -18,6 +15,7 @@ from ics.db.sqlalchemydb import SQLAlchemyDB, Job
 __author__ = 'Andrea Esuli'
 
 LOOP_WAIT = 0.1
+
 
 def setup_background_processor_log(access_filename, app_filename):
     path = os.path.dirname(access_filename)
@@ -41,20 +39,19 @@ def setup_background_processor_log(access_filename, app_filename):
     access_handler.setLevel(logging.DEBUG)
     cherrypy.log.access_log.addHandler(access_handler)
 
-class ExceptionWrapper(object):
+class JobError:
+    def __init__(self, exception):
+        self.msg = str(exception)
 
-    def __init__(self, ee):
-        self.ee = ee
-        __, __, self.tb = sys.exc_info()
-
-    def re_raise(self):
-        raise self.ee.with_traceback(self.tb)
+    def __str__(self):
+        return f'{self.__class__.__name__}(\'{self.msg}\')'
 
 def ExceptionCatcher(f, *args, **kwargs):
     try:
-        f(*args,**kwargs)
+        f(*args, **kwargs)
     except Exception as e:
-        return ExceptionWrapper(e)
+        return JobError(e)
+
 
 class BackgroundProcessor(Thread):
     def __init__(self, db_connection_string, pool_size, initializer=None, initargs=None):
@@ -76,7 +73,8 @@ class BackgroundProcessor(Thread):
                 self._db.set_job_start_time(job.id)
                 self._db.set_job_status(job.id, Job.status_running)
                 cherrypy.log('Starting ' + str(job.id) + ': ' + str(job.action['function']), severity=logging.INFO)
-                self._pool.apply_async(partial(ExceptionCatcher,job.action['function']), job.action['args'], job.action['kwargs'],
+                self._pool.apply_async(partial(ExceptionCatcher, job.action['function']), job.action['args'],
+                                       job.action['kwargs'],
                                        callback=partial(self._release, job.id, Job.status_done),
                                        error_callback=partial(self._release, job.id, Job.status_error))
             except Exception as e:
@@ -100,18 +98,20 @@ class BackgroundProcessor(Thread):
 
     def _release(self, job_id, status, msg=None):
         try:
-            if hasattr(msg,'re_raise'):
+            if type(msg) == JobError:
                 status = Job.status_error
-            cherrypy.log('Completed ' + str(job_id) + ' ' + str(status) + ' Message: ' + str(msg),
-                         severity=logging.INFO)
+                cherrypy.log('Error ' + str(job_id) + ' ' + str(status) + ' Message: ' + str(msg), severity=logging.ERROR)
+            else:
+                cherrypy.log('Completed ' + str(job_id) + ' ' + str(status) + ' Message: ' + str(msg), severity=logging.INFO)
             self._db.set_job_completion_time(job_id)
             self._db.set_job_status(job_id, status)
-            if hasattr(msg,'re_raise'):
+            if hasattr(msg, 're_raise'):
                 msg.re_raise()
         finally:
             self._semaphore.release()
 
     def stop(self):
+        cherrypy.log('Stopping BackgroundProcessor')
         self._running = False
 
     def version(self):

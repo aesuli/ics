@@ -7,7 +7,7 @@ from sklearn.linear_model import PassiveAggressiveClassifier
 
 from ics.classifier.classifier import Classifier, NO_LABEL, YES_LABEL, BINARY_LABELS
 from ics.classifier.lri import LightweightRandomIndexingVectorizer
-from ics.classifier.rich_analyzer import rich_analyzer
+from ics.classifier.analyzer import custom_analyzer
 
 __author__ = 'Andrea Esuli'
 
@@ -19,7 +19,7 @@ class LRIOnlineClassifier(Classifier):
                  loss="hinge"):
         self._name = name
         self.average = average
-        analyzer = partial(rich_analyzer, word_ngrams=[2, 3], char_ngrams=[5])
+        analyzer = partial(custom_analyzer, word_ngrams=[2, 3], char_ngrams=[5])
         self._vec = LightweightRandomIndexingVectorizer(n_features=n_features,
                                                         analyzer=analyzer)
         self._clf = {

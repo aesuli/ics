@@ -23,7 +23,7 @@ def ngrams(items, n, prefix):
     return [prefix + '_'.join(items[start:start + n]) for start in range(0, len(items) - n + 1)]
 
 
-def rich_analyzer(doc, word_ngrams=None, char_ngrams=None, stopwords=None):
+def custom_analyzer(doc, word_ngrams=None, char_ngrams=None, stopwords=None):
     if word_ngrams is None:
         word_ngrams = list()
     if char_ngrams is None:
