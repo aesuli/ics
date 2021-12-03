@@ -1010,6 +1010,17 @@ class SQLAlchemyDB(object):
                     .limit(limit)
                     )
 
+    def get_classifier_random_examples_with_label(self, name: str, label: str, limit: int = None):
+        with self.session_scope() as session:
+            return (session.query(Classification)
+                    .filter(Classifier.name == name)
+                    .join(Classification.classifier)
+                    .join(Classification.label)
+                    .filter(Label.name == label)
+                    .order_by(func.random())
+                    .limit(limit)
+                    )
+
     def get_dataset_random_documents_without_labels(self, dataset_name: str,
                                                     classifier_name: str, filter: str = None,
                                                     limit: int = None,

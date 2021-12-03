@@ -3,7 +3,8 @@ import os
 import pickle
 import random
 import shutil
-from collections import defaultdict
+from collections import defaultdict, Counter
+from contextlib import nullcontext
 from uuid import uuid4
 
 import cherrypy
@@ -17,6 +18,7 @@ from ics.util.util import get_fully_portable_file_name, bool_to_string
 __author__ = 'Andrea Esuli'
 
 MAX_BATCH_SIZE = 1000
+MIN_BATCH_SIZE = 10
 
 CSV_LARGE_FIELD = 1024 * 1024 * 10
 
@@ -777,29 +779,35 @@ def _update_trainingset(db_connection, name, X, y):
     cherrypy.log(
         'ClassifierCollectionService._update_trainingset(name="' + name + '", len(X)="' + str(len(X)) + '")')
     if type(db_connection) == str:
-        with SQLAlchemyDB(db_connection) as db:
-            with db._lock_classifier_training_documents(name):
-                db.create_training_examples(name, list(zip(X, y)))
+        context_manager = SQLAlchemyDB
     else:
-        with db_connection._lock_classifier_model(name):
-            db_connection.create_training_examples(name, list(zip(X, y)))
+        context_manager = nullcontext
+    with context_manager(db_connection) as db:
+        with db._lock_classifier_training_documents(name):
+            db.create_training_examples(name, list(zip(X, y)))
 
 
 def _update_model(db_connection, name, X, y):
     if len(X) > 0:
-        cherrypy.log(
-            'ClassifierCollectionService._update_model(name="' + name + '", len(X)="' + str(len(X)) + '")')
         if type(db_connection) == str:
-            with SQLAlchemyDB(db_connection) as db:
-                with db._lock_classifier_model(name):
-                    model = db.get_classifier_model(name)
-                    model.learn(X, y)
-                    db.update_classifier_model(name, model)
+            context_manager = SQLAlchemyDB
         else:
-            with db_connection._lock_classifier_model(name):
-                model = db_connection.get_classifier_model(name)
+            context_manager = nullcontext
+        with context_manager(db_connection) as db:
+            if len(X) < MIN_BATCH_SIZE:
+                label_counts = Counter([example[0] for example in y])
+                for label,count in label_counts.items():
+                    missing = MIN_BATCH_SIZE - count
+                    for additional_example in db.get_classifier_random_examples_with_label(name, label, missing):
+                        X.append(additional_example.document.text)
+                        y.append([label, additional_example.assigned])
+
+            cherrypy.log(
+                'ClassifierCollectionService._update_model(name="' + name + '", len(X)="' + str(len(X)) + '")')
+            with db._lock_classifier_model(name):
+                model = db.get_classifier_model(name)
                 model.learn(X, y)
-                db_connection.update_classifier_model(name, model)
+                db.update_classifier_model(name, model)
 
 
 def _update_from_file(update_function, encoding, db_connection_string, filename, classifier_name):
