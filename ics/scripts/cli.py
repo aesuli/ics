@@ -449,6 +449,15 @@ class CommandLine(Cmd):
         id = args.strip()
         pprint(self._sc.job_rerun(id))
 
+    def help_job_delete_all(self):
+        print('''
+        Deletes all jobs
+        ''')
+
+    @print_exception
+    def do_job_delete_all(self, args):
+        pprint(self._sc.job_delete_all())
+
     def help_job_delete_all_done(self):
         print('''
         Deletes all completed jobs
@@ -457,6 +466,24 @@ class CommandLine(Cmd):
     @print_exception
     def do_job_delete_all_done(self, args):
         pprint(self._sc.job_delete_all_done())
+
+    def help_job_delete_all_errors(self):
+        print('''
+        Deletes all jobs ended with an error
+        ''')
+
+    @print_exception
+    def do_job_delete_all_errors(self, args):
+        pprint(self._sc.job_delete_all_errors())
+
+    def help_job_delete_all_not_running(self):
+        print('''
+        Deletes all jobs not currently running
+        ''')
+
+    @print_exception
+    def do_job_delete_all_not_running(self, args):
+        pprint(self._sc.job_delete_all_not_running())
 
     def help_job_completed(self):
         print('''
@@ -641,9 +668,9 @@ class CommandLine(Cmd):
     def do_classifier_set_public(self, args):
         args = re.split('[,\s]+', args.strip())
         name = args[0]
-        if args[1] in ['true','True','t','T']:
+        if args[1] in ['true', 'True', 't', 'T']:
             public = True
-        elif args[1] in ['false','False','f','F']:
+        elif args[1] in ['false', 'False', 'f', 'F']:
             public = False
         else:
             pprint(f'Flag not in [true,false]: {args[1]}')

@@ -317,8 +317,29 @@ class ClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
+    def job_delete_all(self):
+        url = self._build_url(self._jobs_path + '/delete_all/')
+        data = self._get_default_post_data()
+        r = self._session.post(url, data=data)
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
     def job_delete_all_done(self):
         url = self._build_url(self._jobs_path + '/delete_all_done/')
+        data = self._get_default_post_data()
+        r = self._session.post(url, data=data)
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
+    def job_delete_all_not_running(self):
+        url = self._build_url(self._jobs_path + '/delete_all_not_running/')
+        data = self._get_default_post_data()
+        r = self._session.post(url, data=data)
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
+    def job_delete_all_errors(self):
+        url = self._build_url(self._jobs_path + '/delete_all_errors/')
         data = self._get_default_post_data()
         r = self._session.post(url, data=data)
         r.raise_for_status()

@@ -104,6 +104,38 @@ class JobsService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
+    def delete_all_errors(self):
+        to_remove = set()
+        for job in self._db.get_jobs():
+            if job.status == Job.status_error:
+                to_remove.add(job.id)
+        for id in to_remove:
+            self._db.delete_job(id)
+        return 'Ok'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def delete_all_not_running(self):
+        to_remove = set()
+        for job in self._db.get_jobs():
+            if job.status != Job.status_running:
+                to_remove.add(job.id)
+        for id in to_remove:
+            self._db.delete_job(id)
+        return 'Ok'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def delete_all(self):
+        to_remove = set()
+        for job in self._db.get_jobs():
+            to_remove.add(job.id)
+        for id in to_remove:
+            self._db.delete_job(id)
+        return 'Ok'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
     def version(self):
         import ics
         return ics.__version__

@@ -146,11 +146,37 @@ ${parent.head()}
 
 
         function delete_all_jobs_done() {
+            document.getElementById('delete_all_job_done_button').style.display='none';
+            document.getElementById('delete_all_job_done_button_wait').style.display='block';
+            $.ajax({
+                type:'POST',
+                url:'${jobs_path}/delete_all_done' })
+            .done(function() {
+                document.getElementById('dia_delete_all_job_done').style.display='none';
+                document.getElementById('delete_all_job_done_button').style.display='block';
+                document.getElementById('delete_all_job_done_button_wait').style.display='none';
+                update();
+            })
+            .fail(function(errMsg) {
+                document.getElementById('delete_all_job_done_button').style.display='block';
+                document.getElementById('delete_all_job_done_button_wait').style.display='none';
+                custom_error(errMsg.responseText);
+            });
+            return false;
+            if(!confirm('Please confirm the DELETE request, proceed?'))
+                return;
+            $.ajax({
+                type:'POST',
+                url:'${jobs_path}/delete_all_done'})
+            .done(update);
+        };
+
+        function delete_all_jobs() {
             document.getElementById('delete_all_job_button').style.display='none';
             document.getElementById('delete_all_job_button_wait').style.display='block';
             $.ajax({
                 type:'POST',
-                url:'${jobs_path}/delete_all_done' })
+                url:'${jobs_path}/delete_all' })
             .done(function() {
                 document.getElementById('dia_delete_all_job').style.display='none';
                 document.getElementById('delete_all_job_button').style.display='block';
@@ -167,7 +193,7 @@ ${parent.head()}
                 return;
             $.ajax({
                 type:'POST',
-                url:'${jobs_path}/delete_all_done'})
+                url:'${jobs_path}/delete_all'})
             .done(update);
         };
 
@@ -216,7 +242,8 @@ ${parent.head()}
 
         $( document ).ready(function() {
             $('#delete\\_job').submit(delete_job);
-            $('#delete\\_all\\_job').submit(delete_all_jobs_done);
+            $('#delete\\_all\\_job\\_done').submit(delete_all_jobs_done);
+            $('#delete\\_all\\_job').submit(delete_all_jobs);
             $('#rerun\\_job').submit(rerun_job);
             timed_update();
         });
@@ -225,8 +252,11 @@ ${parent.head()}
 
 <%block name="menu2">
 <section class="w3-navbar w3-theme-d4 ">
+    <div id="but_delete_all_job_done" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_delete_all_job_done').style.display='block'">Delete all completed jobs
+    </div>
     <div id="but_delete_all_job" class="w3-bar-item w3-button"
-         onclick="document.getElementById('dia_delete_all_job').style.display='block'">Delete all completed jobs
+         onclick="document.getElementById('dia_delete_all_job').style.display='block'">Delete all jobs
     </div>
 </section>
 </%block>
@@ -244,12 +274,28 @@ ${parent.head()}
                 <span
                         onclick="document.getElementById('dia_delete_all_job').style.display='none'"
                         class="w3-button w3-display-topright">&times;</span>
-                <h3 class="w3-theme">Delete all completed jobs</h3>
+                <h3 class="w3-theme">Delete all jobs</h3>
             </header>
             <form id="delete_all_job" class="w3-container" action="#" method="post">
                 <p>
-                    <input class="w3-input" id="delete_all_job_button" type="submit" value="Delete all completed jobs"/>
+                    <input class="w3-input" id="delete_all_job_button" type="submit" value="Delete all jobs"/>
                     <span class="w3-center" id="delete_all_job_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_delete_all_job_done" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_delete_all_job_done').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Delete all completed jobs</h3>
+            </header>
+            <form id="delete_all_job_done" class="w3-container" action="#" method="post">
+                <p>
+                    <input class="w3-input" id="delete_all_job_done_button" type="submit" value="Delete all completed jobs"/>
+                    <span class="w3-center" id="delete_all_job_done_button_wait" style="display:none">Processing</span>
                 </p>
             </form>
         </div>
