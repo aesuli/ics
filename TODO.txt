@@ -25,6 +25,10 @@ TOMONITOR
 - check for code injection
 
 DONE
+- minibatch learning
+- delete not running jobs
+- delete error jobs
+- delete all jobs
 - twitter integration
 - add public flag to classifiers
 - rename demo to public
