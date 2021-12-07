@@ -550,6 +550,7 @@ def _classify(db_connection_string, datasetname, classifiers, fullpath):
             except FileNotFoundError:
                 pass
             raise
+    return 'done'
 
 
 def _create_dataset_documents(db_connection_string, dataset_name, filename):
@@ -575,9 +576,11 @@ def _create_dataset_documents(db_connection_string, dataset_name, filename):
                     external_ids_and_contents = list()
             if len(external_ids_and_contents) > 0:
                 db.create_dataset_documents(dataset_name, external_ids_and_contents)
+    return 'done'
 
 
 def _delete_dataset(db_connection_string, name):
     cherrypy.log('DatasetCollectionService._delete_dataset(dname="' + name + '")')
     with SQLAlchemyDB(db_connection_string) as db:
         db.delete_dataset(name)
+    return 'done'

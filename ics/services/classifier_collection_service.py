@@ -751,21 +751,14 @@ class ClassifierCollectionService(object):
             else:
                 self.delete(name)
                 self._db.create_classifier(name, labels, classification_mode)
-            model_merged = False
-            if len(sources) == 1:
-                model_merged = True
-                model = self._db.get_classifier_model(sources[0])
-                model.rename(name)
-                self._db.update_classifier_model(name, model)
 
             jobs = list()
-            jobs.append(self._db.create_job(_merge, (
-                self._db_connection_string, _update_trainingset, name, sources),
-                                            description=f'merging classifiers from {sources} to "{name}"'))
-            if not model_merged:
-                jobs.append(self._db.create_job(_merge, (
-                    self._db_connection_string, _update_model, name, sources),
-                                                description=f'merging models from {sources} to "{name}"'))
+            jobs.append(self._db.create_job(_merge_trainingsets, (
+                self._db_connection_string, name, sources),
+                                            description=f'merging training sets from {sources} to "{name}"'))
+            jobs.append(self._db.create_job(_merge_models, (
+                self._db_connection_string, name, sources),
+                                            description=f'merging models from {sources} to "{name}"'))
         return jobs
 
     @cherrypy.expose
@@ -785,6 +778,7 @@ def _update_trainingset(db_connection, name, X, y):
     with context_manager(db_connection) as db:
         with db._lock_classifier_training_documents(name):
             db.create_training_examples(name, list(zip(X, y)))
+    return 'done'
 
 
 def _update_model(db_connection, name, X, y):
@@ -796,7 +790,7 @@ def _update_model(db_connection, name, X, y):
         with context_manager(db_connection) as db:
             if len(X) < MIN_BATCH_SIZE:
                 label_counts = Counter([example[0] for example in y])
-                for label,count in label_counts.items():
+                for label, count in label_counts.items():
                     missing = MIN_BATCH_SIZE - count
                     for additional_example in db.get_classifier_random_examples_with_label(name, label, missing):
                         X.append(additional_example.document.text)
@@ -808,6 +802,7 @@ def _update_model(db_connection, name, X, y):
                 model = db.get_classifier_model(name)
                 model.learn(X, y)
                 db.update_classifier_model(name, model)
+    return 'done'
 
 
 def _update_from_file(update_function, encoding, db_connection_string, filename, classifier_name):
@@ -849,6 +844,7 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
                 y = []
         if len(X) > 0:
             update_function(db_connection_string, classifier_name, X, y)
+    return 'done'
 
 
 def _extract_label_classifier(db_connection_string, classifier, label_to_extract, new_name):
@@ -871,15 +867,13 @@ def _extract_label_classifier(db_connection_string, classifier, label_to_extract
                 with db._lock_classifier_training_documents(new_name):
                     db.create_training_examples(new_name, batch)
             block += 1
+    return 'done'
 
 
-def _merge(db_connection_string, merge_function, name, sources):
+def _merge_trainingsets(db_connection_string, name, sources):
     sources = list(sources)
-    cherrypy.log(
-        f'ClassifierCollectionService._merge_classifiers(merge_function={merge_function}, name="{name}", sources={sources})')
+    cherrypy.log(f'ClassifierCollectionService._merge_trainingsets(name="{name}", sources={sources})')
     with SQLAlchemyDB(db_connection_string) as db:
-        target_mode = db.get_preferred_classification_mode(name)
-
         sizes = list()
 
         for source in sources:
@@ -900,15 +894,50 @@ def _merge(db_connection_string, merge_function, name, sources):
                     paddings[i] += batchsize
                     paddings[i] = min(paddings[i], 0)
                     continue
-                if target_mode == ClassificationMode.SINGLE_LABEL:
-                    for text, id in db.get_training_documents(source, paddings[i], batchsize):
-                        for label, assigned in db.get_labels_of_training_id(source, id, by_last_update=True):
-                            if assigned:
-                                batchX.append(text)
-                                batchy.append(label)
-                                added = True
-                                break
-                elif target_mode == ClassificationMode.MULTI_LABEL:
+                for text, id in db.get_training_documents(source, paddings[i], batchsize):
+                    for label, assigned in db.get_labels_of_training_id(source, id):
+                        batchX.append(text)
+                        if assigned:
+                            batchy.append((label, YES_LABEL))
+                        else:
+                            batchy.append((label, NO_LABEL))
+                        added = True
+                paddings[i] += batchsize
+            if len(batchX) > 0:
+                _update_trainingset(db, name, batchX, batchy)
+    return 'done'
+
+
+def _merge_models(db_connection_string, name, sources):
+    sources = list(sources)
+    cherrypy.log(f'ClassifierCollectionService._merge_models(name="{name}", sources={sources})')
+    with SQLAlchemyDB(db_connection_string) as db:
+        if len(sources) == 1:
+            model = db.get_classifier_model(sources[0])
+            model.rename(name)
+            db.update_classifier_model(name, model)
+        else:
+            # TODO
+            sizes = list()
+
+            for source in sources:
+                sizes.append(db.get_training_document_count(source))
+            max_size = max(sizes)
+            paddings = list()
+            for size in sizes:
+                paddings.append(size - max_size)
+
+            batchsize = MAX_BATCH_SIZE // len(sources)
+            added = True
+            while added:
+                added = False
+                batchX = list()
+                batchy = list()
+                for i, source in enumerate(sources):
+                    if paddings[i] < 0:
+                        paddings[i] += batchsize
+                        paddings[i] = min(paddings[i], 0)
+                        continue
                     for text, id in db.get_training_documents(source, paddings[i], batchsize):
                         for label, assigned in db.get_labels_of_training_id(source, id):
                             batchX.append(text)
@@ -917,9 +946,10 @@ def _merge(db_connection_string, merge_function, name, sources):
                             else:
                                 batchy.append((label, NO_LABEL))
                             added = True
-                paddings[i] += batchsize
-            if len(batchX) > 0:
-                pairs = list(zip(batchX, batchy))
-                random.shuffle(pairs)
-                batchX, batchy = zip(*pairs)
-                merge_function(db, name, batchX, batchy)
+                    paddings[i] += batchsize
+                if len(batchX) > 0:
+                    pairs = list(zip(batchX, batchy))
+                    random.shuffle(pairs)
+                    batchX, batchy = zip(*pairs)
+                    _update_model(db, name, batchX, batchy)
+    return 'done'

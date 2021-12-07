@@ -1,4 +1,6 @@
 TODO
+- target constraint-agnostic merge
+- return message/error in jobs
 - user management
     * ownership of datasets
     * ownership of classifiers
