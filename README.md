@@ -66,7 +66,7 @@ The first time, only the `admin` user is defined, with password `adminadmin`.
 
 ## Configuration
 
-A configuration file with value for the arguments of `ics-start` can be created by using the `-s` argument with the filename to use.
+A configuration for `ics-start` can be saved to a file using the `-s` argument with the filename to use.
 For example, this command creates a `default.conf` file that lists all the default values (if any other argument is used in the command, the value of the argument is saved in the configuration file).
 
 ```

@@ -24,6 +24,7 @@ def create_uploader(client: ClientSession):
 def main():
     parser = ArgParser()
     parser.add_argument('-c', '--config', help='configuration file', is_config_file=True)
+    parser.add_argument('-s', '--save', help='saves configuration to a file', is_write_out_config_file_arg=True)
     parser.add_argument('--protocol', help='host protocol (http)', type=str, default='http')
     parser.add_argument('--host', help='host server address', type=str, default='127.0.0.1')
     parser.add_argument('--port', help='host server port', type=int, default=8080)
