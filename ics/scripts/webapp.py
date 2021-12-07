@@ -47,7 +47,8 @@ def setup_log(access_filename, app_filename):
 
 def main():
     parser = ArgParser()
-    parser.add_argument('-c', '--config', help='configuration file', is_config_file=True)
+    parser.add_argument('-c', '--config', help='read configuration from a file', is_config_file=True)
+    parser.add_argument('-s', '--save', help='saves configuration to a file', is_write_out_config_file_arg=True)
     parser.add_argument('--db_connection_string', type=str, default='postgresql://ics:ics@localhost:5432/ics')
     parser.add_argument('--log_dir', help='local directory for log files', type=str, default='log')
     parser.add_argument('--data_dir', help='local directory where uploaded/downloaded file are placed', type=str,
