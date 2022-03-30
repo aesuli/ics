@@ -2,318 +2,315 @@
 <%block name="head">
 ${parent.head()}
 <script type="text/javascript" xmlns:to="http://www.w3.org/1999/xhtml" xmlns:to="http://www.w3.org/1999/xhtml">
-        update_interval=5000
-        last_update = 0
-        page_size = 20;
-        maxpage = 1
+    update_interval=5000
+    last_update = 0
+    page_size = 20;
+    maxpage = 1
 
-        pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
-                         Page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
-                         /<span id="pagecount">X</span>\
-                         Count<select  id="pagesize"><option value="10">10</option>\
-                         <option value="20" selected>20</option><option value="50" >50</option>\
-                         <option value="100">100</option><option value="200">200</option></select></div></div>');
+    function timed_update() {
+        if(Date.now()-last_update>update_interval)
+            update();
+        setTimeout(timed_update,update_interval);
+    }
 
-        function timed_update() {
-            now = Date.now();
-            if(now-last_update>update_interval)
-                update();
-            setTimeout(timed_update,update_interval);
-        }
+    pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
+                     Page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                     /<span id="pagecount">X</span>\
+                     Count<select  id="pagesize"><option value="10">10</option>\
+                     <option value="20" selected>20</option><option value="50" >50</option>\
+                     <option value="100">100</option><option value="200">200</option></select></div></div>');
 
-        async function update() {
-            last_update = Date.now();
-            var count = parseInt($(pagination_div.children()[2]).val())
-            await $.ajax({
-                type:'POST',
-                url:'${dataset_path}/count',
-                dataType: 'json'})
-            .done(function(msg) {
-                count = parseInt(msg);
-                maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
-                $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
-                $(pagination_div.children()[0]).attr({
-                       "max" : maxpage
-                    });
-                $(pagination_div.children()[1]).text(maxpage)
-            });
-            $.ajax({
-                type:'POST',
-                url:'${dataset_path}/info',
-                data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
-                dataType: 'json'})
-            .done(function(msg) {
-                if(msg.length==0) {
-                    $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No dataset available</h4></div>');
-                    $('#page').val(1);
+    async function update() {
+        last_update = Date.now();
+        var count = parseInt($(pagination_div.children()[2]).val())
+        await $.ajax({
+            type:'POST',
+            url:'${dataset_path}/count',
+            dataType: 'json'})
+        .done(function(msg) {
+            count = parseInt(msg);
+            maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+            $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
+            $(pagination_div.children()[0]).attr({
+                   "max" : maxpage
+                });
+            $(pagination_div.children()[1]).text(maxpage)
+        });
+        $.ajax({
+            type:'POST',
+            url:'${dataset_path}/info',
+            data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
+            dataType: 'json'})
+        .done(function(msg) {
+            if(msg.length==0) {
+                $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No dataset available</h4></div>');
+                $('#page').val(1);
+            }
+            else {
+                if($('#gotdata').length==0) {
+                    $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Datasets:</h4></div>\
+                    <div><table id="data" class="w3-table-all">\
+                    <tr>\
+                    <th></th>\
+                    <th class="w3-small">Name</th>\
+                    <th class="w3-small">Size</th>\
+                    <th class="w3-small">Description</th>\
+                    <th class="w3-small">Created</th>\
+                    <th class="w3-small">Updated</th>\
+                    </tr></table></div>');
+                    $('#gotdata').prepend(pagination_div);
                 }
-                else {
-                    if($('#gotdata').length==0) {
-                        $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Datasets:</h4></div>\
-                        <div><table id="data" class="w3-table-all">\
-                        <tr>\
-                        <th></th>\
-                        <th class="w3-small">Name</th>\
-                        <th class="w3-small">Size</th>\
-                        <th class="w3-small">Description</th>\
-                        <th class="w3-small">Created</th>\
-                        <th class="w3-small">Updated</th>\
-                        </tr></table></div>');
-                        $('#gotdata').prepend(pagination_div);
+                var start = 0;
+                var end = msg.length;
+                $('td.entry\\_name').each(function(i,item) {
+                    var found = false;
+                    for(var i = start;i<end;++i) {
+                        if($(item).text()==msg[i].name) {
+                            found = true;
+                            break;
+                        }
                     }
-                    var start = 0;
-                    var end = msg.length;
-                    $('td.entry\\_name').each(function(i,item) {
-                        var found = false;
-                        for(var i = start;i<end;++i) {
-                            if($(item).text()==msg[i].name) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if(!found) {
-                            $(item).parent().remove();
-                        }
-                    });
-                    var curr_list = {};
-                    $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
-                    var updated_list = {};
-                    var added = false;
-                    for(var i = 0;i<msg.length;++i) {
-                        var name_string = msg[i].name
-                        updated_list[name_string] = true;
-                        var sort_string = msg[i].name.replace(/\W/g,'X')
-                        if($('#up\\_opt\\_'+name_string).length==0) {
-                            added = true;
-                            $('#up\\_to').append($('<option title="'+msg[i].description+'" id="up_opt_'+name_string+'"/>').val(name_string).text(name_string));
-                        }
-                        if (i >=start && i<end) {
-                            if ($('#entry\\_'+sort_string).length==0) {
-                                item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
-                                <td class="w3-dropdown-hover w3-hover-theme">\
-                                    ☰\
-                                    <div class="w3-dropdown-content w3-bar-block w3-card">\
-                                        <div id="browse_button_'+name_string+'" class="w3-bar-item w3-button">Browse &amp; code</div>\
-                                        <div id="classify_button_'+name_string+'" class="w3-bar-item w3-button">Classify</div>\
-                                        <div id="rename_button_'+name_string+'" class="w3-bar-item w3-button">Rename</div>\
-                                        <div id="description_button_'+name_string+'" class="w3-bar-item w3-button">Change description</div>\
-                                        <div id="download_button_'+name_string+'" class="w3-bar-item w3-button">Download</div>\
-                                        <div id="del_button_'+name_string+'" class="w3-bar-item w3-button">Delete</div>\
-                                    </div></td>\
-                                <td class="updatable id entry_name">'+msg[i].name+'</td>\
-                                <td class="updatable w3-small">'+msg[i].size+'</td>\
-                                <td class="updatable w3-tiny" id="dataset_description_'+msg[i].name+'">'+msg[i].description+'</td>\
-                                <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
-                                <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>\
-                                </tr>');
-                                $('#data').append(item);
+                    if(!found) {
+                        $(item).parent().remove();
+                    }
+                });
+                var curr_list = {};
+                $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                var updated_list = {};
+                var added = false;
+                for(var i = 0;i<msg.length;++i) {
+                    var name_string = msg[i].name
+                    updated_list[name_string] = true;
+                    var sort_string = msg[i].name.replace(/\W/g,'X')
+                    if($('#up\\_opt\\_'+name_string).length==0) {
+                        added = true;
+                        $('#up\\_to').append($('<option title="'+msg[i].description+'" id="up_opt_'+name_string+'"/>').val(name_string).text(name_string));
+                    }
+                    if (i >=start && i<end) {
+                        if ($('#entry\\_'+sort_string).length==0) {
+                            item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
+                            <td class="w3-dropdown-hover w3-hover-theme">\
+                                ☰\
+                                <div class="w3-dropdown-content w3-bar-block w3-card">\
+                                    <div id="browse_button_'+name_string+'" class="w3-bar-item w3-button">Browse &amp; code</div>\
+                                    <div id="classify_button_'+name_string+'" class="w3-bar-item w3-button">Classify</div>\
+                                    <div id="rename_button_'+name_string+'" class="w3-bar-item w3-button">Rename</div>\
+                                    <div id="description_button_'+name_string+'" class="w3-bar-item w3-button">Change description</div>\
+                                    <div id="download_button_'+name_string+'" class="w3-bar-item w3-button">Download</div>\
+                                    <div id="del_button_'+name_string+'" class="w3-bar-item w3-button">Delete</div>\
+                                </div></td>\
+                            <td class="updatable id entry_name">'+msg[i].name+'</td>\
+                            <td class="updatable w3-small">'+msg[i].size+'</td>\
+                            <td class="updatable w3-tiny" id="dataset_description_'+msg[i].name+'">'+msg[i].description+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>\
+                            </tr>');
+                            $('#data').append(item);
 
-                                $('#browse\\_button\\_'+name_string).click(
-                                    (function() {
-                                        var dataset_name = msg[i].name;
-                                        return function() {
-                                            window.location.href = '${mount_dir}/browseandcode/'+dataset_name;
-                                        }
-                                })());
-
-                                $('#classify\\_button\\_'+msg[i].name).click(
-                                    (function() {
-                                        var dataset_name = msg[i].name;
-                                        return function() {
-                                            window.location.href = '${mount_dir}/classify/'+dataset_name;
-                                        }
-                                })());
-
-                                $('#download\\_button\\_'+name_string).click(download_dataset.bind(null,name_string));
-
-                                $('#rename\\_button\\_'+name_string).click(function() {
-                                    var the_name = name_string;
+                            $('#browse\\_button\\_'+name_string).click(
+                                (function() {
+                                    var dataset_name = msg[i].name;
                                     return function() {
-                                        $('#ren\\_from').val(the_name);
-                                        $('#ren\\_name').val('');
-                                        document.getElementById('dia_rename_dataset').style.display='block';
-                                    };}()
-                                );
+                                        window.location.href = '${mount_dir}/browseandcode/'+dataset_name;
+                                    }
+                            })());
 
-                                $('#del\\_button\\_'+name_string).click(function() {
-                                    var the_name = name_string;
+                            $('#classify\\_button\\_'+msg[i].name).click(
+                                (function() {
+                                    var dataset_name = msg[i].name;
                                     return function() {
-                                        $('#del\\_from').val(the_name);
-                                        document.getElementById('dia_delete_dataset').style.display='block';
-                                    };}()
-                                );
-                            }
-                            else {
-                                item = jQuery('<td class="updatable id entry_name">'+msg[i].name+'</td>\
-                                <td class="updatable w3-small">'+msg[i].size+'</td>\
-                                <td class="updatable w3-tiny" id="dataset_description_'+name_string+'">'+msg[i].description+'</td>\
-                                <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
-                                <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>');
-                                $('#entry\\_'+sort_string+' td.updatable').remove();
-                                $('#entry\\_'+sort_string).append(item)
-                                delete curr_list['entry_'+sort_string];
-                            }
-                            $('#description\\_button\\_'+name_string).unbind('click').click(function() {
-                                var the_name = msg[i].name;
-                                var the_description = msg[i].description;
+                                        window.location.href = '${mount_dir}/classify/'+dataset_name;
+                                    }
+                            })());
+
+                            $('#download\\_button\\_'+name_string).click(download_dataset.bind(null,name_string));
+
+                            $('#rename\\_button\\_'+name_string).click(function() {
+                                var the_name = name_string;
                                 return function() {
-                                    $('#descr\\_from').val(the_name);
-                                    $('#descr\\_text').val(the_description);
-                                    document.getElementById('dia_description_dataset').style.display='block';
+                                    $('#ren\\_from').val(the_name);
+                                    $('#ren\\_name').val('');
+                                    document.getElementById('dia_rename_dataset').style.display='block';
+                                };}()
+                            );
+
+                            $('#del\\_button\\_'+name_string).click(function() {
+                                var the_name = name_string;
+                                return function() {
+                                    $('#del\\_from').val(the_name);
+                                    document.getElementById('dia_delete_dataset').style.display='block';
                                 };}()
                             );
                         }
-                    }
-                    for (var key in curr_list) {
-                        $('#'+key).remove();
-                    }
-                    $('#up\\_to').children().each(function (index, value) {
-                        if(!updated_list[value.id.slice(7)]&&value.id!='') {
-                            $('#'+value.id).remove();
+                        else {
+                            item = jQuery('<td class="updatable id entry_name">'+msg[i].name+'</td>\
+                            <td class="updatable w3-small">'+msg[i].size+'</td>\
+                            <td class="updatable w3-tiny" id="dataset_description_'+name_string+'">'+msg[i].description+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>');
+                            $('#entry\\_'+sort_string+' td.updatable').remove();
+                            $('#entry\\_'+sort_string).append(item)
+                            delete curr_list['entry_'+sort_string];
                         }
-                    });
-                    if(added) {
-                        $('#data').append($('#data tbody tr').get().sort(function (a, b) {
-                            return $(a)[0].id.localeCompare($(b)[0].id);
-                        }));
-                        $('#up\\_to').append($('#up\\_to > option').get().sort(function (a, b) {
-                            return $(a)[0].id.localeCompare($(b)[0].id);
-                        }));
+                        $('#description\\_button\\_'+name_string).unbind('click').click(function() {
+                            var the_name = msg[i].name;
+                            var the_description = msg[i].description;
+                            return function() {
+                                $('#descr\\_from').val(the_name);
+                                $('#descr\\_text').val(the_description);
+                                document.getElementById('dia_description_dataset').style.display='block';
+                            };}()
+                        );
                     }
                 }
-                $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
-                $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
-            });
+                for (var key in curr_list) {
+                    $('#'+key).remove();
+                }
+                $('#up\\_to').children().each(function (index, value) {
+                    if(!updated_list[value.id.slice(7)]&&value.id!='') {
+                        $('#'+value.id).remove();
+                    }
+                });
+                if(added) {
+                    $('#data').append($('#data tbody tr').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                    $('#up\\_to').append($('#up\\_to > option').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                }
+            }
+            $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
+            $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
+        });
+    }
+
+    function upload_dataset() {
+        var name = $("#up\\_to").val();
+        if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+            custom_error("The name of the dataset can only contain letters, numbers and the underscore character '_'");
+            return false;
         }
-
-        function upload_dataset() {
-            var name = $("#up\\_to").val();
-            if(!name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_error("The name of the dataset can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            if($('#dataFile')[0].files.length!=1) {
-                custom_error("Must select a file.");
-                return false;
-            }
-            document.getElementById('upload_button').style.display='none';
-            document.getElementById('upload_button_wait').style.display='block';
-            var data = new FormData()
-            data.append("file", $('#dataFile')[0].files[0]);
-            data.append("name", name);
-            $.ajax({
-                type: "POST",
-                url: "${dataset_path}/upload",
-                data: data,
-                enctype: 'multipart/form-data',
-                processData: false,
-                contentType: false})
-            .done(function() {
-                document.getElementById('dia_upload_form').style.display='none';
-                document.getElementById('upload_button').style.display='block';
-                document.getElementById('upload_button_wait').style.display='none';
-                update();
-            })
-            .fail(function(errMsg) {
-                custom_alert(errMsg.responseText);
-                document.getElementById('upload_button').style.display='block';
-                document.getElementById('upload_button_wait').style.display='none';
-            });
-            return false ;
-        };
-
-        function rename_dataset() {
-            var dataset_name = $('#ren\\_from').val();
-            var new_name = $('#ren\\_name').val();
-            if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
-                custom_error("The name of the dataset can only contain letters, numbers and the underscore character '_'");
-                return false;
-            }
-            document.getElementById('rename_dataset_button').style.display='none';
-            document.getElementById('rename_dataset_button_wait').style.display='block';
-            $.ajax({
-                type: "POST",
-                url: "${dataset_path}/rename/"+dataset_name+"/"+new_name})
-            .done(function() {
-                document.getElementById('dia_rename_dataset').style.display='none';
-                document.getElementById('rename_dataset_button').style.display='block';
-                document.getElementById('rename_dataset_button_wait').style.display='none';
-                update();
-            })
-            .fail(function(errMsg) {
-                document.getElementById('rename_dataset_button').style.display='block';
-                document.getElementById('rename_dataset_button_wait').style.display='none';
-                custom_error(errMsg.responseText);
-            });
+        if($('#dataFile')[0].files.length!=1) {
+            custom_error("Must select a file.");
             return false;
-        };
+        }
+        document.getElementById('upload_button').style.display='none';
+        document.getElementById('upload_button_wait').style.display='block';
+        var data = new FormData()
+        data.append("file", $('#dataFile')[0].files[0]);
+        data.append("name", name);
+        $.ajax({
+            type: "POST",
+            url: "${dataset_path}/upload",
+            data: data,
+            enctype: 'multipart/form-data',
+            processData: false,
+            contentType: false})
+        .done(function() {
+            document.getElementById('dia_upload_form').style.display='none';
+            document.getElementById('upload_button').style.display='block';
+            document.getElementById('upload_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            custom_alert(errMsg.responseText);
+            document.getElementById('upload_button').style.display='block';
+            document.getElementById('upload_button_wait').style.display='none';
+        });
+        return false ;
+    };
 
-        function dataset_description() {
-            var dataset_name = $('#descr\\_from').val();
-            var dataset_description = $('#descr\\_text').val();
-            document.getElementById('description_dataset_button').style.display='none';
-            document.getElementById('description_dataset_button_wait').style.display='block';
-            $.ajax({
-                type: "POST",
-                url: "${dataset_path}/set_description/"+dataset_name+"/"+dataset_description})
-            .done(function() {
-                document.getElementById('dia_description_dataset').style.display='none';
-                document.getElementById('description_dataset_button').style.display='block';
-                document.getElementById('description_dataset_button_wait').style.display='none';
-                update();
-            })
-            .fail(function(errMsg) {
-                document.getElementById('description_dataset_button').style.display='block';
-                document.getElementById('description_dataset_button_wait').style.display='none';
-                custom_error(errMsg.responseText);
-            });
+    function rename_dataset() {
+        var dataset_name = $('#ren\\_from').val();
+        var new_name = $('#ren\\_name').val();
+        if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
+            custom_error("The name of the dataset can only contain letters, numbers and the underscore character '_'");
             return false;
-        };
+        }
+        document.getElementById('rename_dataset_button').style.display='none';
+        document.getElementById('rename_dataset_button_wait').style.display='block';
+        $.ajax({
+            type: "POST",
+            url: "${dataset_path}/rename/"+dataset_name+"/"+new_name})
+        .done(function() {
+            document.getElementById('dia_rename_dataset').style.display='none';
+            document.getElementById('rename_dataset_button').style.display='block';
+            document.getElementById('rename_dataset_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('rename_dataset_button').style.display='block';
+            document.getElementById('rename_dataset_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
 
-        function delete_dataset() {
-            document.getElementById('delete_dataset_button').style.display='none';
-            document.getElementById('delete_dataset_button_wait').style.display='block';
-            var dataset_name = $("#del\\_from").val();
-            $.ajax({
-                type:'POST',
-                url:'${dataset_path}/delete/'+dataset_name })
-            .done(function() {
-                document.getElementById('dia_delete_dataset').style.display='none';
-                document.getElementById('delete_dataset_button').style.display='block';
-                document.getElementById('delete_dataset_button_wait').style.display='none';
-                update();
-            })
-            .fail(function(errMsg) {
-                document.getElementById('delete_dataset_button').style.display='block';
-                document.getElementById('delete_dataset_button_wait').style.display='none';
-                custom_error(errMsg.responseText);
-            });
-            return false;
-        };
+    function dataset_description() {
+        var dataset_name = $('#descr\\_from').val();
+        var dataset_description = $('#descr\\_text').val();
+        document.getElementById('description_dataset_button').style.display='none';
+        document.getElementById('description_dataset_button_wait').style.display='block';
+        $.ajax({
+            type: "POST",
+            url: "${dataset_path}/set_description/"+dataset_name+"/"+dataset_description})
+        .done(function() {
+            document.getElementById('dia_description_dataset').style.display='none';
+            document.getElementById('description_dataset_button').style.display='block';
+            document.getElementById('description_dataset_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('description_dataset_button').style.display='block';
+            document.getElementById('description_dataset_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
 
-        function download_dataset(dataset_name) {
-            var form = $('<form></form>').attr('action', '${dataset_path}/download/'+dataset_name).attr('method', 'post');
-            form.appendTo('body').submit().remove();
-        };
+    function delete_dataset() {
+        document.getElementById('delete_dataset_button').style.display='none';
+        document.getElementById('delete_dataset_button_wait').style.display='block';
+        var dataset_name = $("#del\\_from").val();
+        $.ajax({
+            type:'POST',
+            url:'${dataset_path}/delete/'+dataset_name })
+        .done(function() {
+            document.getElementById('dia_delete_dataset').style.display='none';
+            document.getElementById('delete_dataset_button').style.display='block';
+            document.getElementById('delete_dataset_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('delete_dataset_button').style.display='block';
+            document.getElementById('delete_dataset_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
 
-        $( document ).ready(function() {
+    function download_dataset(dataset_name) {
+        var form = $('<form></form>').attr('action', '${dataset_path}/download/'+dataset_name).attr('method', 'post');
+        form.appendTo('body').submit().remove();
+    };
 
-            $("#upload\\_form").submit(upload_dataset);
+    $( document ).ready(function() {
+        $("#upload\\_form").submit(upload_dataset);
 
-            $('#rename\\_dataset').submit(rename_dataset);
-            $('#description\\_dataset').submit(dataset_description);
-            $('#delete\\_dataset').submit(delete_dataset);
+        $('#rename\\_dataset').submit(rename_dataset);
+        $('#description\\_dataset').submit(dataset_description);
+        $('#delete\\_dataset').submit(delete_dataset);
 
-            $('#up\\_to').select2({
-                placeholder: 'Select the dataset',
-                tags: true,
-                data:[],
-                width: '100%'
-            });
-
-            timed_update();
+        $('#up\\_to').select2({
+            placeholder: 'Select the dataset',
+            tags: true,
+            data:[],
+            width: '100%'
         });
 
+        timed_update();
+    });
 </script>
 </%block>
 
