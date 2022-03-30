@@ -54,7 +54,7 @@ ${parent.head()}
         var single_label = true;
         await $.ajax({
             type:'POST',
-            url:'${classifier_path}/preferred_classification_mode/${classifiername}',
+            url:'${classifier_path}/get_preferred_classification_mode/${classifiername}',
             dataType: 'json'})
         .done(function(msg) {
             if(msg.startsWith('Single')) {

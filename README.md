@@ -54,15 +54,24 @@ If installed using pip, the main application can be started with the command:
 ```
 > ics-webapp
 ```
-In any case it can be launched from the `ics-webapp.py` script:
+From the root directory of a source code copy, it can be launched from the `ics-webapp.py` script:
 ```
-> python scripts/ics-webapp.py
+Linux/Mac:
+>PYTHONPATH=. python ics/scripts/ics-webapp.py
+
+Windows:
+>set PYTHONPATH=. 
+>python ics/scripts/ics-webapp.py
 ```
 When launched, the app will print the URL at which it is accessable.
 ```
-
+[30/Mar/2022:15:31:59] ENGINE Bus STARTING
+[30/Mar/2022:15:31:59] ENGINE Started monitor thread 'Autoreloader'.
+[30/Mar/2022:15:31:59] ENGINE Serving on http://127.0.0.1:8080
+[30/Mar/2022:15:31:59] ENGINE Bus STARTED
+[30/Mar/2022:15:31:59] ENGINE Started monitor thread 'Session cleanup'.
 ```
-The first time, only the `admin` user is defined, with password `adminadmin`.
+After the installation, only the `admin` user is defined, with password `adminadmin`.
 
 ## Configuration
 

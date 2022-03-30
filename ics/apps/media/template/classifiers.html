@@ -99,6 +99,7 @@ ${parent.head()}
                                     <div id="add_label_button_'+name_string+'" class="w3-bar-item w3-button">Add label</div>\
                                     <div id="delete_label_button_'+name_string+'" class="w3-bar-item w3-button">Delete label</div>\
                                     <div id="description_button_'+name_string+'" class="w3-bar-item w3-button">Change description</div>\
+                                    <div id="mode_button_'+name_string+'" class="w3-bar-item w3-button">Change classification mode</div>\
                                     <div id="public_button_'+name_string+'" class="w3-bar-item w3-button">Switch public status</div>\
                                     <div id="extract_button_'+name_string+'" class="w3-bar-item w3-button">Extract labels as classifiers</div>\
                                     <div id="view_button_'+name_string+'" class="w3-bar-item w3-button">View training data</div>\
@@ -230,8 +231,18 @@ ${parent.head()}
                             var the_description = msg[i].description;
                             return function() {
                                 $('#descr\\_from').val(the_name);
-                                $('#descr\\_text').val(the_description);
+                                $('#classifiermode').val(the_description);
                                 document.getElementById('dia_description_classifier').style.display='block';
+                            };}()
+                        );
+
+                        $('#mode\\_button\\_'+name_string).unbind('click').click(function() {
+                            var the_name = msg[i].name;
+                            var the_mode = msg[i].mode;
+                            return function() {
+                                $('#mode\\_from').val(the_name);
+                                $('#descr\\_text').val(the_mode);
+                                document.getElementById('dia_mode_classifier').style.display='block';
                             };}()
                         );
                     }
@@ -527,6 +538,28 @@ ${parent.head()}
         return false;
     };
 
+    function classifier_mode() {
+        var classifier_name = $('#mode\\_from').val();
+        var classifier_mode = $('#classifiermode').val();
+        document.getElementById('mode_classifier_button').style.display='none';
+        document.getElementById('mode_classifier_button_wait').style.display='block';
+        $.ajax({
+            type: "POST",
+            url: "${classifier_path}/set_preferred_classification_mode/"+classifier_name+"/"+classifier_mode})
+        .done(function() {
+            document.getElementById('dia_mode_classifier').style.display='none';
+            document.getElementById('mode_classifier_button').style.display='block';
+            document.getElementById('mode_classifier_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('mode_classifier_button').style.display='block';
+            document.getElementById('mode_classifier_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
     function merge_classifiers() {
         var name = $("#merge\\_name").val();
         if(!name.match(/^[a-zA-Z0-9_]+$/)) {
@@ -581,6 +614,7 @@ ${parent.head()}
 
         $('#rename\\_classifier').submit(rename_classifier);
         $('#description\\_classifier').submit(classifier_description);
+        $('#mode\\_classifier').submit(classifier_mode);
         $('#rename\\_label\\_classifier').submit(rename_classifier_label);
         $('#add\\_label\\_classifier').submit(add_classifier_label);
         $('#delete\\_label\\_classifier').submit(delete_classifier_label);
@@ -774,6 +808,33 @@ ${parent.head()}
                 <p>
                     <input class="w3-input" id="description_classifier_button" type="submit" value="Change description"/>
                     <span class="w3-center" id="description_classifier_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_mode_classifier" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_mode_classifier').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Change classification mode</h3>
+            </header>
+            <form id="mode_classifier" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="mode_from">Classifier:</label>
+                    <input class="w3-input" type="text" disabled id="mode_from"/>
+                </p>
+                <p>
+                    <label for="classifiermode">Mode:</label>
+                    <select class="w3-select" id="classifiermode">
+                        <%! from ics.db import sqlalchemydb %>
+                        % for classification_mode in sqlalchemydb.ClassificationMode:
+                        <option value="${classification_mode.value}">${classification_mode.value}</option>
+                        % endfor
+                    </select><p>
+                    <input class="w3-input" id="mode_classifier_button" type="submit" value="Change classification mode"/>
+                    <span class="w3-center" id="mode_classifier_button_wait" style="display:none">Processing</span>
                 </p>
             </form>
         </div>

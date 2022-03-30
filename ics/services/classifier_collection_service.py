@@ -205,9 +205,17 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def set_description(self, name, description):
-        if description is not None:
-            self._db.set_classifier_description(name, description)
-        return 'Ok'
+        try:
+            if description is not None:
+                self._db.set_classifier_description(name, description)
+        except KeyError:
+            cherrypy.response.status = 404
+            return '%s does not exist' % name
+        except Exception as e:
+            cherrypy.response.status = 500
+            return 'Error (%s)' % str(e)
+        else:
+            return 'Ok'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -245,8 +253,30 @@ class ClassifierCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def preferred_classification_mode(self, name):
-        return self._db.get_preferred_classification_mode(name).value
+    def get_preferred_classification_mode(self, name):
+        try:
+            return self._db.get_preferred_classification_mode(name).value
+        except KeyError:
+            cherrypy.response.status = 404
+            return '%s does not exist' % name
+        except Exception as e:
+            cherrypy.response.status = 500
+            return 'Error (%s)' % str(e)
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def set_preferred_classification_mode(self, name, mode):
+        try:
+            mode = ClassificationMode(mode)
+            self._db.set_preferred_classification_mode(name, mode)
+        except KeyError:
+            cherrypy.response.status = 404
+            return '%s does not exist' % name
+        except Exception as e:
+            cherrypy.response.status = 500
+            return 'Error (%s)' % str(e)
+        else:
+            return 'Ok'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -297,6 +327,9 @@ class ClassifierCollectionService(object):
     def label_delete(self, name, label_name):
         try:
             self._db.delete_classifier_label(name, label_name)
+        except KeyError:
+            cherrypy.response.status = 404
+            return '%s does not exist' % name
         except Exception as e:
             cherrypy.response.status = 500
             return 'Error (%s)' % str(e)
@@ -578,10 +611,14 @@ class ClassifierCollectionService(object):
             cherrypy.response.status = 400
             return 'Must specify a name'
 
+        classifier_exists = self._db.classifier_exists(name)
         if only_public_classifiers:
-            if not self._db.classifier_is_public(name):
+            if not classifier_exists or not self._db.classifier_is_public(name):
                 cherrypy.response.status = 403
                 return 'Access denied'
+        elif not classifier_exists:
+            cherrypy.response.status = 404
+            return '%s does not exist' % name
 
         try:
             X = data['X']
@@ -704,6 +741,9 @@ class ClassifierCollectionService(object):
             classification_mode = ClassificationMode(data['mode'])
         except KeyError:
             classification_mode = self._db.get_preferred_classification_mode(name)
+
+        if classification_mode is None:
+            classification_mode = ClassificationMode.SINGLE_LABEL
 
         try:
             sources = data['sources']
