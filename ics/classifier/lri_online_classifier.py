@@ -27,10 +27,10 @@ class LRIOnlineClassifier(Classifier):
                                                max_iter=max_iter, tol=tol, C=C, fit_intercept=fit_intercept,
                                                early_stopping=early_stopping, validation_fraction=validation_fraction,
                                                n_iter_no_change=n_iter_no_change, shuffle=shuffle, verbose=verbose,
-                                               loss=loss) for
+                                               loss=loss, class_weight={NO_LABEL: 1, YES_LABEL: 1}) for
             label in classes}
         for label in self._clf:
-            self._clf[label].partial_fit(self._vec.transform(['']), [NO_LABEL],
+            self._clf[label].partial_fit(self._vec.transform(['', '']), [NO_LABEL, YES_LABEL],
                                          BINARY_LABELS)
 
     def learn(self, X, y):
