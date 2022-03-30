@@ -1,22 +1,19 @@
 <%inherit file="base.html" />
 <%block name="head">
 <script type="text/javascript">
-        function logout() {
-            $.ajax({
-                type: "POST",
-                url: "${user_auth_path}/logout"})
-            .done(window.location.href = '${mount_dir}')
-            .fail(function(errMsg) {
-            });
-            return false;
-        };
-
-        $( document ).ready(function() {
-            $('#logout').click(logout);
+    function logout() {
+        $.ajax({
+            type: "POST",
+            url: "${user_auth_path}/logout"})
+        .done(window.location.href = '${mount_dir}')
+        .fail(function(errMsg) {
         });
+        return false;
+    };
 
-
-
+    $( document ).ready(function() {
+        $('#logout').click(logout);
+    });
 </script>
 </%block>
 <%block name="menu">

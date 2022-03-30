@@ -24,8 +24,10 @@ class DatasetCollectionService(object):
     def __init__(self, db_connection_string, data_dir):
         self._db_connection_string = db_connection_string
         self._db = SQLAlchemyDB(db_connection_string)
-        self._download_dir = os.path.join(data_dir, 'downloads')
-        self._upload_dir = os.path.join(data_dir, 'uploads')
+        self._download_dir = os.path.join(data_dir, 'datasets', 'downloads')
+        os.makedirs(self._download_dir, exist_ok=True)
+        self._upload_dir = os.path.join(data_dir, 'datasets', 'uploads')
+        os.makedirs(self._upload_dir, exist_ok=True)
 
     def close(self):
         self._db.close()

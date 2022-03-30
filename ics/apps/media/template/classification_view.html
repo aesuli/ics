@@ -2,339 +2,338 @@
 <%block name="head">
 ${parent.head()}
 <script type="text/javascript">
-        update_interval=5000
-        last_update = 0
-        page_size = 10;
-        maxpage = 1
-        filter = ''
+    update_interval=5000
+    last_update = 0
+    page_size = 10;
+    maxpage = 1
+    filter = ''
 
-        pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
-                         Page <input id="page" style="width:3em;" type="number" min="1" value="1"/>\
-                         /<span id="pagecount">X</span>\
-                         Count <select id="pagesize" class="w3-margin-right"><option value="5">5</option>\
-                         <option value="10" selected>10</option>\
-                         <option value="20">20</option><option value="50" >50</option></select>\
-                         Filter: <input type="text" id="filter" placeholder="Text filter" value="'+filter+'"/></div>\
-                         ');
+    function timed_update() {
+        if(Date.now()-last_update>update_interval)
+            update();
+        setTimeout(timed_update,update_interval);
+    }
 
-        function timed_update() {
-            now = Date.now();
-            if(now-last_update>update_interval)
-                update();
-            setTimeout(timed_update,update_interval);
+    pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
+                     Page <input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                     /<span id="pagecount">X</span>\
+                     Count <select id="pagesize" class="w3-margin-right"><option value="5">5</option>\
+                     <option value="10" selected>10</option>\
+                     <option value="20">20</option><option value="50" >50</option></select>\
+                     Filter: <input type="text" id="filter" placeholder="Text filter" value="'+filter+'"/></div>\
+                     ');
+
+    async function update() {
+        last_update = Date.now();
+        var count = parseInt($(pagination_div.children()[2]).val())
+        await $.ajax({
+            type:'POST',
+            url:'${dataset_path}/size/${datasetname}',
+            dataType: 'json'})
+        .done(function(msg) {
+            count = parseInt(msg);
+            maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+            $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
+            $(pagination_div.children()[0]).attr({
+                   "max" : maxpage
+                });
+            $(pagination_div.children()[1]).text(maxpage)
+        });
+        var labels = [];
+        await $.ajax({
+            type:'POST',
+            url:'${classifier_path}/label_info/${classifiername}',
+            dataType: 'json'})
+        .done(function(msg) {
+            labels = msg;
+        });
+        var max_label_length = 5;
+        for( var i = 0;i<labels.length;++i) {
+            max_label_length = Math.max(max_label_length,labels[i].length);
         }
-
-        async function update() {
-            last_update = Date.now();
-            var count = parseInt($(pagination_div.children()[2]).val())
-            await $.ajax({
-                type:'POST',
-                url:'${dataset_path}/size/${datasetname}',
-                dataType: 'json'})
-            .done(function(msg) {
-                count = parseInt(msg);
-                maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
-                $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
-                $(pagination_div.children()[0]).attr({
-                       "max" : maxpage
-                    });
-                $(pagination_div.children()[1]).text(maxpage)
-            });
-            var labels = [];
-            await $.ajax({
-                type:'POST',
-                url:'${classifier_path}/label_info/${classifiername}',
-                dataType: 'json'})
-            .done(function(msg) {
-                labels = msg;
-            });
-            var max_label_length = 5;
-            for( var i = 0;i<labels.length;++i) {
-                max_label_length = Math.max(max_label_length,labels[i].length);
+        var single_label = true;
+        await $.ajax({
+            type:'POST',
+            url:'${classifier_path}/preferred_classification_mode/${classifiername}',
+            dataType: 'json'})
+        .done(function(msg) {
+            if(msg.startsWith('Single')) {
+                single_label = true;
             }
-            var single_label = true;
-            await $.ajax({
-                type:'POST',
-                url:'${classifier_path}/preferred_classification_mode/${classifiername}',
-                dataType: 'json'})
-            .done(function(msg) {
-                if(msg.startsWith('Single')) {
-                    single_label = true;
+            else {
+                single_label = false;
+            }
+        });
+        $.ajax({
+            type:'POST',
+            url:'${dataset_path}/get_documents',
+            data: { filter:filter, name:'${datasetname}', page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
+            dataType: 'json'})
+        .done(function(msg) {
+            if(msg.length==0) {
+                $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No documents in dataset <b>${datasetname}</b></h4></div>');
+                var current_page = parseInt($(pagination_div.children()[0]).val())
+                if(current_page>1) {
+                    $(pagination_div.children()[0]).val(Math.min(current_page-1,maxpage-1));
+                    update();
                 }
                 else {
-                    single_label = false;
-                }
-            });
-            $.ajax({
-                type:'POST',
-                url:'${dataset_path}/get_documents',
-                data: { filter:filter, name:'${datasetname}', page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
-                dataType: 'json'})
-            .done(function(msg) {
-                if(msg.length==0) {
-                    $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No documents in dataset <b>${datasetname}</b></h4></div>');
-                    var current_page = parseInt($(pagination_div.children()[0]).val())
-                    if(current_page>1) {
-                        $(pagination_div.children()[0]).val(Math.min(current_page-1,maxpage-1));
+                    if(filter.length>0) {
+                        filter = '';
+                        $(pagination_div).children('#filter').val(filter
+                        );
                         update();
                     }
-                    else {
-                        if(filter.length>0) {
-                            filter = '';
-                            $(pagination_div).children('#filter').val(filter
-                            );
-                            update();
-                        }
-                    }
                 }
-                else {
-                    if($('#gotdata').length==0) {
-                        $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Dataset <b>${datasetname}</b> classified by <b>${classifiername}</b>:</h4></div>\
-                        <div><table id="data" class="w3-table-all">\
-                        <tr>\
-                        <th></th>\
-                        <th class="w3-small">ID</th>\
-                        <th class="w3-small">Creation</th>\
-                        <th class="w3-small">Text</th>\
-                        <th class="w3-small">Labels</th>\
-                        </tr></table></div>');
-                        $('#gotdata').prepend(pagination_div);
+            }
+            else {
+                if($('#gotdata').length==0) {
+                    $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Dataset <b>${datasetname}</b> classified by <b>${classifiername}</b>:</h4></div>\
+                    <div><table id="data" class="w3-table-all">\
+                    <tr>\
+                    <th></th>\
+                    <th class="w3-small">ID</th>\
+                    <th class="w3-small">Creation</th>\
+                    <th class="w3-small">Text</th>\
+                    <th class="w3-small">Labels</th>\
+                    </tr></table></div>');
+                    $('#gotdata').prepend(pagination_div);
+                }
+                var start = 0;
+                var end = msg.length;
+                $('td.entry\\_name').each(function(i,item) {
+                    var found = false;
+                    for(var i = start;i<end;++i) {
+                        if($(item).text()==msg[i].id) {
+                            found = true;
+                            break;
+                        }
                     }
-                    var start = 0;
-                    var end = msg.length;
-                    $('td.entry\\_name').each(function(i,item) {
-                        var found = false;
-                        for(var i = start;i<end;++i) {
-                            if($(item).text()==msg[i].id) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if(!found) {
-                            $(item).parent().remove();
-                        }
-                    });
-                    var curr_list = {};
-                    $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
-                    var updated_list = {};
-                    var added = false;
-                    var X = []
-                    for(var i = 0;i<msg.length;++i) {
-                        var sort_string = msg[i].id.replace(/\W/g,'X');
-                        updated_list[sort_string] = true;
-                        if (i >=start && i<end) {
-                            if ($('#entry\\_'+sort_string).length==0) {
-                                item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
-                                <td class="w3-dropdown-hover w3-hover-theme entry_menu"></td>\
-                                <td class="updatable id entry_name">'+msg[i].id+'</td>\
-                                <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>\
-                                <td class="updatable w3-small">'+msg[i].text+'</td>\
-                                <td id="labels_'+sort_string+'" class="w3-small"></td>\
-                                </tr>');
-                                $('#data').append(item);
-                                var suggestion_div = jQuery('<div id=\'suggestions_'+sort_string+'\' class=\'w3-col w3-display-container\' style=\'width:auto\'>\
-                                    </div>');
-                                suggestion_div.appendTo('#labels_'+sort_string);
-                                for(var j = 0;j<labels.length;++j) {
-                                    if(single_label) {
-                                        var scoreline = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'" class="w3-left w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant">'+labels[j]+'</div>');
-                                        scoreline.click((function(single_label, id, text, label){
-                                            if(!$('#suggestion\\_'+id+'\\_L\\_'+label).hasClass('assigned')) {
-                                                $('#suggestions\\_'+id).children('.scoreline').removeClass('assigned');
-                                                $('#suggestions\\_'+id).children('.scoreline').addClass('not_relevant');
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label).removeClass('not_relevant');
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label).addClass('assigned');
-
-                                                $.ajax({
-                                                    type:'POST',
-                                                    url:'${classifier_path}/update',
-                                                    data: { name: '${classifiername}', X: [text], y: [label]}
-                                                })
-                                                .fail(function(msg) {
-                                                    custom_alert(msg);
-                                                });
-                                            }
-                                        }).bind(null, single_label, sort_string,  msg[i].text, labels[j]));
-                                    }
-                                    else {
-                                        var scoreline_yes = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'_yes" class="w3-col w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multiyes" style="width:50%;">yes</div>');
-                                        var scoreline_no = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'_no" class="w3-rest w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multino" style="width:auto;">no</div>');
-                                        scoreline_yes.click((function(single_label, id, text, label){
-                                            if(!$('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').hasClass('assigned')) {
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').removeClass('not_relevant');
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').addClass('assigned');
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').removeClass('assigned');
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').addClass('not_relevant');
-
-                                                $.ajax({
-                                                    type:'POST',
-                                                    url:'${classifier_path}/update',
-                                                    data: { name: '${classifiername}', X: [text], y: [[label, true]]}})
-                                                .fail(function(msg) {
-                                                    custom_alert(msg);
-                                                });
-                                            }
-                                        }).bind(null, single_label, sort_string, msg[i].text, labels[j]));
-                                        scoreline_no.click((function(single_label, id, text, label){
-                                            if(!$('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').hasClass('assigned')) {
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').removeClass('not_relevant')
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').addClass('assigned')
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').removeClass('assigned')
-                                                $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').addClass('not_relevant')
-
-                                                $.ajax({
-                                                    type:'POST',
-                                                    url:'${classifier_path}/update',
-                                                    data: { name: '${classifiername}', X: [text], y: [[label, false]]}})
-                                                .fail(function(msg) {
-                                                    custom_alert(msg);
-                                                });
-                                            }
-                                        }).bind(null, single_label, sort_string, msg[i].text, labels[j]));
-                                        var scoreline = jQuery('<div class="w3-left w3-row multiscoreline" style="min-width:'+max_label_length+'em;"><div>'+labels[j]+'</div></div>');
-                                        scoreline.append(scoreline_yes);
-                                        scoreline.append(scoreline_no);
-                                    }
-                                    suggestion_div.append(scoreline);
-                                }
-                            }
-                            else {
-                                item = jQuery('<td class="updatable id entry_name">'+msg[i].id+'</td>\
-                                    <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>\
-                                    <td class="updatable w3-small">'+msg[i].text+'</td>\
-                                ');
-                                $('#entry\\_'+sort_string+' td.updatable').remove();
-                                item.insertAfter($('#entry\\_'+sort_string+' .entry\\_menu'));
-                                delete curr_list['entry_'+sort_string];
-                            }
-                        }
-                        X.push(msg[i].text);
+                    if(!found) {
+                        $(item).parent().remove();
                     }
-                    $.ajax(
-                        {type:'POST',
-                        url:'${classifier_path}/classify',
-                        data: { name: '${classifiername}', X: X},
-                        dataType: 'json'})
-                    .done(function(yhat) {
-                        if(single_label) {
-                            for(var i = 0;i<yhat.length;++i) {
-                                var sort_string = msg[i].id.replace(/\W/g,'X');
-                                var suggested = yhat[i];
-                                if(suggested!=null) {
-                                    $('#suggestions\\_'+sort_string).children('.scoreline').removeClass('assigned');
-                                    $('#suggestions\\_'+sort_string).children('.scoreline').removeClass('suggested');
-                                    $('#suggestions\\_'+sort_string).children('.scoreline').addClass('not_relevant');
-                                    if(suggested[1]) {
-                                        $('#suggestion\\_'+sort_string+'\\_L\\_'+suggested[0]).removeClass('not_relevant');
-                                        $('#suggestion\\_'+sort_string+'\\_L\\_'+suggested[0]).addClass('assigned');
-                                    }
-                                    else {
-                                        $('#suggestion\\_'+sort_string+'\\_L\\_'+suggested[0]).removeClass('not_relevant');
-                                        $('#suggestion\\_'+sort_string+'\\_L\\_'+suggested[0]).addClass('suggested');
-                                    }
+                });
+                var curr_list = {};
+                $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                var updated_list = {};
+                var added = false;
+                var X = []
+                for(var i = 0;i<msg.length;++i) {
+                    var sort_string = msg[i].id.replace(/\W/g,'X');
+                    updated_list[sort_string] = true;
+                    if (i >=start && i<end) {
+                        if ($('#entry\\_'+sort_string).length==0) {
+                            item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
+                            <td class="w3-dropdown-hover w3-hover-theme entry_menu"></td>\
+                            <td class="updatable id entry_name">'+msg[i].id+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>\
+                            <td class="updatable w3-small">'+msg[i].text+'</td>\
+                            <td id="labels_'+sort_string+'" class="w3-small"></td>\
+                            </tr>');
+                            $('#data').append(item);
+                            var suggestion_div = jQuery('<div id=\'suggestions_'+sort_string+'\' class=\'w3-col w3-display-container\' style=\'width:auto\'>\
+                                </div>');
+                            suggestion_div.appendTo('#labels_'+sort_string);
+                            for(var j = 0;j<labels.length;++j) {
+                                if(single_label) {
+                                    var scoreline = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'" class="w3-left w3-hover-theme with w3-hover-opacity pointer scoreline not_relevant">'+labels[j]+'</div>');
+                                    scoreline.click((function(single_label, id, text, label){
+                                        if(!$('#suggestion\\_'+id+'\\_L\\_'+label).hasClass('assigned')) {
+                                            $('#suggestions\\_'+id).children('.scoreline').removeClass('assigned');
+                                            $('#suggestions\\_'+id).children('.scoreline').addClass('not_relevant');
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label).removeClass('not_relevant');
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label).addClass('assigned');
+
+                                            $.ajax({
+                                                type:'POST',
+                                                url:'${classifier_path}/update',
+                                                data: { name: '${classifiername}', X: [text], y: [label]}
+                                            })
+                                            .fail(function(msg) {
+                                                custom_alert(msg);
+                                            });
+                                        }
+                                    }).bind(null, single_label, sort_string,  msg[i].text, labels[j]));
                                 }
+                                else {
+                                    var scoreline_yes = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'_yes" class="w3-col w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multiyes" style="width:50%;">yes</div>');
+                                    var scoreline_no = jQuery('<div id="suggestion_'+sort_string+'_L_'+labels[j]+'_no" class="w3-rest w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multino" style="width:auto;">no</div>');
+                                    scoreline_yes.click((function(single_label, id, text, label){
+                                        if(!$('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').hasClass('assigned')) {
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').removeClass('not_relevant');
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').addClass('assigned');
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').removeClass('assigned');
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').addClass('not_relevant');
+
+                                            $.ajax({
+                                                type:'POST',
+                                                url:'${classifier_path}/update',
+                                                data: { name: '${classifiername}', X: [text], y: [[label, true]]}})
+                                            .fail(function(msg) {
+                                                custom_alert(msg);
+                                            });
+                                        }
+                                    }).bind(null, single_label, sort_string, msg[i].text, labels[j]));
+                                    scoreline_no.click((function(single_label, id, text, label){
+                                        if(!$('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').hasClass('assigned')) {
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').removeClass('not_relevant')
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_no').addClass('assigned')
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').removeClass('assigned')
+                                            $('#suggestion\\_'+id+'\\_L\\_'+label+'\\_yes').addClass('not_relevant')
+
+                                            $.ajax({
+                                                type:'POST',
+                                                url:'${classifier_path}/update',
+                                                data: { name: '${classifiername}', X: [text], y: [[label, false]]}})
+                                            .fail(function(msg) {
+                                                custom_alert(msg);
+                                            });
+                                        }
+                                    }).bind(null, single_label, sort_string, msg[i].text, labels[j]));
+                                    var scoreline = jQuery('<div class="w3-left w3-row multiscoreline" style="min-width:'+max_label_length+'em;"><div>'+labels[j]+'</div></div>');
+                                    scoreline.append(scoreline_yes);
+                                    scoreline.append(scoreline_no);
+                                }
+                                suggestion_div.append(scoreline);
                             }
                         }
                         else {
-                            for(var i = 0;i<yhat.length;++i) {
-                                var sort_string = msg[i].id.replace(/\W/g,'X');
-                                var suggested = yhat[i];
-                                if(suggested!=null) {
-                                    suggested.forEach(function(label_value) {
-                                        var label = label_value[0];
-                                        var value = 'no';
-                                        var not_value = 'yes';
-                                        if(label_value[1]) {
-                                            value = 'yes';
-                                            not_value = 'no';
-                                        }
-                                        var human = label_value[2];
-                                        assigned = $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+not_value).hasClass('assigned');
-                                        if(!assigned) {
-                                            $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).removeClass('not_relevant');
-                                            if(human) {
-                                                $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).addClass('assigned');
-                                                $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).removeClass('suggested');
-                                            }
-                                            else {
-                                                $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).addClass('suggested');
-                                                $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).removeClass('assigned');
-                                            }
-                                            $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+not_value).removeClass('assigned');
-                                            $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+not_value).removeClass('suggested');
-                                            $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+not_value).addClass('not_relevant');
-                                        }
-                                    });
+                            item = jQuery('<td class="updatable id entry_name">'+msg[i].id+'</td>\
+                                <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>\
+                                <td class="updatable w3-small">'+msg[i].text+'</td>\
+                            ');
+                            $('#entry\\_'+sort_string+' td.updatable').remove();
+                            item.insertAfter($('#entry\\_'+sort_string+' .entry\\_menu'));
+                            delete curr_list['entry_'+sort_string];
+                        }
+                    }
+                    X.push(msg[i].text);
+                }
+                $.ajax(
+                    {type:'POST',
+                    url:'${classifier_path}/classify',
+                    data: { name: '${classifiername}', X: X},
+                    dataType: 'json'})
+                .done(function(yhat) {
+                    if(single_label) {
+                        for(var i = 0;i<yhat.length;++i) {
+                            var sort_string = msg[i].id.replace(/\W/g,'X');
+                            var suggested = yhat[i];
+                            if(suggested!=null) {
+                                $('#suggestions\\_'+sort_string).children('.scoreline').removeClass('assigned');
+                                $('#suggestions\\_'+sort_string).children('.scoreline').removeClass('suggested');
+                                $('#suggestions\\_'+sort_string).children('.scoreline').addClass('not_relevant');
+                                if(suggested[1]) {
+                                    $('#suggestion\\_'+sort_string+'\\_L\\_'+suggested[0]).removeClass('not_relevant');
+                                    $('#suggestion\\_'+sort_string+'\\_L\\_'+suggested[0]).addClass('assigned');
+                                }
+                                else {
+                                    $('#suggestion\\_'+sort_string+'\\_L\\_'+suggested[0]).removeClass('not_relevant');
+                                    $('#suggestion\\_'+sort_string+'\\_L\\_'+suggested[0]).addClass('suggested');
                                 }
                             }
                         }
-                    });
-
-                    for (var key in curr_list) {
-                        $('#'+key).remove();
                     }
-                    if(added) {
-                        $('#data').append($('#data tbody tr').get().sort(function (a, b) {
-                            return $(a)[0].id.localeCompare($(b)[0].id);
-                        }));
-                    }
-                }
-                $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
-                $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
-                $('#filter').unbind('keydown').bind('keydown', function (e) {
-                    if (e.keyCode == 13) {//enter
-                        $('#page').val(1);
-                        filter = $('#filter').val()
-                        update();
+                    else {
+                        for(var i = 0;i<yhat.length;++i) {
+                            var sort_string = msg[i].id.replace(/\W/g,'X');
+                            var suggested = yhat[i];
+                            if(suggested!=null) {
+                                suggested.forEach(function(label_value) {
+                                    var label = label_value[0];
+                                    var value = 'no';
+                                    var not_value = 'yes';
+                                    if(label_value[1]) {
+                                        value = 'yes';
+                                        not_value = 'no';
+                                    }
+                                    var human = label_value[2];
+                                    assigned = $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+not_value).hasClass('assigned');
+                                    if(!assigned) {
+                                        $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).removeClass('not_relevant');
+                                        if(human) {
+                                            $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).addClass('assigned');
+                                            $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).removeClass('suggested');
+                                        }
+                                        else {
+                                            $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).addClass('suggested');
+                                            $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+value).removeClass('assigned');
+                                        }
+                                        $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+not_value).removeClass('assigned');
+                                        $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+not_value).removeClass('suggested');
+                                        $('#suggestion\\_'+sort_string+'\\_L\\_'+label+'\\_'+not_value).addClass('not_relevant');
+                                    }
+                                });
+                            }
+                        }
                     }
                 });
-            });
 
-            $.ajax({
-                type:'POST',
-                url:'${classifier_path}/info',
-                dataType: 'json'})
-            .done(function(msg) {
-                var valid_classifiers = {}
-                var added = false;
-                for(var i = 0;i<msg.length;++i) {
-                    valid_classifiers[msg[i].name] = true;
-                    if($('#do\\_opt\\_'+msg[i].name).length==0) {
-                        added = true;
-                        $('#classifier\\_name').append($('<option id="do_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
-                        $('#view\\_classifier\\_name').append($('<option id="do_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
-                    }
+                for (var key in curr_list) {
+                    $('#'+key).remove();
                 }
-                $('#classifier\\_name').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(7)]) {$('#'+value.id).remove();}});
-                $('#view\\_classifier\\_name').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(7)]) {$('#'+value.id).remove();}});
                 if(added) {
-                    $('#classifier\\_name').append($('#classifier\\_name > option').get().sort(function (a, b) {
-                        return $(a)[0].id.localeCompare($(b)[0].id);
-                    }));
-                    $('#view\\_classifier\\_name').append($('#view\\_classifier\\_name > option').get().sort(function (a, b) {
+                    $('#data').append($('#data tbody tr').get().sort(function (a, b) {
                         return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
                 }
+            }
+            $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
+            $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
+            $('#filter').unbind('keydown').bind('keydown', function (e) {
+                if (e.keyCode == 13) {//enter
+                    $('#page').val(1);
+                    filter = $('#filter').val()
+                    update();
+                }
             });
-        }
-
-        function view() {
-            document.getElementById('view_classification_button').style.display='none';
-            document.getElementById('view_classification_button_wait').style.display='block';
-            var classifiers = $("#view\\_classifier\\_name").val();
-            window.location = '${mount_dir}/classification_view/${datasetname}/'+classifiers;
-            return false;
-        }
-
-        $( document ).ready(function() {
-            $('#classifier\\_name').select2({
-                placeholder: 'Select the classifier',
-                width: '100%'
-            });
-
-            $("#view\\_classifier").submit(view);
-            timed_update();
         });
+
+        $.ajax({
+            type:'POST',
+            url:'${classifier_path}/info',
+            dataType: 'json'})
+        .done(function(msg) {
+            var valid_classifiers = {}
+            var added = false;
+            for(var i = 0;i<msg.length;++i) {
+                valid_classifiers[msg[i].name] = true;
+                if($('#do\\_opt\\_'+msg[i].name).length==0) {
+                    added = true;
+                    $('#classifier\\_name').append($('<option id="do_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
+                    $('#view\\_classifier\\_name').append($('<option id="do_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
+                }
+            }
+            $('#classifier\\_name').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(7)]) {$('#'+value.id).remove();}});
+            $('#view\\_classifier\\_name').children().each(function (index, value) {if(!valid_classifiers[value.id.slice(7)]) {$('#'+value.id).remove();}});
+            if(added) {
+                $('#classifier\\_name').append($('#classifier\\_name > option').get().sort(function (a, b) {
+                    return $(a)[0].id.localeCompare($(b)[0].id);
+                }));
+                $('#view\\_classifier\\_name').append($('#view\\_classifier\\_name > option').get().sort(function (a, b) {
+                    return $(a)[0].id.localeCompare($(b)[0].id);
+                }));
+            }
+        });
+    }
+
+    function view() {
+        document.getElementById('view_classification_button').style.display='none';
+        document.getElementById('view_classification_button_wait').style.display='block';
+        var classifiers = $("#view\\_classifier\\_name").val();
+        window.location = '${mount_dir}/classification_view/${datasetname}/'+classifiers;
+        return false;
+    }
+
+    $( document ).ready(function() {
+        $('#classifier\\_name').select2({
+            placeholder: 'Select the classifier',
+            width: '100%'
+        });
+
+        $("#view\\_classifier").submit(view);
+        timed_update();
+    });
 </script>
 </%block>
 

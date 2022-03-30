@@ -1,28 +1,28 @@
 <%inherit file="base.html" />
 <%block name="head">
 <script type="text/javascript">
+    function login() {
+        username = $("#username").val();
+        password = $("#password").val();
+        var data = {name: username, password: password} ;
+        $('#msg').text('');
 
-        function login() {
-            username = $("#username").val();
-            password = $("#password").val();
-            var data = {name: username, password: password} ;
-            $('#msg').text('');
-
-            $.ajax({
-                type: "POST",
-                url: "${user_auth_path}/login",
-                data: data})
-            .done(function(){window.location.href = '${mount_dir}/';})
-            .fail(function(errMsg) {
-                $('#msg').text(errMsg.responseText);
-            });
-            return false;
-        };
-
-        $( document ).ready(function() {
-            $('#login').submit(login);
+        $.ajax({
+            type: "POST",
+            url: "${user_auth_path}/login",
+            data: data})
+        .done(function(){
+            window.location.href = '${mount_dir}/';
+        })
+        .fail(function(errMsg) {
+            $('#msg').text(errMsg.responseText);
         });
+        return false;
+    };
 
+    $( document ).ready(function() {
+        $('#login').submit(login);
+    });
 </script>
 </%block>
 <section class="w3-container">

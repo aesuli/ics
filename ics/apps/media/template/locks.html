@@ -2,157 +2,156 @@
 <%block name="head">
 ${parent.head()}
 <script type="text/javascript">
-        update_interval=5000
-        last_update = 0
-        page_size = 20;
-        maxpage = 1
+    update_interval=5000
+    last_update = 0
+    page_size = 20;
+    maxpage = 1
 
-        pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
-                         Page <input id="page" style="width:3em;" type="number" min="1" value="1"/>\
-                         /<span id="pagecount">X</span>\
-                         Count <select id="pagesize"><option value="10">10</option>\
-                         <option value="20" selected>20</option><option value="50" >50</option>\
-                         <option value="100">100</option><option value="200">200</option></select></div></div>');
+    function timed_update() {
+        if(Date.now()-last_update>update_interval)
+            update();
+        setTimeout(timed_update,update_interval);
+    }
 
-        function timed_update() {
-            now = Date.now();
-            if(now-last_update>update_interval)
-                update();
-            setTimeout(timed_update,update_interval);
-        }
+    pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
+                     Page <input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                     /<span id="pagecount">X</span>\
+                     Count <select id="pagesize"><option value="10">10</option>\
+                     <option value="20" selected>20</option><option value="50" >50</option>\
+                     <option value="100">100</option><option value="200">200</option></select></div></div>');
 
-        async function update() {
-            last_update = Date.now();
-            var count = parseInt($(pagination_div.children()[2]).val())
-            await $.ajax({
-                type:'POST',
-                url:'${jobs_path}/lock_count',
-                dataType: 'json'})
-            .done(function(msg) {
-                count = parseInt(msg);
-                maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
-                $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
-                $(pagination_div.children()[0]).attr({
-                       "max" : maxpage
-                    });
-                $(pagination_div.children()[1]).text(maxpage)
-            });
-            $.ajax({
-                type:'POST',
-                url:'${jobs_path}/lock_info',
-                data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
-                dataType: 'json'})
-            .done( function(msg) {
-                if(msg.length==0) {
-                    $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No Locks</h4></div>');
-                    $('#page').val(1);
-                }
-                else {
-                    if($('#gotdata').length==0) {
-                        $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Locks:</h4></div>\
-                        <div><table id="data" class="w3-table-all">\
-                        <tr>\
-                        <th></th>\
-                        <th class="w3-small">Name</th>\
-                        <th class="w3-small">Locker</th>\
-                        <th class="w3-small">Created</th>\
-                        </tr></table></div>');
-                        $('#gotdata').prepend(pagination_div);
-                    }
-                    var start = 0;
-                    var end = msg.length;
-                    $('td.entry\\_name').each(function(i,item) {
-                        var found = false;
-                        for(var i = start;i<end;++i) {
-                            if($(item).text()==msg[i].name) {
-                                found = true;
-                                break;
-                            }
-                        }
-                        if(!found) {
-                            $(item).parent().remove();
-                        }
-                    });
-                    var curr_list = {};
-                    $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
-                    var updated_list = {};
-                    var added = false;
-                    for(var i = 0;i<msg.length;++i) {
-                        var name_string = msg[i].name;
-                        updated_list[name_string] = true;
-                        var sort_string = msg[i].name.replace(/\W/g,'X');
-                        if (i >=start && i<end) {
-                            if ($('#entry\\_'+sort_string).length==0) {
-                                item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
-                                <td class="w3-dropdown-hover w3-hover-theme">\
-                                    ☰\
-                                    <div class="w3-dropdown-content w3-bar-block w3-card">\
-                                        <div id="delete_button_'+sort_string+'" class="w3-bar-item w3-button">Delete</div>\
-                                    </div></td>\
-                                <td class="updatable id entry_name">'+msg[i].name+'</td>\
-                                <td class="updatable w3-small">'+msg[i].locker+'</td>\
-                                <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>\
-                                </tr>');
-                                $('#data').append(item);
-
-                                $('#delete\\_button\\_'+sort_string).click(function() {
-                                    var the_name = name_string;
-                                    return function() {
-                                        $('#del\\_from').val(the_name);
-                                        document.getElementById('dia_delete_lock').style.display='block';
-                                    };}()
-                                );
-                            }
-                            else {
-                                item = jQuery('<td class="updatable id entry_name">'+msg[i].name+'</td>\
-                                <td class="updatable w3-small">'+msg[i].locker+'</td>\
-                                <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>');
-                                $('#entry\\_'+sort_string+' td.updatable').remove();
-                                $('#entry\\_'+sort_string).append(item)
-                                delete curr_list['entry_'+sort_string];
-                            }
-                        }
-                    }
-                    for (var key in curr_list) {
-                        $('#'+key).remove();
-                    }
-                    if(added) {
-                        $('#data').append($('#data tbody tr').get().sort(function (a, b) {
-                            return $(a)[0].id.localeCompare($(b)[0].id);
-                        }));
-                    }
-                }
-                $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
-                $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
-            });
-        }
-
-        function delete_lock() {
-            document.getElementById('delete_lock_button').style.display='none';
-            document.getElementById('delete_lock_button_wait').style.display='block';
-            var lock = $("#del\\_from").val();
-            $.ajax({
-                type:'POST',
-                url:'${jobs_path}/lock_delete/'+lock })
-            .done(function() {
-                document.getElementById('dia_delete_lock').style.display='none';
-                document.getElementById('delete_lock_button').style.display='block';
-                document.getElementById('delete_lock_button_wait').style.display='none';
-                update();
-            })
-            .fail(function(errMsg) {
-                document.getElementById('delete_lock_button').style.display='block';
-                document.getElementById('delete_lock_button_wait').style.display='none';
-                custom_error(errMsg.responseText);
-            });
-            return false;
-        };
-
-        $( document ).ready(function() {
-            $('#delete\\_lock').submit(delete_lock);
-
-            timed_update();
+    async function update() {
+        last_update = Date.now();
+        var count = parseInt($(pagination_div.children()[2]).val())
+        await $.ajax({
+            type:'POST',
+            url:'${jobs_path}/lock_count',
+            dataType: 'json'})
+        .done(function(msg) {
+            count = parseInt(msg);
+            maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+            $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
+            $(pagination_div.children()[0]).attr({
+                   "max" : maxpage
+                });
+            $(pagination_div.children()[1]).text(maxpage)
         });
+        $.ajax({
+            type:'POST',
+            url:'${jobs_path}/lock_info',
+            data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
+            dataType: 'json'})
+        .done( function(msg) {
+            if(msg.length==0) {
+                $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No Locks</h4></div>');
+                $('#page').val(1);
+            }
+            else {
+                if($('#gotdata').length==0) {
+                    $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Locks:</h4></div>\
+                    <div><table id="data" class="w3-table-all">\
+                    <tr>\
+                    <th></th>\
+                    <th class="w3-small">Name</th>\
+                    <th class="w3-small">Locker</th>\
+                    <th class="w3-small">Created</th>\
+                    </tr></table></div>');
+                    $('#gotdata').prepend(pagination_div);
+                }
+                var start = 0;
+                var end = msg.length;
+                $('td.entry\\_name').each(function(i,item) {
+                    var found = false;
+                    for(var i = start;i<end;++i) {
+                        if($(item).text()==msg[i].name) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(!found) {
+                        $(item).parent().remove();
+                    }
+                });
+                var curr_list = {};
+                $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                var updated_list = {};
+                var added = false;
+                for(var i = 0;i<msg.length;++i) {
+                    var name_string = msg[i].name;
+                    updated_list[name_string] = true;
+                    var sort_string = msg[i].name.replace(/\W/g,'X');
+                    if (i >=start && i<end) {
+                        if ($('#entry\\_'+sort_string).length==0) {
+                            item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
+                            <td class="w3-dropdown-hover w3-hover-theme">\
+                                ☰\
+                                <div class="w3-dropdown-content w3-bar-block w3-card">\
+                                    <div id="delete_button_'+sort_string+'" class="w3-bar-item w3-button">Delete</div>\
+                                </div></td>\
+                            <td class="updatable id entry_name">'+msg[i].name+'</td>\
+                            <td class="updatable w3-small">'+msg[i].locker+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>\
+                            </tr>');
+                            $('#data').append(item);
+
+                            $('#delete\\_button\\_'+sort_string).click(function() {
+                                var the_name = name_string;
+                                return function() {
+                                    $('#del\\_from').val(the_name);
+                                    document.getElementById('dia_delete_lock').style.display='block';
+                                };}()
+                            );
+                        }
+                        else {
+                            item = jQuery('<td class="updatable id entry_name">'+msg[i].name+'</td>\
+                            <td class="updatable w3-small">'+msg[i].locker+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>');
+                            $('#entry\\_'+sort_string+' td.updatable').remove();
+                            $('#entry\\_'+sort_string).append(item)
+                            delete curr_list['entry_'+sort_string];
+                        }
+                    }
+                }
+                for (var key in curr_list) {
+                    $('#'+key).remove();
+                }
+                if(added) {
+                    $('#data').append($('#data tbody tr').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                }
+            }
+            $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
+            $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
+        });
+    }
+
+    function delete_lock() {
+        document.getElementById('delete_lock_button').style.display='none';
+        document.getElementById('delete_lock_button_wait').style.display='block';
+        var lock = $("#del\\_from").val();
+        $.ajax({
+            type:'POST',
+            url:'${jobs_path}/lock_delete/'+lock })
+        .done(function() {
+            document.getElementById('dia_delete_lock').style.display='none';
+            document.getElementById('delete_lock_button').style.display='block';
+            document.getElementById('delete_lock_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('delete_lock_button').style.display='block';
+            document.getElementById('delete_lock_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+    $( document ).ready(function() {
+        $('#delete\\_lock').submit(delete_lock);
+
+        timed_update();
+    });
 </script>
 </%block>
 
