@@ -702,6 +702,34 @@ class CommandLine(Cmd):
         new_name = match.group(3)
         pprint(self._sc.classifier_label_rename(classifier_name, label_name, new_name))
 
+
+    def help_classifier_label_add(self):
+        print('''
+        Add a label to a classifier 
+        > classifier_label_add classifiername label_name
+        ''')
+
+    @print_exception
+    def do_classifier_label_add(self, args):
+        match = re.match('^([^,\s]+)[,\s]+(.+)$', args.strip())
+        classifier_name = match.group(1)
+        label_name = match.group(2)
+        pprint(self._sc.classifier_label_add(classifier_name, label_name))
+
+
+    def help_classifier_label_delete(self):
+        print('''
+        Deletes a label from a classifier
+        > classifier_label_delete classifiername label_name
+        ''')
+
+    @print_exception
+    def do_classifier_label_delete(self, args):
+        match = re.match('^([^,\s]+)[,\s]+(.+)$', args.strip())
+        classifier_name = match.group(1)
+        label_name = match.group(2)
+        pprint(self._sc.classifier_label_delete(classifier_name, label_name))
+
     def help_classifier_download_training_data(self):
         print('''
         Downloads training data for a classifier to a file

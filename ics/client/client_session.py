@@ -490,6 +490,24 @@ class ClientSession:
         r.raise_for_status()
         return json.loads(r.content.decode())
 
+    def classifier_label_add(self, name, label_name):
+        url = self._build_url(self._classifier_path + '/label_add/')
+        data = self._get_default_post_data()
+        data['name'] = name
+        data['label_name'] = label_name
+        r = self._session.post(url, data=data)
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
+    def classifier_label_delete(self, name, label_name):
+        url = self._build_url(self._classifier_path + '/label_delete/')
+        data = self._get_default_post_data()
+        data['name'] = name
+        data['label_name'] = label_name
+        r = self._session.post(url, data=data)
+        r.raise_for_status()
+        return json.loads(r.content.decode())
+
     def classifier_download_training_data(self, name, file, chunk_size=2048):
         url = self._build_url(self._classifier_path + '/download_training_data/')
         data = self._get_default_post_data()
