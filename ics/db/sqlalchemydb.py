@@ -1045,19 +1045,18 @@ class SQLAlchemyDB(object):
                 return missing
 
             labels = self.get_classifier_labels(classifier_name)
-            partial = list(
-                session.query(DatasetDocument.text, DatasetDocument.id)
+            partial = list(session.query(DatasetDocument.text, DatasetDocument.id)
                     .join(DatasetDocument.dataset)
+                    .join(Classification.classifier)
+                    .join(Classification.document)
+                    .join(Classification.label)
                     .filter(Dataset.name == dataset_name)
                     .filter(DatasetDocument.text.like('%' + filter + '%'))
                     .filter(DatasetDocument.md5 == TrainingDocument.md5)
-                    .filter(
-                    TrainingDocument.id == Classification.document_id)
-                    .filter(Classification.classifier_id == Classifier.id)
+                    .filter(Classifier.name == classifier_name)
                     .filter(Label.name.in_(labels))
                     .group_by(DatasetDocument.id)
-                    .having(
-                    count(Classification.id) != len(labels))
+                    .having(count(Classification.id) != len(labels))
                     .order_by(func.random())
                     .limit(limit)
             )
@@ -1164,20 +1163,18 @@ class SQLAlchemyDB(object):
                 return missing
 
             labels = self.get_classifier_labels(classifier_name)
-            partial = list(
-                session.query(DatasetDocument.text, DatasetDocument.id)
+            partial = list(session.query(DatasetDocument.text, DatasetDocument.id)
                     .join(DatasetDocument.dataset)
+                    .join(Classification.classifier)
+                    .join(Classification.document)
+                    .join(Classification.label)
                     .filter(Dataset.name == dataset_name)
-                    .filter(DatasetDocument.id >= start_document_id)
                     .filter(DatasetDocument.text.like('%' + filter + '%'))
                     .filter(DatasetDocument.md5 == TrainingDocument.md5)
-                    .filter(
-                    TrainingDocument.id == Classification.document_id)
-                    .filter(Classification.classifier_id == Classifier.id)
+                    .filter(Classifier.name == classifier_name)
                     .filter(Label.name.in_(labels))
                     .group_by(DatasetDocument.id)
-                    .having(
-                    count(Classification.id) != len(labels))
+                    .having(count(Classification.id) != len(labels))
                     .order_by(DatasetDocument.id)
                     .limit(limit)
             )
@@ -1225,20 +1222,18 @@ class SQLAlchemyDB(object):
                 return missing
 
             labels = self.get_classifier_labels(classifier_name)
-            partial = list(
-                session.query(DatasetDocument.text, DatasetDocument.id)
+            partial = list(session.query(DatasetDocument.text, DatasetDocument.id)
                     .join(DatasetDocument.dataset)
+                    .join(Classification.classifier)
+                    .join(Classification.document)
+                    .join(Classification.label)
                     .filter(Dataset.name == dataset_name)
-                    .filter(DatasetDocument.id <= start_document_id)
                     .filter(DatasetDocument.text.like('%' + filter + '%'))
                     .filter(DatasetDocument.md5 == TrainingDocument.md5)
-                    .filter(
-                    TrainingDocument.id == Classification.document_id)
-                    .filter(Classification.classifier_id == Classifier.id)
+                    .filter(Classifier.name == classifier_name)
                     .filter(Label.name.in_(labels))
                     .group_by(DatasetDocument.id)
-                    .having(
-                    count(Classification.id) != len(labels))
+                    .having(count(Classification.id) != len(labels))
                     .order_by(DatasetDocument.id.desc())
                     .limit(limit)
             )
