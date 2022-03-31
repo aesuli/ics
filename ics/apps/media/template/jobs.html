@@ -1,0 +1,342 @@
+<%inherit file="admin_basewithmenu.html" />
+<%block name="head">
+${parent.head()}
+<script type="text/javascript">
+    update_interval=5000
+    last_update = 0
+    page_size = 20;
+    maxpage = 1
+
+    function timed_update() {
+        if(Date.now()-last_update>update_interval)
+            update();
+        setTimeout(timed_update,update_interval);
+    }
+
+    pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
+                     Page <input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                     /<span id="pagecount">X</span>\
+                     Count <select id="pagesize"><option value="10">10</option>\
+                     <option value="20" selected>20</option><option value="50" >50</option>\
+                     <option value="100">100</option><option value="200">200</option></select></div></div>');
+
+    async function update() {
+        last_update = Date.now();
+        var count = parseInt($(pagination_div.children()[2]).val())
+        await $.ajax({
+            type:'POST',
+            url:'${jobs_path}/count',
+            dataType: 'json'})
+        .done(function(msg) {
+            count = parseInt(msg);
+            maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+            $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
+            $(pagination_div.children()[0]).attr({
+                   "max" : maxpage
+                });
+            $(pagination_div.children()[1]).text(maxpage)
+        });
+        $.ajax({
+            type:'POST',
+            url:'${jobs_path}/info',
+            data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
+            dataType: 'json'})
+        .done( function(msg) {
+            if(msg.length==0) {
+                $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No Jobs</h4></div>');
+                $('#page').val(1);
+            }
+            else {
+                if($('#gotdata').length==0) {
+                    $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Jobs:</h4></div>\
+                    <div><table id="data" class="w3-table-all">\
+                    <tr>\
+                    <th></th>\
+                    <th class="w3-small">ID</th>\
+                    <th class="w3-small">Description</th>\
+                    <th class="w3-small">Created</th>\
+                    <th class="w3-small">Started</th>\
+                    <th class="w3-small">Completed</th>\
+                    <th class="w3-small">Status</th>\
+                    </tr></table></div>');
+                    $('#gotdata').prepend(pagination_div);
+                }
+                var start = 0;
+                var end = msg.length;
+                $('td.entry\\_name').each(function(i,item) {
+                    var found = false;
+                    for(var i = start;i<end;++i) {
+                        if($(item).text()==msg[i].name) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(!found) {
+                        $(item).parent().remove();
+                    }
+                });
+                var curr_list = {};
+                $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                var updated_list = {};
+                var added = false;
+                for(var i = 0;i<msg.length;++i) {
+                    var name_string = msg[i].id;
+                    updated_list[name_string] = true;
+                    var sort_string = msg[i].id;
+                    if (i >=start && i<end) {
+                        if ($('#entry\\_'+sort_string).length==0) {
+                            item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
+                            <td class="w3-dropdown-hover w3-hover-theme">\
+                                ☰\
+                                <div class="w3-dropdown-content w3-bar-block w3-card">\
+                                    <div id="rerun_button_'+sort_string+'" class="w3-bar-item w3-button">Rerun</div>\
+                                    <div id="delete_button_'+sort_string+'" class="w3-bar-item w3-button">Delete</div>\
+                                </div></td>\
+                            <td class="updatable id entry_name">'+msg[i].id+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].description+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].creation.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].start.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].completion.slice(0,-13)+'</td>\
+                            <td class="updatable">'+msg[i].status+'</td>\
+                            </tr>');
+                            $('#data').append(item);
+
+                            $('#delete\\_button\\_'+sort_string).click(function() {
+                                var the_name = name_string;
+                                return function() {
+                                    $('#del\\_from').val(the_name);
+                                    document.getElementById('dia_delete_job').style.display='block';
+                                };}()
+                            );
+                            $('#rerun\\_button\\_'+sort_string).click(function() {
+                                var the_name = name_string;
+                                return function() {
+                                    $('#rerun\\_from').val(the_name);
+                                    document.getElementById('dia_rerun_job').style.display='block';
+                                };}()
+                            );
+                        }
+                        else {
+                            item = jQuery('<td class="updatable id entry_name">'+msg[i].id+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].description+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].start.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].completion.slice(0,-13)+'</td>\
+                            <td class="updatable">'+msg[i].status+'</td>');
+                            $('#entry\\_'+sort_string+' td.updatable').remove();
+                            $('#entry\\_'+sort_string).append(item)
+                            delete curr_list['entry_'+sort_string];
+                        }
+                    }
+                }
+                for (var key in curr_list) {
+                    $('#'+key).remove();
+                }
+                if(added) {
+                    $('#data').append($('#data tbody tr').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                }
+            }
+            $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
+            $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
+        });
+    }
+
+
+    function delete_all_jobs_done() {
+        document.getElementById('delete_all_job_done_button').style.display='none';
+        document.getElementById('delete_all_job_done_button_wait').style.display='block';
+        $.ajax({
+            type:'POST',
+            url:'${jobs_path}/delete_all_done' })
+        .done(function() {
+            document.getElementById('dia_delete_all_job_done').style.display='none';
+            document.getElementById('delete_all_job_done_button').style.display='block';
+            document.getElementById('delete_all_job_done_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('delete_all_job_done_button').style.display='block';
+            document.getElementById('delete_all_job_done_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+        if(!confirm('Please confirm the DELETE request, proceed?'))
+            return;
+        $.ajax({
+            type:'POST',
+            url:'${jobs_path}/delete_all_done'})
+        .done(update);
+    };
+
+    function delete_all_jobs() {
+        document.getElementById('delete_all_job_button').style.display='none';
+        document.getElementById('delete_all_job_button_wait').style.display='block';
+        $.ajax({
+            type:'POST',
+            url:'${jobs_path}/delete_all' })
+        .done(function() {
+            document.getElementById('dia_delete_all_job').style.display='none';
+            document.getElementById('delete_all_job_button').style.display='block';
+            document.getElementById('delete_all_job_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('delete_all_job_button').style.display='block';
+            document.getElementById('delete_all_job_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+        if(!confirm('Please confirm the DELETE request, proceed?'))
+            return;
+        $.ajax({
+            type:'POST',
+            url:'${jobs_path}/delete_all'})
+        .done(update);
+    };
+
+    function delete_job() {
+        document.getElementById('delete_job_button').style.display='none';
+        document.getElementById('delete_job_button_wait').style.display='block';
+        var job = $("#del\\_from").val();
+        $.ajax({
+            type:'POST',
+            url:'${jobs_path}/delete/'+job })
+        .done(function() {
+            document.getElementById('dia_delete_job').style.display='none';
+            document.getElementById('delete_job_button').style.display='block';
+            document.getElementById('delete_job_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('delete_job_button').style.display='block';
+            document.getElementById('delete_job_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+    function rerun_job() {
+        document.getElementById('rerun_job_button').style.display='none';
+        document.getElementById('rerun_job_button_wait').style.display='block';
+        var job = $("#rerun\\_from").val();
+        $.ajax({
+            type:'POST',
+            url:'${jobs_path}/rerun/'+job })
+        .done(function() {
+            document.getElementById('dia_rerun_job').style.display='none';
+            document.getElementById('rerun_job_button').style.display='block';
+            document.getElementById('rerun_job_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('rerun_job_button').style.display='block';
+            document.getElementById('rerun_job_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+
+    $( document ).ready(function() {
+        $('#delete\\_job').submit(delete_job);
+        $('#delete\\_all\\_job\\_done').submit(delete_all_jobs_done);
+        $('#delete\\_all\\_job').submit(delete_all_jobs);
+        $('#rerun\\_job').submit(rerun_job);
+        timed_update();
+    });
+</script>
+</%block>
+
+<%block name="menu2">
+<section class="w3-navbar w3-theme-d4 ">
+    <div id="but_delete_all_job_done" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_delete_all_job_done').style.display='block'">Delete all completed jobs
+    </div>
+    <div id="but_delete_all_job" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_delete_all_job').style.display='block'">Delete all jobs
+    </div>
+</section>
+</%block>
+
+<section>
+    <div class="w3-panel w3-padding">
+        <div class="w3-card">
+            <div id="data_list">
+            </div>
+        </div>
+    </div>
+    <div id="dia_delete_all_job" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_delete_all_job').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Delete all jobs</h3>
+            </header>
+            <form id="delete_all_job" class="w3-container" action="#" method="post">
+                <p>
+                    <input class="w3-input" id="delete_all_job_button" type="submit" value="Delete all jobs"/>
+                    <span class="w3-center" id="delete_all_job_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_delete_all_job_done" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_delete_all_job_done').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Delete all completed jobs</h3>
+            </header>
+            <form id="delete_all_job_done" class="w3-container" action="#" method="post">
+                <p>
+                    <input class="w3-input" id="delete_all_job_done_button" type="submit" value="Delete all completed jobs"/>
+                    <span class="w3-center" id="delete_all_job_done_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_delete_job" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_delete_job').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Delete a Job</h3>
+            </header>
+            <form id="delete_job" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="del_from">Job to delete:</label>
+                    <input class="w3-input" type="text" disabled id="del_from"/>
+                </p>
+                <p>
+                    <input class="w3-input" id="delete_job_button" type="submit" value="Delete"/>
+                    <span class="w3-center" id="delete_job_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_rerun_job" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_rerun_job').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Rerun Job</h3>
+            </header>
+            <form id="rerun_job" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="rerun_from">Job ID to rerun:</label>
+                    <input class="w3-input" type="text" disabled id="rerun_from"/>
+                </p>
+                <p>
+                    <input class="w3-input" id="rerun_job_button" type="submit" value="Rerun"/>
+                    <span class="w3-center" id="rerun_job_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+</section>

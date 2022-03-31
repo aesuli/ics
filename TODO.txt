@@ -1,0 +1,19 @@
+TODO
+- user management
+    * ownership of datasets
+    * ownership of classifiers
+    * access list for datasets
+    * access list for classifiers
+    * tracking of who assigned labels
+    * voting on multiple labels
+    * user agreement
+- table views
+    * different sort criteria
+- use ids rather than names in batch jobs
+- cleaning
+    * purge unreferenced documents
+    * periodically clean download directory
+- versioning
+- backup of deleted data
+- additional tools:
+    * estimated accuracy for classifiers

@@ -1,0 +1,39 @@
+<%inherit file="base.html" />
+<%block name="head">
+<script type="text/javascript">
+    function logout() {
+        $.ajax({
+            type: "POST",
+            url: "${user_auth_path}/logout"})
+        .done(window.location.href = '${mount_dir}')
+        .fail(function(errMsg) {
+        });
+        return false;
+    };
+
+    $( document ).ready(function() {
+        $('#logout').click(logout);
+    });
+</script>
+</%block>
+<%block name="menu">
+<div class="w3-navbar w3-text-theme">
+    <a class="w3-bar-item w3-button" href="${mount_dir}/datasets">Datasets</a>
+    <a class="w3-bar-item w3-button" href="${mount_dir}/classifiers">Classifiers</a>
+    <div class="w3-dropdown-hover">
+        <span class="w3-button">More ⯆</span>
+        <div class="w3-dropdown-content w3-bar-block w3-card-4">
+            <a class="w3-bar-item w3-button" href="${mount_dir}/typeandcode">Type &amp; Code</a>
+            <a class="w3-bar-item w3-button" href="${mount_dir}/users">Users</a>
+            <a class="w3-bar-item w3-button" href="${admin_path}/">Admin</a>
+            % if public_path:
+            <a class="w3-bar-item w3-button" href="${public_path}">Public access interface</a>
+            % endif
+            <p class="w3-border w3-border-theme"></p>
+            <a class="w3-bar-item w3-button" href="${mount_dir}/about">About</a>
+            <p class="w3-border w3-border-theme"></p>
+            <a id="logout" class="w3-bar-item w3-button">Logout ${username}</a>
+        </div>
+    </div>
+</div>
+</%block>
