@@ -1,0 +1,763 @@
+<%inherit file="basewithmenu.html" />
+<%block name="head">
+${parent.head()}
+<script type="text/javascript">
+    update_interval=3000
+    delay_interval=500
+    last_update = 0
+
+    function timed_update() {
+        if(Date.now()-last_update>update_interval)
+            update();
+        setTimeout(timed_update,update_interval);
+    }
+
+    datasetsize = 1;
+
+    browse_diff = 'Active learning';
+    browse_next = 'Upload order';
+    browse_prev = 'Reverse upload order';
+    browse_rnd = 'Random';
+    browse_next_unlbl = 'Upload order, unlabeled';
+    browse_prev_unlbl = 'Reverse upload order, unlabeled';
+    browse_rnd_unlbl = 'Random, unlabeled';
+
+    autobrowsevalues = [
+        browse_diff,
+        browse_next,
+        browse_next_unlbl,
+        browse_prev,
+        browse_prev_unlbl,
+        browse_rnd,
+        browse_rnd_unlbl,
+    ];
+
+    autobrowse = 0;
+
+    dataset_name = 'NULL';
+
+    function set_uncoded_count(single_label, dataset_name, classifier_name) {
+        $.ajax({
+            type: 'POST',
+            url: '${dataset_path}/documents_without_labels_count',
+            data: { dataset_name : dataset_name , classifier_name:classifier_name}})
+        .done( function (msg) {
+            if (single_label) {
+                $('#use\\_opt\\_'+classifier_name).text(classifier_name+' (S, '+(datasetsize-parseInt(msg))+', '+msg+')');
+            }
+            else {
+                $('#use\\_opt\\_'+classifier_name).text(classifier_name+' (M, '+(datasetsize-parseInt(msg))+', '+msg+')');
+            }
+            $('#use').select2({
+                placeholder: 'Select the classifiers to use',
+                width: '100%'
+            });
+        });
+    };
+
+    var prev_msg = []
+
+    function update() {
+        last_update = Date.now();
+
+        $.ajax({
+            type: 'POST',
+            url: '${dataset_path}/size',
+            data: { name : dataset_name }})
+        .done( function (msg) {
+            datasetsize = parseInt(msg);
+            $('#position').attr('max',datasetsize-1);
+            $('#size').text(datasetsize);
+        });
+
+        $.ajax({
+            type:'POST',
+            url:'${classifier_path}/info',
+            dataType: 'json'})
+        .done(function(msg) {
+            var still_exists = {};
+            var new_classifiers = {};
+            var to_update = {};
+            var selected = $('#use').val();
+            var added = false;
+            for(var i = 0;i<msg.length;++i) {
+                var name_string = msg[i].name.replace(/\W/g,'X')
+                still_exists[name_string] = true;
+                if($('#use\\_opt\\_'+name_string).length==0) {
+                    new_classifiers[name_string] = true;
+                }
+                else {
+                    for(var j = 0;j<prev_msg.length;++j) {
+                        if(prev_msg[j].name==msg[i].name) {
+                            if(prev_msg[j].mode!=msg[i].mode) {
+                                to_update[name_string] = true;
+                                break;
+                            }
+                            if(prev_msg[j].description!=msg[i].description) {
+                                to_update[name_string] = true;
+                                break;
+                            }
+                            if(!equalArray(prev_msg[j].labels,msg[i].labels)) {
+                                to_update[name_string] = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            for(var i = 0;i<msg.length;++i) {
+                var name_string = msg[i].name.replace(/\W/g,'X')
+                if(to_update[name_string]) {
+                    var escaped_name = $.escapeSelector(name_string);
+                    $('#use\\_opt\\_'+escaped_name).remove();
+                    $('#suggestions\\_'+escaped_name).remove();
+                    $('#do\\_opt\\_'+escaped_name).remove();
+                }
+                if(new_classifiers[name_string]||to_update[name_string]) {
+                    var single_label = msg[i].mode=="Single-label";
+                    var labeltype='<span id="'+name_string+'_single" class="w3-small w3-margin-left w3-right">S</span>';
+                    if(!single_label) {
+                        labeltype='<span id="'+name_string+'_multi" class="w3-small w3-margin-left w3-right">M</span>'
+                    }
+                    added = true;
+                    $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+name_string+'"/>').val(msg[i].name).text(msg[i].name));
+                    $('#view\\_classifier\\_name').append($('<option id="do_opt_'+msg[i].name+'"/>').val(msg[i].name).text(msg[i].name));
+                    var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'w3-col w3-card w3-margin-top w3-margin-right\' style=\'width:auto\'>\
+                    <div class="name w3-display-container w3-container w3-padding w3-theme">'+msg[i].name+labeltype+'</div>\
+                    <div id="assignments_'+msg[i].name+'"></div></div>');
+                    suggestion_div.appendTo('#pool');
+                    set_uncoded_count(single_label, dataset_name, msg[i].name);
+                    for(var j = 0;j<msg[i].labels.length;++j) {
+                        if(single_label) {
+                            var scoreline = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'" class="w3-left w3-hover-theme w3-hover-opacity pointer scoreline not_relevant">'+msg[i].labels[j]+'</div>');
+                            scoreline.click((function(single_label, classifier_name, label){
+                                if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('assigned')) {
+                                    if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label).hasClass('suggested')) {
+                                        $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
+                                    }
+                                    else {
+                                        $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
+                                    }
+                                    var histsize = parseInt($("#histsize").val());
+                                    $('#history').children().slice(histsize).remove();
+                                    var total = $('#history').children().length;
+                                    var positive = $('#history').children('.yes').length;
+                                    $('#accuracy').text((positive/total*100).toFixed(0)+"%");
+
+                                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                                    $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                                    $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label).removeClass('not_relevant')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label).addClass('assigned')
+                                    $.ajax({
+                                        type:'POST',
+                                        url:'${classifier_path}/update',
+                                        data: { name: classifier_name, X: [last_text], y: [label]}})
+                                    .done((function(single_label, classifier_name) {
+                                        setTimeout(function() {
+                                            set_uncoded_count(single_label, dataset_name, classifier_name);
+                                        },1000);
+                                    }).bind(null, single_label, classifier_name))
+                                    .fail(function(msg) {
+                                        custom_alert(msg);
+                                    });
+                                }
+                            }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                        }
+                        else {
+                            var scoreline_yes = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_yes" class="w3-col w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multiyes" style="width:auto;">yes</div>');
+                            var scoreline_no = jQuery('<div id="suggestion_'+msg[i].name+'_L_'+msg[i].labels[j]+'_no" class="w3-rest w3-hover-theme w3-hover-opacity w3-right-align pointer scoreline not_relevant multino" style="width:auto;">no</div>');
+                            scoreline_yes.click((function(single_label, classifier_name, label){
+                                if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('assigned')) {
+                                    if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').hasClass('suggested')) {
+                                        $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
+                                    }
+                                    else {
+                                        $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
+                                    }
+                                    var histsize = parseInt($("#histsize").val());
+                                    $('#history').children().slice(histsize).remove();
+                                    var total = $('#history').children().length;
+                                    var positive = $('#history').children('.yes').length;
+                                    $('#accuracy').text((positive/total*100).toFixed(0)+"%");
+
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('not_relevant')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('suggested')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').addClass('assigned')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('assigned')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('suggested')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').addClass('not_relevant')
+
+                                    $.ajax({
+                                        type:'POST',
+                                        url:'${classifier_path}/update',
+                                        data: { name: classifier_name, X: [last_text], y: [[label, true]]}})
+                                    .done((function(single_label, classifier_name) {
+                                        setTimeout(function() {
+                                            set_uncoded_count(single_label, dataset_name, classifier_name);
+                                        },1000);
+                                    }).bind(null, single_label, classifier_name))
+                                    .fail(function(msg) {
+                                        custom_alert(msg);
+                                    });
+                                }
+                            }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                            scoreline_no.click((function(single_label, classifier_name, label){
+                                if(!$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('assigned')) {
+                                    if($('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').hasClass('suggested')) {
+                                        $('#history').prepend('<span class="agreement yes w3-text-light-green">✓</span>');
+                                    }
+                                    else {
+                                        $('#history').prepend('<span class="agreement no w3-text-red">✗</span>');
+                                    }
+                                    var histsize = parseInt($("#histsize").val());
+                                    $('#history').children().slice(histsize).remove();
+                                    var total = $('#history').children().length;
+                                    var positive = $('#history').children('.yes').length;
+                                    $('#accuracy').text((positive/total*100).toFixed(0)+"%");
+
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('not_relevant')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').removeClass('suggested')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_no').addClass('assigned')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('assigned')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').removeClass('suggested')
+                                    $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_yes').addClass('not_relevant')
+
+                                    $.ajax({
+                                        type:'POST',
+                                        url:'${classifier_path}/update',
+                                        data: { name: classifier_name, X: [last_text], y: [[label, false]]}})
+                                    .done((function(single_label, classifier_name) {
+                                        setTimeout(function() {
+                                            set_uncoded_count(single_label, dataset_name, classifier_name);
+                                        },1000);
+                                    }).bind(null, single_label, classifier_name))
+                                    .fail(function(msg) {
+                                        custom_alert(msg);
+                                    });
+                                }
+                            }).bind(null, single_label, msg[i].name, msg[i].labels[j]));
+                            var scoreline = jQuery('<div class="w3-left w3-row multiscoreline"><div>'+msg[i].labels[j]+'</div></div>');
+                            scoreline.append(scoreline_yes);
+                            scoreline.append(scoreline_no);
+                        }
+                        $('#assignments\\_'+msg[i].name).append(scoreline);
+                    }
+                }
+            }
+            prev_msg = msg
+            if($('#all\\_correct').length==0) {
+                var next_button = jQuery('<div id="next" class="w3-right w3-button w3-theme w3-round w3-margin-left" title="Press the right arrow key to move to next document">Next document</div>');
+                next_button.click(next_doc);
+                $('#buttons').append(next_button);
+                var all_correct = jQuery('<div id="all_correct" class="w3-right w3-button w3-theme w3-round">All <span class="suggested w3-text-theme">suggestions</span> are correct</div>');
+                all_correct.click(function() {
+                    $('#suggestions div div .suggested').each(function(i,item) {
+                        item.click();
+                    });
+                });
+                if(!$('#showsugg').is(':checked')) {
+                    all_correct.hide();
+                    $('#historybox').hide();
+                }
+                $('#buttons').append(all_correct);
+            }
+            $('#use').children().each(function (index, value) {
+                if(!still_exists[value.id.slice(8)]) {
+                    $('#'+value.id).remove();
+                    $('#suggestions\\_'+value.id.slice(8)).remove();
+                }
+            });
+            $('#view\\_classifier\\_name').children().each(function (index, value) {
+                if(!still_exists[value.id.slice(7)]) {
+                    $('#'+value.id).remove();
+                }
+            });
+
+            var some_updates = false;
+            for(var i = 0;i<selected.length;++i) {
+                if(to_update[selected[i]]) {
+                    some_updates = true;
+                    $('#use').trigger({type:'select2:select',params:{data:{id:selected[i]}}});
+                }
+            }
+            if(some_updates) {
+                $('#use').val(selected).select2({
+                    placeholder: 'Select the classifiers to use',
+                    allowClear: true,
+                    width: '100%'
+                });
+            }
+            if(added) {
+                $('#use').append($('#use > option').get().sort(function (a, b) {
+                    return $(a)[0].id.localeCompare($(b)[0].id);
+                }));
+                $('#use').attr('size',Math.min(10,Object.keys(still_exists).length));
+                $("#use").off('select2:select').on('select2:select',function(msg){
+                    var name = msg.params.data.id;
+                    $('#suggestions\\_'+name).detach().appendTo('#suggestions');
+                    classify([name]);
+                    return false;
+                });
+                $("#use").off('select2:unselect').on('select2:unselect',function(msg){
+                    var name = msg.params.data.id;
+                    $('#suggestions\\_'+name).detach().appendTo('#pool');
+                    return false;
+                });
+                $('#view\\_classifier\\_name').append($('#view\\_classifier\\_name > option').get().sort(function (a, b) {
+                    return $(a)[0].id.localeCompare($(b)[0].id);
+                }));
+            }
+        });
+    }
+
+    last_text = ""
+    function classify(selection) {
+        var text = $("#textbox").val();
+        var force = text!=last_text;
+        if(force) {
+            reset_labels();
+        }
+        last_text = text;
+        if($('#showsugg').is(':checked')) {
+            $('#suggestions > div').each(function(i,item) {
+                var classifier_name = $(item).children('.name').text();
+                classifier_name = classifier_name.substr(0,classifier_name.length - 1)
+                var single_label = $('#'+classifier_name+'\\_single').length>0;
+                if(typeof selection == 'undefined' || selection.indexOf(classifier_name)>=0) {
+                    if(single_label) {
+                        var assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
+                        if(!assigned||force) {
+                            $.ajax({
+                                type:'POST',
+                                url:'${classifier_path}/classify',
+                                data: { name: classifier_name, X: [text], mode: "Single-label"}})
+                            .done(function(msg) {
+                                var suggested = msg[0];
+                                if(suggested!=null) {
+                                    assigned = $('#assignments\\_'+classifier_name).children('.scoreline.assigned').length>0;
+                                    if(!assigned || force) {
+                                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('assigned');
+                                        $('#assignments\\_'+classifier_name).children('.scoreline').removeClass('suggested');
+                                        $('#assignments\\_'+classifier_name).children('.scoreline').addClass('not_relevant');
+                                        if(suggested[1]) {
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+suggested[0]).removeClass('not_relevant');
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+suggested[0]).addClass('assigned');
+                                        }
+                                        else {
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+suggested[0]).removeClass('not_relevant');
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+suggested[0]).addClass('suggested');
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }
+                    else {
+                        $.ajax({
+                            type:'POST',
+                            url:'${classifier_path}/classify',
+                            data: { name: classifier_name, X: [text], mode: "Multi-label"}})
+                        .done(function(msg) {
+                            var suggested = msg[0];
+                            if(suggested!=null) {
+                                suggested.forEach(function(label_value) {
+                                    var label = label_value[0];
+                                    var value = 'no';
+                                    var not_value = 'yes';
+                                    if(label_value[1]) {
+                                        value = 'yes';
+                                        not_value = 'no';
+                                    }
+                                    var human = label_value[2];
+                                    assigned = $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).hasClass('assigned')||$('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).hasClass('assigned');
+                                    if(!assigned || force) {
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).removeClass('not_relevant');
+                                        if(human) {
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).addClass('assigned');
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).removeClass('suggested');
+                                        }
+                                        else {
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).addClass('suggested');
+                                            $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+value).removeClass('assigned');
+                                        }
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).removeClass('assigned');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).removeClass('suggested');
+                                        $('#suggestion\\_'+classifier_name+'\\_L\\_'+label+'\\_'+not_value).addClass('not_relevant');
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
+            });
+        }
+    }
+
+    function position_changed() {
+        var position = parseInt($("#position").val());
+        if(isNaN(position))
+            position = 0;
+        if(position>=datasetsize)
+            position = datasetsize-1;
+            $("#position").val(position);
+        if(position<0)
+            position = 0;
+
+        $.ajax({
+            type:'POST',
+            url:'${dataset_path}/document_by_position',
+            data: { name: dataset_name , position: position },
+            dataType: 'json'})
+        .done(function(msg) {
+            $('#external-id').text(msg['external_id']);
+            $('#uploaded').text(msg['created'].slice(0,-13));
+            $('#textbox').val(msg['text']).trigger('input');
+        });
+    }
+
+    function goto_first() {
+        $('#position').val(0).change();
+    }
+
+    function goto_last() {
+        $('#position').val(datasetsize-1).change();
+    }
+
+    function change_autobrowse() {
+        autobrowse += 1;
+        if(autobrowse>= autobrowsevalues.length)
+            autobrowse = 0;
+        $('#direction').text(autobrowsevalues[autobrowse]);
+    }
+
+    function reset_labels() {
+        $('#suggestions > div > .name').each(function(i,item) {
+            var classifier_name = $(item).text();
+            classifier_name = classifier_name.substr(0,classifier_name.length - 1);
+            $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
+            $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
+            $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
+        });
+        $('#pool > div > .name').each(function(i,item) {
+            var classifier_name = $(item).text();
+            classifier_name = classifier_name.substr(0,classifier_name.length - 1);
+            $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('assigned');
+            $('#assignments\\_'+classifier_name).find('.scoreline').removeClass('suggested');
+            $('#assignments\\_'+classifier_name).find('.scoreline').addClass('not_relevant');
+        });
+    }
+
+    function pick_random_position() {
+        if($('#filter').val().trim()=="") {
+            var newposition = Math.floor(Math.random() * datasetsize);
+            $('#position').val(newposition).change();
+        }
+        else {
+            $.ajax({
+                type:'POST',
+                url:'${dataset_path}/random_document_id',
+                data: { name: dataset_name , filter: $('#filter').val() },
+                dataType: 'json'})
+            .done(function(msg) {
+                var newposition = parseInt(msg);
+                $('#position').val(newposition).change();
+            })
+            .fail(function(errMsg) {
+                custom_alert(errMsg.responseText);
+            });
+        }
+    }
+
+    function next_doc() {
+        var classifier_name = null;
+        var class_count = $('#suggestions > div > .name').length
+        if(class_count>0) {
+            classifier_name = $('#suggestions > div > .name')[Math.floor(Math.random() * class_count)].textContent;
+            classifier_name = classifier_name.substr(0,classifier_name.length - 1)
+        }
+        var get_next = false;
+        var get_prev = false;
+        if(autobrowsevalues[autobrowse]==browse_next_unlbl) {
+            if(classifier_name==null) {
+                get_next = true;
+            }
+            else {
+                var newposition = parseInt($("#position").val())+1;
+                if(newposition<=datasetsize) {
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/next_unlabeled_document_id',
+                        data: { name: dataset_name , classifier_name: classifier_name, start_from: newposition, filter: $('#filter').val() },
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
+                        $('#position').val(newposition).change();
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
+                }
+            }
+        }
+        if(autobrowsevalues[autobrowse]==browse_prev_unlbl) {
+            if(classifier_name==null) {
+                get_prev = true;
+            }
+            else {
+                var newposition = parseInt($("#position").val())-1;
+                if(newposition>=0) {
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/prev_unlabeled_document_id',
+                        data: { name: dataset_name , classifier_name: classifier_name, start_from: newposition, filter: $('#filter').val() },
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
+                        $('#position').val(newposition).change();
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
+                }
+            }
+        }
+        if(autobrowsevalues[autobrowse]==browse_next || get_next) {
+            var newposition = parseInt($("#position").val())+1;
+            if(newposition<=datasetsize) {
+                if($('#filter').val().trim()=="") {
+                    $('#position').val(newposition).change();
+                }
+                else {
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/next_document_id',
+                        data: { name: dataset_name , start_from: newposition, filter: $('#filter').val() },
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
+                        $('#position').val(newposition).change();
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
+                }
+            }
+        }
+        if(autobrowsevalues[autobrowse]==browse_prev || get_prev) {
+            var newposition = parseInt($("#position").val())-1;
+            if(newposition>=0) {
+                if($('#filter').val().trim()=="") {
+                    $('#position').val(newposition).change();
+                }
+                else {
+                    $.ajax({
+                        type:'POST',
+                        url:'${dataset_path}/prev_document_id',
+                        data: { name: dataset_name , start_from: newposition, filter: $('#filter').val() },
+                        dataType: 'json'})
+                    .done(function(msg) {
+                        var newposition = parseInt(msg);
+                        $('#position').val(newposition).change();
+                    })
+                    .fail(function(errMsg) {
+                        custom_alert(errMsg.responseText);
+                    });
+                }
+            }
+        }
+        else if(autobrowsevalues[autobrowse]==browse_rnd_unlbl) {
+            if(classifier_name==null) {
+                pick_random_position();
+            }
+            else {
+                $.ajax({
+                    type:'POST',
+                    url:'${dataset_path}/random_unlabeled_document_id',
+                    data: { name: dataset_name , classifier_name: classifier_name, filter: $('#filter').val() },
+                    dataType: 'json'})
+                .done(function(msg) {
+                    var newposition = parseInt(msg);
+                    $('#position').val(newposition).change();
+                })
+                .fail(function(errMsg) {
+                    custom_alert(errMsg.responseText);
+                });
+            }
+        }
+        else if(autobrowsevalues[autobrowse]==browse_diff) {
+            if(classifier_name==null) {
+                pick_random_position();
+            }
+            else {
+                $.ajax({
+                    type:'POST',
+                    url:'${dataset_path}/most_uncertain_document_id',
+                    data: { name: dataset_name , classifier_name: classifier_name, filter: $('#filter').val() },
+                    dataType: 'json'})
+                .done(function(msg) {
+                    var newposition = parseInt(msg);
+                    $('#position').val(newposition).change();
+                })
+                .fail(function(errMsg) {
+                    custom_alert(errMsg.responseText);
+                });
+            }
+        }
+        else if(autobrowsevalues[autobrowse]==browse_rnd) {
+            pick_random_position();
+        }
+    }
+
+    function show_suggestions() {
+        if($('#showsugg').is(':checked')) {
+            $('#history').children().remove();
+            $('#accuracy').text('n/a');
+            $('#all\\_correct').show();
+            $('#historybox').show();
+            classify();
+        }
+        else {
+            $('#suggestions div[id^=suggestions] .ui-widget-header').each(function(i,item) {
+                var classifier_name = $(item).children('.name').text();
+                $('#assignments\\_'+classifier_name).children('.scoreline').each(function(i,item) {
+                    if($(item).hasClass('suggested')) {
+                        $(item).removeClass('suggested');
+                        $(item).addClass('not_relevant');
+                    }
+                });
+            });
+            $('#all\\_correct').hide();
+            $('#historybox').hide();
+        }
+    }
+
+    function view() {
+        document.getElementById('view_classification_button').style.display='none';
+        document.getElementById('view_classification_button_wait').style.display='block';
+        var classifiers = $("#view\\_classifier\\_name").val();
+        window.location = '${mount_dir}/classification_view/${datasetname}/'+classifiers;
+        return false;
+    }
+
+    $( document ).ready(function() {
+        var pathname = window.location.pathname;
+        dataset_name = pathname.substring(pathname.lastIndexOf('/')+1)
+        $('#datasetname').text(dataset_name);
+
+        $('#direction').text(autobrowsevalues[autobrowse]);
+
+        $("#textbox").on("keyup",function() {
+            text = $("#textbox").val();
+            if(text!=last_text) {
+                $('#external-id').text('n/a');
+                $('#uploaded').text('not from dataset');
+            }
+        });
+        $("#textbox").on("input",function() {
+            delay(function() {
+            reset_labels();
+            classify();
+        },delay_interval);});
+
+        $('#position').change(position_changed);
+
+        $('#browse\\_autobrowse').click(change_autobrowse);
+
+        $('#showsugg').change(show_suggestions);
+
+        $('#filter').on('keydown', function (e) {
+            if (e.keyCode == 13) {//enter
+                next_doc();
+            }
+        });
+
+        $(document).on('keydown', function(e) {
+            if(e.keyCode == 39 && e.target.id == '') {//right arrow
+                next_doc();
+            }
+        });
+
+        $('#use').select2({
+            placeholder: 'Select the classifiers to use',
+            allowClear: true,
+            width: '100%'
+        });
+
+        $("#view\\_classifier").submit(view);
+
+        $('#view\\_classifier\\_name').select2({
+            placeholder: 'Select the classifier',
+            width: '100%'
+        });
+
+        timed_update();
+        goto_first();
+    });
+</script>
+</%block>
+
+<%block name="menu2">
+<section class="w3-navbar w3-theme-d4 ">
+    <div id="but_view_classification" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_view_classification').style.display='block'">Live classification
+    </div>
+    <a class="w3-bar-item w3-button" href="${mount_dir}/classify/${datasetname}">Automatic classification</a>
+</section>
+</%block>
+
+<section>
+    <div class="w3-panel w3-padding">
+        <div class="w3-card">
+            <header class="w3-container w3-theme">
+                <h4>Browse & code dataset <b><span id="datasetname">NULL</span></b>:</h4>
+            </header>
+            <form id="select_form" class="w3-container" action="#" method="post">
+                    <p><label for="use">Classifiers to use:</label>
+                    <select class="w3-select" multiple id="use" style="width:230px;">
+                    </select></p>
+                <p><label for="showsugg">Show labeling <span class="suggested">suggestions</span></label>
+                    <input type="checkbox" id="showsugg" checked/>
+                </p>
+            </form>
+            <div class="w3-container">
+                <div class="w3-tooltip w3-left">Current document: <input id='position' type="number" min=0 max=0 value=0>/<span id="size">NULL</span>
+                    <div class="w3-text w3-theme w3-tag w3-small w3-round">
+                        <div>ID: <span id="external-id">NULL</span></div>
+                        <div>Uploaded: <span id="uploaded">NULL</span></div>
+                    </div>
+                </div>
+                <div class="w3-right w3-margin-left">Filter: <input type="text" id="filter" placeholder="Text filter"/></div>
+                <div  class="w3-right" id="browse_autobrowse">Next document selection mode: <div id='direction' class="w3-button w3-text-theme w3-round">NULL</div></div>
+                <textarea id="textbox" class="w3-block w3-margin-top" placeholder="Text to code" style="height:33%;"></textarea>
+                <div id="buttons" class="w3-container w3-panel"></div>
+                <div id="suggestions" class="w3-container w3-margin-bottom"></div>
+                <div id="pool" style="display:none;"></div>
+                <div id="historybox">
+                    <div class="w3-margin-bottom">Agreement on last <input id="histsize" type="number" min="10" max="500" value="50"> assigned labels: <span id="accuracy">n/a</span></div>
+                    <div class="w3-margin-bottom">Agreement history: <div id="history"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="dia_view_classification" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_view_classification').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Live classification of documents</h3>
+            </header>
+            <form id="view_classifier" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="view_classifier_name">Classifier:</label>
+                    <select class="w3-select" id="view_classifier_name">
+                    </select></p>
+                <p>
+                    <input class="w3-input" id="view_classification_button" type="submit" value="View"/>
+                    <span class="w3-center" id="view_classification_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+</section>

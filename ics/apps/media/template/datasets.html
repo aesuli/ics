@@ -1,0 +1,422 @@
+<%inherit file="basewithmenu.html" />
+<%block name="head">
+${parent.head()}
+<script type="text/javascript" xmlns:to="http://www.w3.org/1999/xhtml" xmlns:to="http://www.w3.org/1999/xhtml">
+    update_interval=5000
+    last_update = 0
+    page_size = 20;
+    maxpage = 1
+
+    function timed_update() {
+        if(Date.now()-last_update>update_interval)
+            update();
+        setTimeout(timed_update,update_interval);
+    }
+
+    pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
+                     Page<input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                     /<span id="pagecount">X</span>\
+                     Count<select  id="pagesize"><option value="10">10</option>\
+                     <option value="20" selected>20</option><option value="50" >50</option>\
+                     <option value="100">100</option><option value="200">200</option></select></div></div>');
+
+    async function update() {
+        last_update = Date.now();
+        var count = parseInt($(pagination_div.children()[2]).val())
+        await $.ajax({
+            type:'POST',
+            url:'${dataset_path}/count',
+            dataType: 'json'})
+        .done(function(msg) {
+            count = parseInt(msg);
+            maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+            $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
+            $(pagination_div.children()[0]).attr({
+                   "max" : maxpage
+                });
+            $(pagination_div.children()[1]).text(maxpage)
+        });
+        $.ajax({
+            type:'POST',
+            url:'${dataset_path}/info',
+            data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
+            dataType: 'json'})
+        .done(function(msg) {
+            if(msg.length==0) {
+                $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No dataset available</h4></div>');
+                $('#page').val(1);
+            }
+            else {
+                if($('#gotdata').length==0) {
+                    $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Datasets:</h4></div>\
+                    <div><table id="data" class="w3-table-all">\
+                    <tr>\
+                    <th></th>\
+                    <th class="w3-small">Name</th>\
+                    <th class="w3-small">Size</th>\
+                    <th class="w3-small">Description</th>\
+                    <th class="w3-small">Created</th>\
+                    <th class="w3-small">Updated</th>\
+                    </tr></table></div>');
+                    $('#gotdata').prepend(pagination_div);
+                }
+                var start = 0;
+                var end = msg.length;
+                $('td.entry\\_name').each(function(i,item) {
+                    var found = false;
+                    for(var i = start;i<end;++i) {
+                        if($(item).text()==msg[i].name) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(!found) {
+                        $(item).parent().remove();
+                    }
+                });
+                var curr_list = {};
+                $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                var updated_list = {};
+                var added = false;
+                for(var i = 0;i<msg.length;++i) {
+                    var name_string = msg[i].name
+                    updated_list[name_string] = true;
+                    var sort_string = msg[i].name.replace(/\W/g,'X')
+                    if($('#up\\_opt\\_'+name_string).length==0) {
+                        added = true;
+                        $('#up\\_to').append($('<option title="'+msg[i].description+'" id="up_opt_'+name_string+'"/>').val(name_string).text(name_string));
+                    }
+                    if (i >=start && i<end) {
+                        if ($('#entry\\_'+sort_string).length==0) {
+                            item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
+                            <td class="w3-dropdown-hover w3-hover-theme">\
+                                ☰\
+                                <div class="w3-dropdown-content w3-bar-block w3-card">\
+                                    <div id="browse_button_'+name_string+'" class="w3-bar-item w3-button">Browse &amp; code</div>\
+                                    <div id="classify_button_'+name_string+'" class="w3-bar-item w3-button">Classify</div>\
+                                    <div id="rename_button_'+name_string+'" class="w3-bar-item w3-button">Rename</div>\
+                                    <div id="description_button_'+name_string+'" class="w3-bar-item w3-button">Change description</div>\
+                                    <div id="download_button_'+name_string+'" class="w3-bar-item w3-button">Download</div>\
+                                    <div id="del_button_'+name_string+'" class="w3-bar-item w3-button">Delete</div>\
+                                </div></td>\
+                            <td class="updatable id entry_name">'+msg[i].name+'</td>\
+                            <td class="updatable w3-small">'+msg[i].size+'</td>\
+                            <td class="updatable w3-tiny" id="dataset_description_'+msg[i].name+'">'+msg[i].description+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>\
+                            </tr>');
+                            $('#data').append(item);
+
+                            $('#browse\\_button\\_'+name_string).click(
+                                (function() {
+                                    var dataset_name = msg[i].name;
+                                    return function() {
+                                        window.location.href = '${mount_dir}/browseandcode/'+dataset_name;
+                                    }
+                            })());
+
+                            $('#classify\\_button\\_'+msg[i].name).click(
+                                (function() {
+                                    var dataset_name = msg[i].name;
+                                    return function() {
+                                        window.location.href = '${mount_dir}/classify/'+dataset_name;
+                                    }
+                            })());
+
+                            $('#download\\_button\\_'+name_string).click(download_dataset.bind(null,name_string));
+
+                            $('#rename\\_button\\_'+name_string).click(function() {
+                                var the_name = name_string;
+                                return function() {
+                                    $('#ren\\_from').val(the_name);
+                                    $('#ren\\_name').val('');
+                                    document.getElementById('dia_rename_dataset').style.display='block';
+                                };}()
+                            );
+
+                            $('#del\\_button\\_'+name_string).click(function() {
+                                var the_name = name_string;
+                                return function() {
+                                    $('#del\\_from').val(the_name);
+                                    document.getElementById('dia_delete_dataset').style.display='block';
+                                };}()
+                            );
+                        }
+                        else {
+                            item = jQuery('<td class="updatable id entry_name">'+msg[i].name+'</td>\
+                            <td class="updatable w3-small">'+msg[i].size+'</td>\
+                            <td class="updatable w3-tiny" id="dataset_description_'+name_string+'">'+msg[i].description+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>');
+                            $('#entry\\_'+sort_string+' td.updatable').remove();
+                            $('#entry\\_'+sort_string).append(item)
+                            delete curr_list['entry_'+sort_string];
+                        }
+                        $('#description\\_button\\_'+name_string).unbind('click').click(function() {
+                            var the_name = msg[i].name;
+                            var the_description = msg[i].description;
+                            return function() {
+                                $('#descr\\_from').val(the_name);
+                                $('#descr\\_text').val(the_description);
+                                document.getElementById('dia_description_dataset').style.display='block';
+                            };}()
+                        );
+                    }
+                }
+                for (var key in curr_list) {
+                    $('#'+key).remove();
+                }
+                $('#up\\_to').children().each(function (index, value) {
+                    if(!updated_list[value.id.slice(7)]&&value.id!='') {
+                        $('#'+value.id).remove();
+                    }
+                });
+                if(added) {
+                    $('#data').append($('#data tbody tr').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                    $('#up\\_to').append($('#up\\_to > option').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                }
+            }
+            $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
+            $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
+        });
+    }
+
+    function upload_dataset() {
+        var name = $("#up\\_to").val();
+        if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+            custom_error("The name of the dataset can only contain letters, numbers and the underscore character '_'");
+            return false;
+        }
+        if($('#dataFile')[0].files.length!=1) {
+            custom_error("Must select a file.");
+            return false;
+        }
+        document.getElementById('upload_button').style.display='none';
+        document.getElementById('upload_button_wait').style.display='block';
+        var data = new FormData()
+        data.append("file", $('#dataFile')[0].files[0]);
+        data.append("name", name);
+        $.ajax({
+            type: "POST",
+            url: "${dataset_path}/upload",
+            data: data,
+            enctype: 'multipart/form-data',
+            processData: false,
+            contentType: false})
+        .done(function() {
+            document.getElementById('dia_upload_form').style.display='none';
+            document.getElementById('upload_button').style.display='block';
+            document.getElementById('upload_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            custom_alert(errMsg.responseText);
+            document.getElementById('upload_button').style.display='block';
+            document.getElementById('upload_button_wait').style.display='none';
+        });
+        return false ;
+    };
+
+    function rename_dataset() {
+        var dataset_name = $('#ren\\_from').val();
+        var new_name = $('#ren\\_name').val();
+        if(!new_name.match(/^[a-zA-Z0-9_]+$/)) {
+            custom_error("The name of the dataset can only contain letters, numbers and the underscore character '_'");
+            return false;
+        }
+        document.getElementById('rename_dataset_button').style.display='none';
+        document.getElementById('rename_dataset_button_wait').style.display='block';
+        $.ajax({
+            type: "POST",
+            url: "${dataset_path}/rename/"+dataset_name+"/"+new_name})
+        .done(function() {
+            document.getElementById('dia_rename_dataset').style.display='none';
+            document.getElementById('rename_dataset_button').style.display='block';
+            document.getElementById('rename_dataset_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('rename_dataset_button').style.display='block';
+            document.getElementById('rename_dataset_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+    function dataset_description() {
+        var dataset_name = $('#descr\\_from').val();
+        var dataset_description = $('#descr\\_text').val();
+        document.getElementById('description_dataset_button').style.display='none';
+        document.getElementById('description_dataset_button_wait').style.display='block';
+        $.ajax({
+            type: "POST",
+            url: "${dataset_path}/set_description/"+dataset_name+"/"+dataset_description})
+        .done(function() {
+            document.getElementById('dia_description_dataset').style.display='none';
+            document.getElementById('description_dataset_button').style.display='block';
+            document.getElementById('description_dataset_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('description_dataset_button').style.display='block';
+            document.getElementById('description_dataset_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+    function delete_dataset() {
+        document.getElementById('delete_dataset_button').style.display='none';
+        document.getElementById('delete_dataset_button_wait').style.display='block';
+        var dataset_name = $("#del\\_from").val();
+        $.ajax({
+            type:'POST',
+            url:'${dataset_path}/delete/'+dataset_name })
+        .done(function() {
+            document.getElementById('dia_delete_dataset').style.display='none';
+            document.getElementById('delete_dataset_button').style.display='block';
+            document.getElementById('delete_dataset_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('delete_dataset_button').style.display='block';
+            document.getElementById('delete_dataset_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+    function download_dataset(dataset_name) {
+        var form = $('<form></form>').attr('action', '${dataset_path}/download/'+dataset_name).attr('method', 'post');
+        form.appendTo('body').submit().remove();
+    };
+
+    $( document ).ready(function() {
+        $("#upload\\_form").submit(upload_dataset);
+
+        $('#rename\\_dataset').submit(rename_dataset);
+        $('#description\\_dataset').submit(dataset_description);
+        $('#delete\\_dataset').submit(delete_dataset);
+
+        $('#up\\_to').select2({
+            placeholder: 'Select the dataset',
+            tags: true,
+            data:[],
+            width: '100%'
+        });
+
+        timed_update();
+    });
+</script>
+</%block>
+
+<%block name="menu2">
+<section class="w3-navbar w3-theme-d4 ">
+    <div id="but_upload_form" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_upload_form').style.display='block'">Upload documents
+    </div>
+</section>
+</%block>
+<section>
+        <div class="w3-panel w3-padding">
+        <div class="w3-card">
+            <div id="data_list">
+            </div>
+        </div>
+    </div>
+</section>
+<section>
+    <div id="dia_upload_form" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="$('#up\\_to').val(null).trigger('change');document.getElementById('dia_upload_form').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Upload documents</h3>
+            </header>
+            <form enctype="multipart/form-data" id="upload_form" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="up_to" class="w3-tooltip">Upload to:<span class="w3-text w3-theme w3-tag w3-small w3-round">
+                        Select an existing dataset or type a new name to create it</span></label>
+                    <select class="w3-select" id="up_to">
+                    </select></p>
+                <p><label class="margined">Data file:</label>
+                    <input class="w3-input" type="file" id="dataFile"/></p>
+                <p>
+                    <input class="w3-input" id="upload_button" type="submit" value="Upload"/>
+                    <span class="w3-center" style="display:none" id="upload_button_wait">Uploading</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_rename_dataset" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_rename_dataset').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Rename a dataset</h3>
+            </header>
+            <form id="rename_dataset" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="ren_from">Classifier to rename:</label>
+                    <input class="w3-input" type="text" disabled id="ren_from"/>
+                </p>
+                <p>
+                    <label for="ren_name">New name:</label>
+                    <input class="w3-input" type="text" id="ren_name"/></p>
+                <p>
+                    <input class="w3-input" id="rename_dataset_button" type="submit" value="Rename"/>
+                    <span class="w3-center" id="rename_dataset_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_description_dataset" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_description_dataset').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Change description</h3>
+            </header>
+            <form id="description_dataset" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="descr_from">Dataset:</label>
+                    <input class="w3-input" type="text" disabled id="descr_from"/>
+                </p>
+                <p>
+                    <label for="descr_text">Description:</label>
+                    <input class="w3-input" type="text" id="descr_text"/></p>
+                <p>
+                    <input class="w3-input" id="description_dataset_button" type="submit" value="Change description"/>
+                    <span class="w3-center" id="description_dataset_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_delete_dataset" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_delete_dataset').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Delete a dataset</h3>
+            </header>
+            <form id="delete_dataset" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="del_from">Classifier to delete:</label>
+                    <input class="w3-input" type="text" disabled id="del_from"/>
+                </p>
+                <p>
+                    <input class="w3-input" id="delete_dataset_button" type="submit" value="Delete"/>
+                    <span class="w3-center" id="delete_dataset_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+</section>

@@ -1,0 +1,481 @@
+<%!
+   def inherit( context ):
+       return context.get('base_template','basewithmenu.html')
+%>
+<%inherit file="${inherit(context)}"/>
+<%block name="head">
+${parent.head()}
+<script type="text/javascript">
+    update_interval=5000
+    last_update = 0
+    page_size = 20;
+    maxpage = 1
+
+    function timed_update() {
+        if(Date.now()-last_update>update_interval)
+            update();
+        setTimeout(timed_update,update_interval);
+    }
+
+    pagination_div = jQuery('<div class="w3-right w3-display-right w3-margin-right" id="pagination">\
+                     Page <input id="page" style="width:3em;" type="number" min="1" value="1"/>\
+                     /<span id="pagecount">X</span>\
+                     Count <select id="pagesize"><option value="10">10</option>\
+                     <option value="20" selected>20</option><option value="50" >50</option>\
+                     <option value="100">100</option><option value="200">200</option></select></div></div>');
+
+    async function update() {
+        last_update = Date.now();
+        var count = parseInt($(pagination_div.children()[2]).val())
+        await $.ajax({
+            type:'POST',
+            url:'${user_auth_path}/count',
+            dataType: 'json'})
+        .done(function(msg) {
+            count = parseInt(msg);
+            maxpage = Math.ceil(count/parseInt($(pagination_div.children()[2]).val()))
+            $('#page').val(Math.max(1,Math.min(maxpage,parseInt($('#page').val()))))
+            $(pagination_div.children()[0]).attr({
+                   "max" : maxpage
+                });
+            $(pagination_div.children()[1]).text(maxpage)
+        });
+        $.ajax({
+            type:'POST',
+            url:'${user_auth_path}/info',
+            data: { page : parseInt($(pagination_div.children()[0]).val())-1, page_size :$(pagination_div.children()[2]).val()},
+            dataType: 'json'})
+        .done( function(msg) {
+            if(msg.length==0) {
+                $('#data\\_list').html('<div id="nodata" class="w3-panel w3-text-theme"><h4>No users</h4></div>');
+                $('#page').val(1);
+            }
+            else {
+                if($('#gotdata').length==0) {
+                    $('#data\\_list').html('<div id="gotdata" class="w3-container w3-theme w3-display-container"><h4>Users:</h4></div>\
+                    <div><table id="data" class="w3-table-all">\
+                    <tr>\
+                    <th></th>\
+                    <th class="w3-small">Name</th>\
+                    <th class="w3-small">Created</th>\
+                    <th class="w3-small">Updated</th>\
+                    <th class="w3-small">Request limit</th>\
+                    <th class="w3-small">Total requests</th>\
+                    <th class="w3-small">Hourly limit</th>\
+                    <th class="w3-small">Requests this hour</th>\
+                    </tr></table></div>');
+                    $('#gotdata').prepend(pagination_div);
+                }
+                var start = 0;
+                var end = msg.length;
+                $('td.entry\\_name').each(function(i,item) {
+                    var found = false;
+                    for(var i = start;i<end;++i) {
+                        if($(item).text()==msg[i].name) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if(!found) {
+                        $(item).parent().remove();
+                    }
+                });
+                var curr_list = {};
+                $('#data').children().each(function (index, value) {if(value.id.startsWith('entry_')) { curr_list[value.id]=true;}})
+                var updated_list = {};
+                var added = false;
+                for(var i = 0;i<msg.length;++i) {
+                    var name_string = msg[i].name;
+                    updated_list[name_string] = true;
+                    var sort_string = msg[i].name.replace(/\W/g,'X');
+                    if (i >=start && i<end) {
+                        if ($('#entry\\_'+sort_string).length==0) {
+                            item = jQuery('<tr id=\'entry_'+sort_string+'\'>\
+                            <td class="w3-dropdown-hover w3-hover-theme">\
+                                ☰\
+                                <div class="w3-dropdown-content w3-bar-block w3-card">\
+                                    <div id="change_password_button_'+name_string+'" class="w3-bar-item w3-button">Change password</div>\
+% if username == 'admin':
+                                    <div id="change_total_limit_button_'+name_string+'" class="w3-bar-item w3-button">Change total request limit</div>\
+                                    <div id="change_hourly_limit_button_'+name_string+'" class="w3-bar-item w3-button">Change hourly request limit</div>\
+                                    <div id="reset_button_'+name_string+'" class="w3-bar-item w3-button">Reset hourly request counter</div>\
+                                    <div id="delete_button_'+name_string+'" class="w3-bar-item w3-button">Delete</div>\
+% endif
+                                </div></td>\
+                            <td class="updatable id entry_name">'+msg[i].name+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>\
+                            <td class="updatable">'+msg[i].request_limit+'</td>\
+                            <td class="updatable">'+msg[i].total_request_counter+'</td>\
+                            <td class="updatable">'+msg[i].hourly_limit+'</td>\
+                            <td class="updatable">'+msg[i].current_request_counter+'</td>\
+                            </tr>');
+                            $('#data').append(item);
+
+                            $('#change\\_password\\_button\\_'+name_string).click(function() {
+                                var the_name = name_string;
+                                return function() {
+                                    $('#change\\_name').val(the_name);
+                                    document.getElementById('dia_change_password').style.display='block';
+                                };}()
+                            );
+% if username == 'admin':
+                            $('#change\\_total\\_limit\\_button\\_'+name_string).click(function() {
+                                var the_name = name_string;
+                                var the_limit = msg[i].request_limit;
+                                return function() {
+                                    $('#change\\_total\\_limit\\_name').val(the_name);
+                                    $('#change\\_total\\_limit').val(the_limit);
+                                    document.getElementById('dia_change_total_limit').style.display='block';
+                                };}()
+                            );
+                            $('#change\\_hourly\\_limit\\_button\\_'+name_string).click(function() {
+                                var the_name = name_string;
+                                var the_limit = msg[i].hourly_limit;
+                                return function() {
+                                    $('#change\\_hourly\\_limit\\_name').val(the_name);
+                                    $('#change\\_hourly\\_limit').val(the_limit);
+                                    document.getElementById('dia_change_hourly_limit').style.display='block';
+                                };}()
+                            );
+                            $('#delete\\_button\\_'+name_string).click(function() {
+                                var the_name = name_string;
+                                return function() {
+                                    $('#del\\_from').val(the_name);
+                                    document.getElementById('dia_delete_user').style.display='block';
+                                };}()
+                            );
+                            $('#reset\\_button\\_'+name_string).click(function() {
+                                var the_name = name_string;
+                                return function() {
+                                    $('#reset\\_from').val(the_name);
+                                    document.getElementById('dia_reset_user').style.display='block';
+                                };}()
+                            );
+% endif
+                        }
+                        else {
+                            item = jQuery('<td class="updatable id entry_name">'+msg[i].name+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].created.slice(0,-13)+'</td>\
+                            <td class="updatable w3-tiny">'+msg[i].updated.slice(0,-13)+'</td>\
+                            <td class="updatable">'+msg[i].request_limit+'</td>\
+                            <td class="updatable">'+msg[i].total_request_counter+'</td>\
+                            <td class="updatable">'+msg[i].hourly_limit+'</td>\
+                            <td class="updatable">'+msg[i].current_request_counter+'</td>');
+                            $('#entry\\_'+sort_string+' td.updatable').remove();
+                            $('#entry\\_'+sort_string).append(item)
+                            delete curr_list['entry_'+sort_string];
+                        }
+                    }
+                }
+                for (var key in curr_list) {
+                    $('#'+key).remove();
+                }
+                if(added) {
+                    $('#data').append($('#data tbody tr').get().sort(function (a, b) {
+                        return $(a)[0].id.localeCompare($(b)[0].id);
+                    }));
+                }
+            }
+            $('#page').unbind('keyup mouseup').bind('keyup mouseup',update);
+            $('#pagesize').unbind('keyup mouseup').bind('keyup mouseup',update);
+        });
+    }
+
+    function create_user() {
+        var name = $("#create\\_name").val();
+        if(!name.match(/^[a-zA-Z0-9_]+$/)) {
+            custom_error("The name of the user can only contain letters, numbers and the underscore character '_'");
+            return false;
+        }
+        document.getElementById('create_user_button').style.display='none';
+        document.getElementById('create_user_button_wait').style.display='block';
+        password = $("#password").val();
+        var data = {name: name, password: password} ;
+        $.ajax({
+            type: "POST",
+            url: "${user_auth_path}/create",
+            data: data})
+        .done(function() {
+            document.getElementById('dia_create_user').style.display='none';
+            document.getElementById('create_user_button').style.display='block';
+            document.getElementById('create_user_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('create_user_button').style.display='block';
+            document.getElementById('create_user_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+    function change_password() {
+        var name = $("#change\\_name").val();
+        document.getElementById('change_password_button').style.display='none';
+        document.getElementById('change_password_button_wait').style.display='block';
+        var password = $("#change\\_password").val();
+        var data = {name: name, password: password} ;
+        $.ajax({
+            type: "POST",
+            url: "${user_auth_path}/change_password",
+            data: data})
+        .done(function() {
+            document.getElementById('dia_change_password').style.display='none';
+            document.getElementById('change_password_button').style.display='block';
+            document.getElementById('change_password_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('change_password_button').style.display='block';
+            document.getElementById('change_password_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+    function delete_user() {
+        document.getElementById('delete_user_button').style.display='none';
+        document.getElementById('delete_user_button_wait').style.display='block';
+        var user_name = $("#del\\_from").val();
+        $.ajax({
+            type:'POST',
+            url:'${user_auth_path}/delete/'+user_name })
+        .done(function() {
+            document.getElementById('dia_delete_user').style.display='none';
+            document.getElementById('delete_user_button').style.display='block';
+            document.getElementById('delete_user_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('delete_user_button').style.display='block';
+            document.getElementById('delete_user_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+    function reset_user() {
+        document.getElementById('reset_user_button').style.display='none';
+        document.getElementById('reset_user_button_wait').style.display='block';
+        var user_name = $("#reset\\_from").val();
+        $.ajax({
+            type:'POST',
+            url:'${user_auth_path}/set_current_request_counter/'+user_name })
+        .done(function() {
+            document.getElementById('dia_reset_user').style.display='none';
+            document.getElementById('reset_user_button').style.display='block';
+            document.getElementById('reset_user_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('reset_user_button').style.display='block';
+            document.getElementById('reset_user_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+    };
+
+     function change_total_request_limit() {
+        var name = $("#change\\_total\\_limit\\_name").val();
+        document.getElementById('change_total_limit_button').style.display='none';
+        document.getElementById('change_total_limit_button_wait').style.display='block';
+        var limit = $("#change\\_total\\_limit").val();
+        var data = {name: name, request_limit: limit} ;
+        $.ajax({
+            type: "POST",
+            url: "${user_auth_path}/set_request_limit",
+            data: data})
+        .done(function() {
+            document.getElementById('dia_change_total_limit').style.display='none';
+            document.getElementById('change_total_limit_button').style.display='block';
+            document.getElementById('change_total_limit_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('change_total_limit_button').style.display='block';
+            document.getElementById('change_total_limit_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+     function change_hourly_request_limit() {
+        var name = $("#change\\_hourly\\_limit\\_name").val();
+        document.getElementById('change_hourly_limit_button').style.display='none';
+        document.getElementById('change_hourly_limit_button_wait').style.display='block';
+        var limit = $("#change\\_hourly\\_limit").val();
+        var data = {name: name, hourly_limit: limit} ;
+        $.ajax({
+            type: "POST",
+            url: "${user_auth_path}/set_hourly_limit",
+            data: data})
+        .done(function() {
+            document.getElementById('dia_change_hourly_limit').style.display='none';
+            document.getElementById('change_hourly_limit_button').style.display='block';
+            document.getElementById('change_hourly_limit_button_wait').style.display='none';
+            update();
+        })
+        .fail(function(errMsg) {
+            document.getElementById('change_hourly_limit_button').style.display='block';
+            document.getElementById('change_hourly_limit_button_wait').style.display='none';
+            custom_error(errMsg.responseText);
+        });
+        return false;
+    };
+
+    $( document ).ready(function() {
+        $('#create\\_user').submit(create_user);
+        $('#change\\_password\\_form').submit(change_password);
+        $('#change\\_total\\_limit\\_form').submit(change_total_request_limit);
+        $('#change\\_hourly\\_limit\\_form').submit(change_hourly_request_limit);
+        $('#delete\\_user').submit(delete_user);
+        $('#reset\\_user').submit(reset_user);
+        timed_update();
+    });
+</script>
+</%block>
+
+<%block name="menu2">
+<section class="w3-navbar w3-theme-d4 ">
+    <div id="but_create_user" class="w3-bar-item w3-button"
+         onclick="document.getElementById('dia_create_user').style.display='block'">Create user
+    </div>
+</section>
+</%block>
+
+<section>
+    <div class="w3-panel w3-padding">
+        <div class="w3-card">
+            <div id="data_list">
+            </div>
+        </div>
+    </div>
+    <div id="dia_create_user" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_create_user').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Create user</h3>
+            </header>
+            <form id="create_user" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="create_name">Username:</label>
+                    <input class="w3-input" type="text" id="create_name"/></p>
+                <p>
+                    <label for="password">Password:</label>
+                    <input class="w3-input" type="password" id="password"/></p>
+                <p>
+                    <input class="w3-input" id="create_user_button" type="submit" value="Create"/>
+                    <span class="w3-center" id="create_user_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+     <div id="dia_change_password" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_change_password').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Change password</h3>
+            </header>
+            <form id="change_password_form" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="change_name">Username:</label>
+                    <input class="w3-input" type="text" readonly id="change_name"/></p>
+                <p>
+                    <label for="change_password">Password:</label>
+                    <input class="w3-input" type="password" id="change_password"/></p>
+                <p>
+                    <input class="w3-input" id="change_password_button" type="submit" value="Change password"/>
+                    <span class="w3-center" id="change_password_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_change_total_limit" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_change_total_limit').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Change total request limit</h3>
+            </header>
+            <form id="change_total_limit_form" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="change_total_limit_name">Username:</label>
+                    <input class="w3-input" type="text" readonly id="change_total_limit_name"/></p>
+                <p>
+                    <label for="change_total_limit">Total limit:</label>
+                    <input class="w3-input" type="number" min="-1" id="change_total_limit"/></p>
+                <p>
+                    <input class="w3-input" id="change_total_limit_button" type="submit" value="Change total request limit"/>
+                    <span class="w3-center" id="change_total_limit_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_change_hourly_limit" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_change_hourly_limit').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Change hourly request limit</h3>
+            </header>
+            <form id="change_hourly_limit_form" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="change_hourly_limit_name">Username:</label>
+                    <input class="w3-input" type="text" readonly id="change_hourly_limit_name"/></p>
+                <p>
+                    <label for="change_hourly_limit">Hourly limit:</label>
+                    <input class="w3-input" type="number" min="-1" id="change_hourly_limit"/></p>
+                <p>
+                    <input class="w3-input" id="change_hourly_limit_button" type="submit" value="Change hourly request limit"/>
+                    <span class="w3-center" id="change_hourly_limit_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_delete_user" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_delete_user').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Delete a user</h3>
+            </header>
+            <form id="delete_user" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="del_from">User to delete:</label>
+                    <input class="w3-input" type="text" disabled id="del_from"/>
+                </p>
+                <p>
+                    <input class="w3-input" id="delete_user_button" type="submit" value="Delete"/>
+                    <span class="w3-center" id="delete_user_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+    <div id="dia_reset_user" class="w3-modal">
+        <div class="w3-modal-content w3-card-4">
+            <header class="w3-container w3-theme">
+                <span
+                        onclick="document.getElementById('dia_reset_user').style.display='none'"
+                        class="w3-button w3-display-topright">&times;</span>
+                <h3 class="w3-theme">Reset hourly request counter</h3>
+            </header>
+            <form id="reset_user" class="w3-container" action="#" method="post">
+                <p>
+                    <label for="reset_from">Counter to reset:</label>
+                    <input class="w3-input" type="text" disabled id="reset_from"/>
+                </p>
+                <p>
+                    <input class="w3-input" id="reset_user_button" type="submit" value="Reset counter"/>
+                    <span class="w3-center" id="reset_user_button_wait" style="display:none">Processing</span>
+                </p>
+            </form>
+        </div>
+    </div>
+</section>

@@ -1,0 +1,45 @@
+.pointer {
+    cursor: pointer;
+}
+
+.scoreline {
+    padding: 6px;
+    margin: 6px;
+}
+
+.multiscoreline {
+    padding: 1px;
+    margin: 6px;
+    border: 1px solid lightgray;
+}
+.multiscoreline .scoreline {
+    padding: 2px;
+    margin: 3px;
+}
+
+.suggested {
+    background-color: #fdfdbe;
+    background-image: none;
+    border: 1px solid #c9c900;
+}
+
+.suggested:after {
+    content: '💡'
+}
+
+.assigned {
+    background-color: #95daff;
+    background-image: none;
+    border: 1px solid #2090ff;
+}
+
+.assigned:after {
+    content: '✔️'
+}
+
+.not_relevant {
+    background-color: #f1f1f1;
+    background-image: none;
+    color: #555555;
+    border: 1px solid #AAAAAA;
+}
