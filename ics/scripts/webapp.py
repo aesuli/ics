@@ -5,6 +5,7 @@ from logging import handlers
 
 import cherrypy
 from configargparse import ArgParser
+from sqlalchemy.exc import OperationalError
 
 from ics.apps import WebAdmin
 from ics.apps import WebApp
@@ -80,131 +81,135 @@ def main():
     args = parser.parse_args(sys.argv[1:])
 
     setup_log(os.path.join(args.log_dir, 'access'), os.path.join(args.log_dir, 'app'))
-    with BackgroundProcessor(args.db_connection_string, os.cpu_count() - 2, initializer=setup_background_processor_log,
-                             initargs=(os.path.join(args.log_dir, 'bpaccess'),
-                                       os.path.join(args.log_dir, 'bpapp'))) as background_processor, \
-            WebApp(args.db_connection_string, args.user_auth_path, args.admin_app_path,
-                   args.classifier_path, args.dataset_path, args.jobs_path, args.name,
-                   args.public_app_path) as main_app, \
-            WebPublic(args.db_connection_string, args.ip_auth_path, args.key_auth_path,
-                      args.classifier_path, args.name, args.main_app_path) as public_app, \
-            WebAdmin(args.db_connection_string, args.main_app_path, args.user_auth_path,
-                     args.ip_auth_path, args.key_auth_path, args.classifier_path, args.dataset_path, args.jobs_path,
-                     args.name) as admin_app, \
-            ClassifierCollectionService(args.db_connection_string, args.data_dir) as classifier_service, \
-            DatasetCollectionService(args.db_connection_string, args.data_dir) as dataset_service, \
-            JobsService(args.db_connection_string) as jobs_service, \
-            UserControllerService(args.db_connection_string, args.min_password_length) as user_auth_controller, \
-            IPControllerService(args.db_connection_string, args.ip_hourly_limit, args.ip_request_limit,
-                                args.allow_unknown_ips) as ip_auth_controller, \
-            KeyControllerService(args.db_connection_string) as key_auth_controller:
-        background_processor.start()
 
-        cherrypy.server.socket_host = args.host
-        cherrypy.server.socket_port = args.port
+    try:
+        with BackgroundProcessor(args.db_connection_string, os.cpu_count() - 2, initializer=setup_background_processor_log,
+                                 initargs=(os.path.join(args.log_dir, 'bpaccess'),
+                                           os.path.join(args.log_dir, 'bpapp'))) as background_processor, \
+                WebApp(args.db_connection_string, args.user_auth_path, args.admin_app_path,
+                       args.classifier_path, args.dataset_path, args.jobs_path, args.name,
+                       args.public_app_path) as main_app, \
+                WebPublic(args.db_connection_string, args.ip_auth_path, args.key_auth_path,
+                          args.classifier_path, args.name, args.main_app_path) as public_app, \
+                WebAdmin(args.db_connection_string, args.main_app_path, args.user_auth_path,
+                         args.ip_auth_path, args.key_auth_path, args.classifier_path, args.dataset_path, args.jobs_path,
+                         args.name) as admin_app, \
+                ClassifierCollectionService(args.db_connection_string, args.data_dir) as classifier_service, \
+                DatasetCollectionService(args.db_connection_string, args.data_dir) as dataset_service, \
+                JobsService(args.db_connection_string) as jobs_service, \
+                UserControllerService(args.db_connection_string, args.min_password_length) as user_auth_controller, \
+                IPControllerService(args.db_connection_string, args.ip_hourly_limit, args.ip_request_limit,
+                                    args.allow_unknown_ips) as ip_auth_controller, \
+                KeyControllerService(args.db_connection_string) as key_auth_controller:
+            background_processor.start()
 
-        enable_controller_service()
+            cherrypy.server.socket_host = args.host
+            cherrypy.server.socket_port = args.port
 
-        conf_public_app = {
-        }
+            enable_controller_service()
 
-        conf_main_app = {
-            '/': {
-                'tools.sessions.on': True,
-                'tools.icsauth.on': True,
-                'tools.icsauth.require': [any_of(logged_in(), redirect(args.main_app_path + 'login'))],
-            },
-            '/login': {
-                'tools.icsauth.require': [],
-            },
-        }
+            conf_public_app = {
+            }
 
-        conf_admin_app = {
-            '/': {
-                'tools.sessions.on': True,
-                'tools.icsauth.on': True,
-                'tools.icsauth.require': [any_of(name_is(SQLAlchemyDB.admin_name()),
-                                                 redirect(args.admin_app_path + 'login'))],
-            },
-            '/login': {
-                'tools.icsauth.require': [],
-            },
-        }
+            conf_main_app = {
+                '/': {
+                    'tools.sessions.on': True,
+                    'tools.icsauth.on': True,
+                    'tools.icsauth.require': [any_of(logged_in(), redirect(args.main_app_path + 'login'))],
+                },
+                '/login': {
+                    'tools.icsauth.require': [],
+                },
+            }
 
-        conf_generic_service_with_login = {
-            '/': {
-                'tools.sessions.on': True,
-                'tools.icsauth.on': True,
-                'tools.icsauth.require': [logged_in()],
-            },
-        }
+            conf_admin_app = {
+                '/': {
+                    'tools.sessions.on': True,
+                    'tools.icsauth.on': True,
+                    'tools.icsauth.require': [any_of(name_is(SQLAlchemyDB.admin_name()),
+                                                     redirect(args.admin_app_path + 'login'))],
+                },
+                '/login': {
+                    'tools.icsauth.require': [],
+                },
+            }
 
-        conf_classifier_service = {
-            '/': {
-                'tools.sessions.on': True,
-                'tools.icsauth.on': True,
-                'tools.icsauth.require': [any_of(logged_in(), fail_with_error_message(401, 'Not logged in.'))],
-            },
-            '/info': {
-                'tools.icsauth.require': [],
-            },
-            '/classify': {
-                'tools.icsauth.require': [
-                    any_of(user_auth_controller.logged_in_with_cost(cost_function=arg_len_cost_function('X')),
-                           key_auth_controller.has_key(cost_function=arg_len_cost_function('X')),
-                           ip_auth_controller.ip_rate_limit(cost_function=arg_len_cost_function('X')),
-                           fail_with_error_message(401, 'Reached request limit.'))],
-            },
-        }
+            conf_generic_service_with_login = {
+                '/': {
+                    'tools.sessions.on': True,
+                    'tools.icsauth.on': True,
+                    'tools.icsauth.require': [logged_in()],
+                },
+            }
 
-        conf_ip_auth_service = {
-            '/': {
-                'tools.sessions.on': True,
-                'tools.icsauth.on': True,
-                'tools.icsauth.require': [logged_in()],
-            },
-            '/info': {
-                'tools.icsauth.require': [],
-            },
-        }
+            conf_classifier_service = {
+                '/': {
+                    'tools.sessions.on': True,
+                    'tools.icsauth.on': True,
+                    'tools.icsauth.require': [any_of(logged_in(), fail_with_error_message(401, 'Not logged in.'))],
+                },
+                '/info': {
+                    'tools.icsauth.require': [],
+                },
+                '/classify': {
+                    'tools.icsauth.require': [
+                        any_of(user_auth_controller.logged_in_with_cost(cost_function=arg_len_cost_function('X')),
+                               key_auth_controller.has_key(cost_function=arg_len_cost_function('X')),
+                               ip_auth_controller.ip_rate_limit(cost_function=arg_len_cost_function('X')),
+                               fail_with_error_message(401, 'Reached request limit.'))],
+                },
+            }
 
-        conf_key_auth_service = {
-            '/': {
-                'tools.sessions.on': True,
-                'tools.icsauth.on': True,
-                'tools.icsauth.require': [logged_in()],
-            },
-            '/info': {
-                'tools.icsauth.require': [any_of(logged_in(), key_auth_controller.has_key(default_cost=0))],
-            },
-        }
+            conf_ip_auth_service = {
+                '/': {
+                    'tools.sessions.on': True,
+                    'tools.icsauth.on': True,
+                    'tools.icsauth.require': [logged_in()],
+                },
+                '/info': {
+                    'tools.icsauth.require': [],
+                },
+            }
 
-        conf_user_auth_service = {
-            '/': {
-                'tools.sessions.on': True,
-                'tools.icsauth.on': True,
-                'tools.icsauth.require': [logged_in()],
-            },
-            '/login': {
-                'tools.icsauth.require': [],
-            },
-        }
+            conf_key_auth_service = {
+                '/': {
+                    'tools.sessions.on': True,
+                    'tools.icsauth.on': True,
+                    'tools.icsauth.require': [logged_in()],
+                },
+                '/info': {
+                    'tools.icsauth.require': [any_of(logged_in(), key_auth_controller.has_key(default_cost=0))],
+                },
+            }
 
-        cherrypy.tree.mount(public_app, args.public_app_path, config={**public_app.get_config(), **conf_public_app})
-        cherrypy.tree.mount(main_app, args.main_app_path, config={**main_app.get_config(), **conf_main_app})
-        cherrypy.tree.mount(admin_app, args.admin_app_path, config={**admin_app.get_config(), **conf_admin_app})
-        cherrypy.tree.mount(classifier_service, args.classifier_path, config=conf_classifier_service)
-        cherrypy.tree.mount(dataset_service, args.dataset_path, config=conf_generic_service_with_login)
-        cherrypy.tree.mount(user_auth_controller, args.user_auth_path, config=conf_user_auth_service)
-        cherrypy.tree.mount(ip_auth_controller, args.ip_auth_path, config=conf_ip_auth_service)
-        cherrypy.tree.mount(key_auth_controller, args.key_auth_path, config=conf_key_auth_service)
-        cherrypy.tree.mount(jobs_service, args.jobs_path, config=conf_generic_service_with_login)
+            conf_user_auth_service = {
+                '/': {
+                    'tools.sessions.on': True,
+                    'tools.icsauth.on': True,
+                    'tools.icsauth.require': [logged_in()],
+                },
+                '/login': {
+                    'tools.icsauth.require': [],
+                },
+            }
 
-        cherrypy.engine.subscribe('stop', background_processor.stop)
+            cherrypy.tree.mount(public_app, args.public_app_path, config={**public_app.get_config(), **conf_public_app})
+            cherrypy.tree.mount(main_app, args.main_app_path, config={**main_app.get_config(), **conf_main_app})
+            cherrypy.tree.mount(admin_app, args.admin_app_path, config={**admin_app.get_config(), **conf_admin_app})
+            cherrypy.tree.mount(classifier_service, args.classifier_path, config=conf_classifier_service)
+            cherrypy.tree.mount(dataset_service, args.dataset_path, config=conf_generic_service_with_login)
+            cherrypy.tree.mount(user_auth_controller, args.user_auth_path, config=conf_user_auth_service)
+            cherrypy.tree.mount(ip_auth_controller, args.ip_auth_path, config=conf_ip_auth_service)
+            cherrypy.tree.mount(key_auth_controller, args.key_auth_path, config=conf_key_auth_service)
+            cherrypy.tree.mount(jobs_service, args.jobs_path, config=conf_generic_service_with_login)
 
-        cherrypy.engine.start()
-        cherrypy.engine.block()
+            cherrypy.engine.subscribe('stop', background_processor.stop)
 
+            cherrypy.engine.start()
+            cherrypy.engine.block()
+    except OperationalError as oe:
+        print('Database error')
+        print(oe)
 
 if __name__ == "__main__":
     main()
