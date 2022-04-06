@@ -1,36 +1,52 @@
 # ICS - Interactive Classification System
 
-## Install
+ICS (Interactive Classification System, pronounced /iks/) is a web-based application that supports the activity
+of manual text classification, i.e., labeling documents according to their content.
 
-Installation steps:
-* install code (using pip or from source)
-* db configuration
+The system is designed to give a total freedom of action to its users: they can at any time modify any classification
+schema and any label assignment, possibly reusing any relevant information from previous activities.
 
-### Install code: using pip
+The application uses machine learning to actively support its users with classification suggestions The machine learning
+component of the system is an unobtrusive observer of the users' activities, never interrupting them, constantly
+adapting and updating its models in response to their actions, and always available to perform automatic
+classifications.
 
-ICS is published as a [`pip` package](https://pypi.org/project/icspkg)
+## Installation
+
+### Installation: using pip (recommended)
+
+The suggested way to quickly setup the python enviroment is to use
+the [Anaconda/Miniconda distribution](https://www.anaconda.com/products/distribution) and the `conda` package manager to
+create the virtual enviroment.
+
+ICS is published as a [`pip` package](https://pypi.org/project/ics-pkg).
 
 ```
-> pip install icspkg
+> conda create -n ics python
+> conda activate ics
+> pip install ics-pkg
 ```
 
-### Install code: from source
+### Installation: from source
+
 Download source code from [github repo](https://github.com/aesuli/ics).
-
-The suggested way to quickly setup the python enviroment is to use the Anaconda/Miniconda distribution and the `conda` package manager to create the virtual enviroment.
 
 ```
 > cd [directory with ICS code]
 > conda create -n ics --file requirements.txt
+> conda activate ics
 ```
+
+Note: twiget is not listed as a requirement, as it is needed only by the twitter uploader script (`pip install twiget`).
 
 ### DB configuration
 
-This step is required either if you installed ICS using pip or from source.
 ICS requires a database to store its data.
 
-ICS is tested to work with [PostgreSQL](https://www.postgresql.org/).
-The `db.psql` file contains the SQL commands to create the required database on PostgreSQL.
+By default ICS assumes the use of a database named 'ics' by a user named 'ics' (with password 'ics').
+
+ICS is tested to work with [PostgreSQL](https://www.postgresql.org/). These are the SQL commands to create the required
+user and database on PostgreSQL.
 
 ```
     CREATE USER ics WITH PASSWORD 'ics';
@@ -38,23 +54,26 @@ The `db.psql` file contains the SQL commands to create the required database on 
     GRANT ALL PRIVILEGES ON DATABASE ics to ics;
 ```
 
-```
-> psql -f db.psql
-```
+These command can be issued using the `psql` SQL shell (or using pgAdmin, or similar db frontends).
 
-The db data structures required by the applications are created, if missing, at the first run.
+The tables required by ICS are created automatically at the first run.
 
-## Starting
+## Starting the main app
 
-_Activate the virtual environment_
+Activate the virtual environment:
+
 ```
 > conda activate ics
 ```
-If installed using pip, the main application can be started with the command:
+
+When installed using `pip`, the main application can be started with the command:
+
 ```
 > ics-webapp
 ```
-From the root directory of a source code copy, it can be launched from the `ics-webapp.py` script:
+
+When working on source code, it can be launched from the `ics-webapp.py` script:
+
 ```
 Linux/Mac:
 >PYTHONPATH=. python ics/scripts/ics-webapp.py
@@ -63,7 +82,9 @@ Windows:
 >set PYTHONPATH=. 
 >python ics/scripts/ics-webapp.py
 ```
-When launched, the app will print the URL at which it is accessable.
+
+When launched, the app will print the URL at which it is accessible.
+
 ```
 [30/Mar/2022:15:31:59] ENGINE Bus STARTING
 [30/Mar/2022:15:31:59] ENGINE Started monitor thread 'Autoreloader'.
@@ -71,17 +92,20 @@ When launched, the app will print the URL at which it is accessable.
 [30/Mar/2022:15:31:59] ENGINE Bus STARTED
 [30/Mar/2022:15:31:59] ENGINE Started monitor thread 'Session cleanup'.
 ```
+
+## Login
+
 After the installation, only the `admin` user is defined, with password `adminadmin`.
 
 ## Configuration
 
-A configuration for `ics-start` can be saved to a file using the `-s` argument with the filename to use.
-For example, this command creates a `default.conf` file that lists all the default values (if any other argument is used in the command, the value of the argument is saved in the configuration file).
+A configuration for `ics-start` can be saved to a file using the `-s` argument with the filename to use. For example,
+this command creates a `default.conf` file that lists all the default values (if any other argument is used in the
+command, the value of the argument is saved in the configuration file).
 
 ```
 > ics-start -s default.conf
 ```
-
 
 A configuration file can be used to set the launch arguments, using the `-c` argument:
 
@@ -91,6 +115,44 @@ A configuration file can be used to set the launch arguments, using the `-c` arg
 
 Any additional argument passed on the command line overrides the one specified in the configuration file.
 
+## Additional apps
+
+### Command line interface
+
+When the ics-webapp is running, ICS can be also accessed from command line
+
+```
+> ics-cli
+Welcome, type help to have a list of commands
+> login admin
+Password: 
+'Ok'
+>
+```
+
+### Twitter stream collector
+
+A command line app, based on [TwiGet](https://github.com/aesuli/twiget), automatically upload to ICS the tweets
+collected from filtered stream queries.
+
+```
+> ics-twitter-uploader
+Logging into http://127.0.0.1:8080/service/userauth/
+Username: admin
+Password: 
+TwiGet 0.1.5
+
+Available commands (type help <command> for details):
+create, delete, exit, help, list, refresh, start, stop
+
+Reminder: add -is:retweet to a rule to exclude retweets from results, and to get only original content.
+Registered queries:
+        no registered queries
+
+[not collecting (0 since last start)]>
+```
+
 ## License
 
-This software is licensed under the [3-Clause BSD license](https://opensource.org/licenses/BSD-3-Clause) unless otherwise noted.
+This software is licensed under the [3-Clause BSD license](https://opensource.org/licenses/BSD-3-Clause) unless
+otherwise noted.
