@@ -12,7 +12,6 @@ TODO
 - use ids rather than names in batch jobs
 - cleaning
     * purge unreferenced documents
-    * periodically clean download directory
 - versioning
 - backup of deleted data
 - additional tools:

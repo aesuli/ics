@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from logging import handlers
+from tempfile import TemporaryDirectory
 
 import cherrypy
 from configargparse import ArgParser
@@ -51,9 +52,9 @@ def main():
     parser.add_argument('-c', '--config', help='read configuration from a file', is_config_file=True)
     parser.add_argument('-s', '--save', help='saves configuration to a file', is_write_out_config_file_arg=True)
     parser.add_argument('--db_connection_string', type=str, default='postgresql://ics:ics@localhost:5432/ics')
-    parser.add_argument('--log_dir', help='local directory for log files', type=str, default='log')
+    parser.add_argument('--log_dir', help='local directory for log files', type=str, default=None)
     parser.add_argument('--data_dir', help='local directory where uploaded/downloaded file are placed', type=str,
-                        default=os.path.join(os.getcwd(), 'data'))
+                        default=None)
     parser.add_argument('--name', help='name to show in the client app', type=str,
                         default='ICS - Interactive Classification System')
     parser.add_argument('--host', help='host server address', type=str, default='127.0.0.1')
@@ -80,12 +81,13 @@ def main():
     parser.add_argument('--min_password_length', help='minimum password length', type=int, default=8)
     args = parser.parse_args(sys.argv[1:])
 
-    setup_log(os.path.join(args.log_dir, 'access'), os.path.join(args.log_dir, 'app'))
-
     try:
-        with BackgroundProcessor(args.db_connection_string, os.cpu_count() - 2, initializer=setup_background_processor_log,
-                                 initargs=(os.path.join(args.log_dir, 'bpaccess'),
-                                           os.path.join(args.log_dir, 'bpapp'))) as background_processor, \
+        with TemporaryDirectory(dir=args.data_dir, prefix='ics-data_') as data_dir, \
+                TemporaryDirectory(dir=args.log_dir, prefix='ics-log_') as log_dir, \
+                BackgroundProcessor(args.db_connection_string, os.cpu_count() - 2,
+                                    initializer=setup_background_processor_log,
+                                    initargs=(os.path.join(log_dir, 'bpaccess'),
+                                              os.path.join(log_dir, 'bpapp'))) as background_processor, \
                 WebApp(args.db_connection_string, args.user_auth_path, args.admin_app_path,
                        args.classifier_path, args.dataset_path, args.jobs_path, args.name,
                        args.public_app_path) as main_app, \
@@ -94,13 +96,15 @@ def main():
                 WebAdmin(args.db_connection_string, args.main_app_path, args.user_auth_path,
                          args.ip_auth_path, args.key_auth_path, args.classifier_path, args.dataset_path, args.jobs_path,
                          args.name) as admin_app, \
-                ClassifierCollectionService(args.db_connection_string, args.data_dir) as classifier_service, \
-                DatasetCollectionService(args.db_connection_string, args.data_dir) as dataset_service, \
+                ClassifierCollectionService(args.db_connection_string, data_dir) as classifier_service, \
+                DatasetCollectionService(args.db_connection_string, data_dir) as dataset_service, \
                 JobsService(args.db_connection_string) as jobs_service, \
                 UserControllerService(args.db_connection_string, args.min_password_length) as user_auth_controller, \
                 IPControllerService(args.db_connection_string, args.ip_hourly_limit, args.ip_request_limit,
                                     args.allow_unknown_ips) as ip_auth_controller, \
                 KeyControllerService(args.db_connection_string) as key_auth_controller:
+            setup_log(os.path.join(log_dir, 'access'), os.path.join(log_dir, 'app'))
+
             background_processor.start()
 
             cherrypy.server.socket_host = args.host
@@ -203,13 +207,28 @@ def main():
             cherrypy.tree.mount(key_auth_controller, args.key_auth_path, config=conf_key_auth_service)
             cherrypy.tree.mount(jobs_service, args.jobs_path, config=conf_generic_service_with_login)
 
+            if hasattr(cherrypy.engine, "signal_handler"):
+                cherrypy.engine.signal_handler.subscribe()
+            if hasattr(cherrypy.engine, "console_control_handler"):
+                cherrypy.engine.console_control_handler.subscribe()
+
             cherrypy.engine.subscribe('stop', background_processor.stop)
 
             cherrypy.engine.start()
             cherrypy.engine.block()
+
+            for handler_list in [cherrypy.log.access_log, cherrypy.log.error_log]:
+                for handler in handler_list.handlers[:]:
+                    if hasattr(handler, "close"):
+                        handler.close()
+                    elif hasattr(handler, "flush"):
+                        handler.flush()
+                    handler_list.removeHandler(handler)
+
     except OperationalError as oe:
         print('Database error')
         print(oe)
+
 
 if __name__ == "__main__":
     main()
