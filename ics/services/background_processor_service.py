@@ -1,11 +1,11 @@
 import logging
 import multiprocessing
 import os
+import signal
 from functools import partial
 from logging import handlers
-from multiprocessing import BoundedSemaphore
+from multiprocessing import BoundedSemaphore, Process
 from multiprocessing.pool import Pool
-from threading import Thread
 from time import sleep
 
 import cherrypy
@@ -39,12 +39,14 @@ def setup_background_processor_log(access_filename, app_filename):
     access_handler.setLevel(logging.DEBUG)
     cherrypy.log.access_log.addHandler(access_handler)
 
+
 class JobError:
     def __init__(self, exception):
         self.msg = str(exception)
 
     def __str__(self):
         return f'{self.__class__.__name__}(\'{self.msg}\')'
+
 
 def ExceptionCatcher(f, *args, **kwargs):
     try:
@@ -53,66 +55,82 @@ def ExceptionCatcher(f, *args, **kwargs):
         return JobError(e)
 
 
-class BackgroundProcessor(Thread):
+def no_sigint(initializer, *initargs):
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    if initializer is not None:
+        initializer(*initargs)
+
+
+class BackgroundProcessor(Process):
     def __init__(self, db_connection_string, pool_size, initializer=None, initargs=None):
-        Thread.__init__(self)
-        self._semaphore = BoundedSemaphore(pool_size)
-        self._pool = Pool(processes=pool_size, initializer=initializer, initargs=initargs)
-        self._db = SQLAlchemyDB(db_connection_string)
+        Process.__init__(self)
+        self._stop_event = multiprocessing.Event()
+        self._pool_size = pool_size
+        self._initializer = partial(no_sigint, initializer)
+        if initargs is None:
+            initargs = []
+        self._initargs = initargs
+        self._db_connection_string = db_connection_string
         self._running = False
+        self._semaphore = BoundedSemaphore(self._pool_size)
 
     def run(self):
-        self._running = True
-        while self._running:
-            job = self._db.get_next_pending_job()
-            if job is None:
-                sleep(LOOP_WAIT)
-                continue
-            self._semaphore.acquire()
-            try:
-                self._db.set_job_start_time(job.id)
-                self._db.set_job_status(job.id, Job.status_running)
-                cherrypy.log('Starting ' + str(job.id) + ': ' + str(job.action['function']), severity=logging.INFO)
-                self._pool.apply_async(partial(ExceptionCatcher, job.action['function']), job.action['args'],
-                                       job.action['kwargs'],
-                                       callback=partial(self._release, job.id, Job.status_done),
-                                       error_callback=partial(self._release, job.id, Job.status_error))
-            except Exception as e:
-                self._semaphore.release()
-                cherrypy.log(
-                    'Error on job ' + str(job.id) + ': ' + str(job.action['function']) + '\nException: ' + str(e),
-                    severity=logging.ERROR)
+        with SQLAlchemyDB(self._db_connection_string) as db, \
+                Pool(processes=self._pool_size, initializer=self._initializer, initargs=self._initargs) as pool:
+            cherrypy.log('BackgroundProcessor: started', severity=logging.INFO)
+            while not self._stop_event.is_set():
+                job = db.get_next_pending_job()
+                if job is None:
+                    try:
+                        sleep(LOOP_WAIT)
+                    finally:
+                        continue
+                self._semaphore.acquire()
+                try:
+                    db.set_job_start_time(job.id)
+                    db.set_job_status(job.id, Job.status_running)
+                    cherrypy.log('Starting ' + str(job.id) + ': ' + str(job.action['function']), severity=logging.INFO)
+                    pool.apply_async(partial(ExceptionCatcher, job.action['function']), job.action['args'],
+                                           job.action['kwargs'],
+                                           callback=partial(self._release, job.id, Job.status_done),
+                                           error_callback=partial(self._release, job.id, Job.status_error))
+                except Exception as e:
+                    self._semaphore.release()
+                    cherrypy.log(
+                        'Error on job ' + str(job.id) + ': ' + str(job.action['function']) + '\nException: ' + str(e),
+                        severity=logging.ERROR)
+            pool.close()
+            pool.join()
+            cherrypy.log('BackgroundProcessor: stopped', severity=logging.INFO)
 
-    def close(self):
-        self.stop()
-        self._db.close()
-        self._pool.close()
-        self._pool.join()
+    def stop(self):
+        self._stop_event.set()
+        cherrypy.log('BackgroundProcessor: stopping')
+        self.join()
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+        self.stop()
         return False
 
     def _release(self, job_id, status, msg=None):
         try:
             if type(msg) == JobError:
                 status = Job.status_error
-                cherrypy.log('Error ' + str(job_id) + ' ' + str(status) + ' Message: ' + str(msg), severity=logging.ERROR)
+                cherrypy.log('Error ' + str(job_id) + ' ' + str(status) + ' Message: ' + str(msg),
+                             severity=logging.ERROR)
             else:
-                cherrypy.log('Completed ' + str(job_id) + ' ' + str(status) + ' Message: ' + str(msg), severity=logging.INFO)
-            self._db.set_job_completion_time(job_id)
-            self._db.set_job_status(job_id, status)
+                cherrypy.log('Completed ' + str(job_id) + ' ' + str(status) + ' Message: ' + str(msg),
+                             severity=logging.INFO)
+            with SQLAlchemyDB(self._db_connection_string) as db:
+                db.set_job_completion_time(job_id)
+                db.set_job_status(job_id, status)
             if hasattr(msg, 're_raise'):
                 msg.re_raise()
         finally:
             self._semaphore.release()
-
-    def stop(self):
-        cherrypy.log('Stopping BackgroundProcessor')
-        self._running = False
 
     def version(self):
         import ics
