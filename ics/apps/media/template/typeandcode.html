@@ -32,7 +32,6 @@ ${parent.head()}
                         }
                         added = true;
                         $('#use').append($('<option title="'+msg[i].description+'" id="use_opt_'+name_string+'"/>').val(msg[i].name).text(msg[i].name));
-                        $('#comb\\_from').append($('<option title="'+msg[i].description+'" id="comb_opt_'+name_string+'"/>').val(msg[i].name).text(msg[i].name));
                         var suggestion_div = jQuery('<div id=\'suggestions_'+msg[i].name+'\' class=\'w3-col w3-card w3-margin-top w3-margin-right\' style=\'width:auto\'>\
                         <div class="name w3-display-container w3-container w3-padding w3-theme">'+msg[i].name+labeltype+'</div>\
                         <div id="assignments_'+msg[i].name+'"></div></div>');
@@ -155,12 +154,8 @@ ${parent.head()}
                         $('#suggestions\\_'+value.id.slice(8)).remove();
                     }
                 });
-                $('#comb\\_from').children().each(function (index, value) {if(!updated_list[value.id.slice(9)]) {$('#'+value.id).remove();}});
                 if(added) {
                     $('#use').append($('#use > option').get().sort(function (a, b) {
-                        return $(a)[0].id.localeCompare($(b)[0].id);
-                    }));
-                    $('#comb\\_from').append($('#comb\\_from > option').get().sort(function (a, b) {
                         return $(a)[0].id.localeCompare($(b)[0].id);
                     }));
                     $('#use').attr('size',Math.min(10,Object.keys(updated_list).length));
