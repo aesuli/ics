@@ -1,6 +1,6 @@
 # ICS - Interactive Classification System
 
-ICS (Interactive Classification System, pronounced /iks/) is a web-based application that supports the activity
+The Interactive Classification System (ICS), is a web-based application that supports the activity
 of manual text classification, i.e., labeling documents according to their content.
 
 The system is designed to give a total freedom of action to its users: they can at any time modify any classification
