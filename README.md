@@ -3,7 +3,7 @@
 The Interactive Classification System (ICS), is a web-based application that supports the activity
 of manual text classification, i.e., labeling documents according to their content.
 
-The system is designed to give a total freedom of action to its users: they can at any time modify any classification
+The system is designed to give total freedom of action to its users: they can at any time modify any classification
 schema and any label assignment, possibly reusing any relevant information from previous activities.
 
 The application uses machine learning to actively support its users with classification suggestions The machine learning
@@ -11,7 +11,15 @@ component of the system is an unobtrusive observer of the users' activities, nev
 adapting and updating its models in response to their actions, and always available to perform automatic
 classifications.
 
-## Installation
+* [Installation](#installation)
+* [Starting the main app](#startmain)
+* [Login](#login)
+* [Configuration](#configuration)
+* [Additional apps](#app)
+* [Video tutorials](#videos)
+* [License](#license)
+
+## <a name="installation"></a> Installation
 
 ### Installation: using pip (recommended)
 
@@ -58,7 +66,7 @@ These command can be issued using the `psql` SQL shell (or using pgAdmin, or sim
 
 The tables required by ICS are created automatically at the first run.
 
-## Starting the main app
+## <a name="startmain"></a> Starting the main app
 
 Activate the virtual environment:
 
@@ -93,11 +101,11 @@ When launched, the app will print the URL at which it is accessible.
 [30/Mar/2022:15:31:59] ENGINE Started monitor thread 'Session cleanup'.
 ```
 
-## Login
+## <a name="login"></a> Login
 
 After the installation, only the `admin` user is defined, with password `adminadmin`.
 
-## Configuration
+## <a name="configuration"></a> Configuration
 
 A configuration for `ics-start` can be saved to a file using the `-s` argument with the filename to use. For example,
 this command creates a `default.conf` file that lists all the default values (if any other argument is used in the
@@ -115,7 +123,7 @@ A configuration file can be used to set the launch arguments, using the `-c` arg
 
 Any additional argument passed on the command line overrides the one specified in the configuration file.
 
-## Additional apps
+## <a name="apps"></a> Additional apps
 
 ### Command line interface
 
@@ -152,7 +160,11 @@ Registered queries:
 [not collecting (0 since last start)]>
 ```
 
-## License
+## <a name="videos"></a> Video tutorials
+
+[This YouTube playlist](https://www.youtube.com/playlist?list=PLde6PofTv7SzplW73XNjiS6zyNyDBfsN9) collects videos showing what you can do with ICS.
+
+## <a name="license"></a> License
 
 This software is licensed under the [3-Clause BSD license](https://opensource.org/licenses/BSD-3-Clause) unless
 otherwise noted.
