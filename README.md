@@ -15,7 +15,7 @@ classifications.
 * [Starting the main app](#startmain)
 * [Login](#login)
 * [Configuration](#configuration)
-* [Additional apps](#app)
+* [Additional apps](#apps)
 * [Video tutorials](#videos)
 * [License](#license)
 
