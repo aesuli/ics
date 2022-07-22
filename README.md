@@ -23,7 +23,7 @@ classifications.
 
 ### Installation: using pip (recommended)
 
-The suggested way to quickly setup the python enviroment is to use
+The suggested way to quickly set up the python enviroment is to use
 the [Anaconda/Miniconda distribution](https://www.anaconda.com/products/distribution) and the `conda` package manager to
 create the virtual enviroment.
 
@@ -37,7 +37,7 @@ ICS is published as a [`pip` package](https://pypi.org/project/ics-pkg).
 
 ### Installation: from source
 
-Download source code from [github repo](https://github.com/aesuli/ics).
+Download source code from [GitHub repo](https://github.com/aesuli/ics).
 
 ```
 > cd [directory with ICS code]
@@ -51,7 +51,7 @@ Note: twiget is not listed as a requirement, as it is needed only by the twitter
 
 ICS requires a database to store its data.
 
-By default ICS assumes the use of a database named 'ics' by a user named 'ics' (with password 'ics').
+By default, ICS assumes the use of a database named 'ics' by a user named 'ics' (with password 'ics').
 
 ICS is tested to work with [PostgreSQL](https://www.postgresql.org/). These are the SQL commands to create the required
 user and database on PostgreSQL.

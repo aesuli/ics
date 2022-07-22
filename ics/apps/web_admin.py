@@ -10,9 +10,9 @@ __author__ = 'Andrea Esuli'
 
 
 class WebAdmin(object):
-    def __init__(self, db_connection_string, client_path, user_auth_path, ip_auth_path, key_auth_path,
+    def __init__(self, db, client_path, user_auth_path, ip_auth_path, key_auth_path,
                  classifier_path, dataset_path, jobs_path, name):
-        self._db = SQLAlchemyDB(db_connection_string)
+        self._db = db
         self._media_dir = media.__path__[0]
         self._template_data = {'client_path': client_path,
                                'user_auth_path': user_auth_path,
@@ -41,14 +41,10 @@ class WebAdmin(object):
                  },
         }
 
-    def close(self):
-        self._db.close()
-
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
         return False
 
     @property

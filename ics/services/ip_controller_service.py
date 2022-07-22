@@ -10,22 +10,17 @@ __author__ = 'Andrea Esuli'
 
 
 class IPControllerService(object):
-    def __init__(self, db_connection_string, default_hourly_limit=100, default_request_limit=10000,
+    def __init__(self, db, default_hourly_limit=100, default_request_limit=10000,
                  create_if_missing=False):
-        self._db = SQLAlchemyDB(db_connection_string)
+        self._db = db
         self.default_hourly_limit = default_hourly_limit
         self.default_request_limit = default_request_limit
         self.create_if_missing = create_if_missing
-
-    def close(self):
-        self._db.close()
-        pass
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
         return False
 
     @cherrypy.expose

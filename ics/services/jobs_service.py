@@ -6,27 +6,25 @@ __author__ = 'Andrea Esuli'
 
 
 class JobsService(object):
-    def __init__(self, db_connection_string, pool_size=10):
-        self._db = SQLAlchemyDB(db_connection_string)
-
-    def close(self):
-        self._db.close()
+    def __init__(self, db):
+        self._db = db
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
         return False
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def info(self, page=None, page_size=50):
-        page = max(0,int(page))
-        page_size = max(1,int(page_size))
+        page = max(0, int(page))
+        page_size = max(1, int(page_size))
         jobslist = list()
         if page is not None:
             jobs = self._db.get_jobs()[page * page_size:(page + 1) * page_size]
+        else:
+            jobs = self._db.get_jobs()
         for job in jobs:
             jobinfo = dict()
             jobinfo['id'] = job.id
@@ -60,8 +58,8 @@ class JobsService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def lock_info(self, page=None, page_size=50):
-        page = max(0,int(page))
-        page_size = max(1,int(page_size))
+        page = max(0, int(page))
+        page_size = max(1, int(page_size))
         lockslist = list()
         if page is None:
             locks = self._db.get_locks()

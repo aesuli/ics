@@ -4,7 +4,6 @@ TODO
     * ownership of classifiers
     * access list for datasets
     * access list for classifiers
-    * tracking of who assigned labels
     * voting on multiple labels
     * user agreement
 - table views
