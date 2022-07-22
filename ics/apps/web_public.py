@@ -10,8 +10,8 @@ __author__ = 'Andrea Esuli'
 
 
 class WebPublic(object):
-    def __init__(self, db_connection_string, ip_auth_path, key_auth_path, classifier_path, name, main_path=None):
-        self._db = SQLAlchemyDB(db_connection_string)
+    def __init__(self, db, ip_auth_path, key_auth_path, classifier_path, name, main_path=None):
+        self._db = db
         self._media_dir = media.__path__[0]
         self._template_data = {'ip_auth_path': ip_auth_path,
                                'key_auth_path': key_auth_path,
@@ -37,14 +37,10 @@ class WebPublic(object):
                  },
         }
 
-    def close(self):
-        self._db.close()
-
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
         return False
 
     @property

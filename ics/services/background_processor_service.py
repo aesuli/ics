@@ -2,6 +2,7 @@ import logging
 import multiprocessing
 import os
 import signal
+import traceback
 from functools import partial
 from logging import handlers
 from multiprocessing import BoundedSemaphore, Process
@@ -9,6 +10,9 @@ from multiprocessing.pool import Pool
 from time import sleep
 
 import cherrypy
+from sqlalchemy.exc import InvalidRequestError, ResourceClosedError, InterfaceError, InternalError
+from sqlalchemy.orm.exc import DetachedInstanceError
+from sqlalchemy.pool import NullPool
 
 from ics.db.sqlalchemydb import SQLAlchemyDB, Job
 
@@ -41,21 +45,45 @@ def setup_background_processor_log(access_filename, app_filename):
 
 
 class JobError:
-    def __init__(self, exception):
-        self.msg = str(exception)
+    def __init__(self, exception, msg, tb):
+        self.e = str(exception)
+        self.msg = msg
+        self.tb = tb
 
     def __str__(self):
-        return f'{self.__class__.__name__}(\'{self.msg}\')'
+        return f'{self.__class__.__name__}(\'{self.e}\')\n{self.msg}\n{self.tb}'
 
 
-def ExceptionCatcher(f, *args, **kwargs):
-    try:
-        f(*args, **kwargs)
-    except Exception as e:
-        return JobError(e)
+process_db = None
+
+MAX_RETRY = 10
 
 
-def no_sigint(initializer, *initargs):
+def job_launcher(id, f, *args, **kwargs):
+    global process_db
+    attempt = 0
+    while attempt < MAX_RETRY:
+        try:
+            attempt += 1
+            f(*((process_db,) + args), **kwargs)
+            break
+        except (AttributeError, InternalError, ResourceClosedError, InvalidRequestError, InterfaceError,
+                DetachedInstanceError) as e:
+            if attempt < MAX_RETRY:
+                cherrypy.log(f'FAIL({attempt}) {multiprocessing.current_process().name} {type(e)} {id} {f}',
+                             severity=logging.INFO)
+            else:
+                tb = traceback.format_exc()
+                return JobError(e, "FAILED", tb)
+        except Exception as e:
+            tb = traceback.format_exc()
+            return JobError(e, "UNMANAGED", tb)
+
+
+def bp_pool_initializer(db_connection_string, initializer, *initargs):
+    cherrypy.log(f'BackgroundProcessor: adding {multiprocessing.current_process().name} to pool', severity=logging.INFO)
+    global process_db
+    process_db = SQLAlchemyDB(db_connection_string, NullPool)
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     if initializer is not None:
         initializer(*initargs)
@@ -66,11 +94,11 @@ class BackgroundProcessor(Process):
         Process.__init__(self)
         self._stop_event = multiprocessing.Event()
         self._pool_size = pool_size
-        self._initializer = partial(no_sigint, initializer)
+        self._db_connection_string = db_connection_string
+        self._initializer = partial(bp_pool_initializer, db_connection_string, initializer)
         if initargs is None:
             initargs = []
         self._initargs = initargs
-        self._db_connection_string = db_connection_string
         self._running = False
         self._semaphore = BoundedSemaphore(self._pool_size)
 
@@ -79,7 +107,13 @@ class BackgroundProcessor(Process):
                 Pool(processes=self._pool_size, initializer=self._initializer, initargs=self._initargs) as pool:
             cherrypy.log('BackgroundProcessor: started', severity=logging.INFO)
             while not self._stop_event.is_set():
-                job = db.get_next_pending_job()
+                try:
+                    job = db.get_next_pending_job()
+                except InvalidRequestError as ire:
+                    cherrypy.log(
+                        f'Error fetching next job \nException: {ire}',
+                        severity=logging.ERROR)
+                    job = None
                 if job is None:
                     try:
                         sleep(LOOP_WAIT)
@@ -89,11 +123,12 @@ class BackgroundProcessor(Process):
                 try:
                     db.set_job_start_time(job.id)
                     db.set_job_status(job.id, Job.status_running)
-                    cherrypy.log('Starting ' + str(job.id) + ': ' + str(job.action['function']), severity=logging.INFO)
-                    pool.apply_async(partial(ExceptionCatcher, job.action['function']), job.action['args'],
-                                           job.action['kwargs'],
-                                           callback=partial(self._release, job.id, Job.status_done),
-                                           error_callback=partial(self._release, job.id, Job.status_error))
+                    cherrypy.log(f'Starting {job.id}: {job.action["function"]} ({job.description})',
+                                 severity=logging.INFO)
+                    pool.apply_async(partial(job_launcher, job.id, job.action['function']), job.action['args'],
+                                     job.action['kwargs'],
+                                     callback=partial(self._release, db, job.id, Job.status_done),
+                                     error_callback=partial(self._release, db, job.id, Job.status_error))
                 except Exception as e:
                     self._semaphore.release()
                     cherrypy.log(
@@ -115,18 +150,15 @@ class BackgroundProcessor(Process):
         self.stop()
         return False
 
-    def _release(self, job_id, status, msg=None):
+    def _release(self, db, job_id, status, msg=None):
         try:
             if type(msg) == JobError:
                 status = Job.status_error
-                cherrypy.log('Error ' + str(job_id) + ' ' + str(status) + ' Message: ' + str(msg),
-                             severity=logging.ERROR)
+                cherrypy.log(f'Error {job_id}: {status} Message: {msg}', severity=logging.ERROR)
             else:
-                cherrypy.log('Completed ' + str(job_id) + ' ' + str(status) + ' Message: ' + str(msg),
-                             severity=logging.INFO)
-            with SQLAlchemyDB(self._db_connection_string) as db:
-                db.set_job_completion_time(job_id)
-                db.set_job_status(job_id, status)
+                cherrypy.log(f'Completed {job_id} {status} Message: {msg}', severity=logging.INFO)
+            db.set_job_completion_time(job_id)
+            db.set_job_status(job_id, status)
             if hasattr(msg, 're_raise'):
                 msg.re_raise()
         finally:

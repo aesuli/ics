@@ -21,19 +21,14 @@ def name_is(required_username):
 
 
 class UserControllerService(object):
-    def __init__(self, db_connection_string, min_password_length=8):
-        self._db = SQLAlchemyDB(db_connection_string)
+    def __init__(self, db, min_password_length=8):
+        self._db = db
         self._min_password_length = min_password_length
-
-    def close(self):
-        self._db.close()
-        pass
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
         return False
 
     @cherrypy.expose
@@ -94,13 +89,17 @@ class UserControllerService(object):
     def create(self, name, password):
         if len(password) < self._min_password_length:
             cherrypy.response.status = 400
-            return "Password must be at least %i characters long" % self._min_password_length
+            return f'Password must be at least {self._min_password_length} characters long'
 
         if self._db.user_exists(name):
             cherrypy.response.status = 403
-            return 'User "%s" already exists' % name
+            return f'User "{name}" already exists'
 
-        self._db.create_user(name, password)
+        try:
+            self._db.create_user(name, password)
+        except ValueError as ve:
+            cherrypy.response.status = 400
+            return f'Error: {ve}'
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

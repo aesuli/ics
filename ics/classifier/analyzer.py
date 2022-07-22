@@ -3,17 +3,17 @@ import re
 __author__ = 'Andrea Esuli'
 
 urlre = re.compile(r'https?://[^ ]+')
-mentionre = re.compile(r'@[\w]+')
-hashre = re.compile(r'#[\w]+')
+mentionre = re.compile(r'@\w+')
+hashre = re.compile(r'#\w+')
 emotre = re.compile(
-    r'(:\w+\:|\<[\/\\]?3|[\(\)\\\D|\*\$][\-\^]?[\:\;\=]|[\:\;\=B8][\-\^]?[3DOPp\@\$\*\\\)\(\/\|])(?=\s|[\!\.\?]|$)')
+    r'(:\w+:|<[/\\]?3|[()\\\D|*$][\-^]?[:;=]|[:;=B8][\-^]?[3DOPp@$*\\)(/|])(?=\s|[!.?]|$)')
 featre = re.compile(
-    r'(https?://[^ ]+|[\w\-]+|#\w+|@\w+|\:\w+\:|\<[\/\\]?3|[\(\)\\\D|\*\$][\-\^]?[\:\;\=]|[\:\;\=B8][\-\^]?[3DOPp\@\$\*\\\)\(\/\|])(?=\s|[;:,\!\.\?]|$)')
+    r'(https?://[^ ]+|[\w\-]+|#\w+|@\w+|:\w+:|<[/\\]?3|[()\\\D|*$][\-^]?[:;=]|[:;=B8][\-^]?[3DOPp@$*\\)(/|])(?=\s|[;:,!.?]|$)')
 
 
 def clean_html(html):
     cleaned = re.sub(r"(?is)<(script|style).*?>.*?(</\1>)", "", html.strip())
-    cleaned = re.sub(r"(?s)<!--(.*?)-->[\n]?", "", cleaned)
+    cleaned = re.sub(r"(?s)<!--(.*?)-->\n?", "", cleaned)
     cleaned = re.sub(r"(?s)<[/\w].*?>", " ", cleaned)
     cleaned = re.sub(r"&nbsp;", " ", cleaned)
     return cleaned.strip()
@@ -36,7 +36,7 @@ def custom_analyzer(doc, word_ngrams=None, char_ngrams=None, stopwords=None):
     doc = clean_html(doc)
     output = list()
     output.extend(featre.findall(doc))
-    output = [x for x in output if len(x) > 1 and not x in stopwords]
+    output = [x for x in output if len(x) > 1 and x not in stopwords]
 
     if word_ngrams is None:
         word_ngrams = list()
