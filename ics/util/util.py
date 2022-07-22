@@ -3,7 +3,7 @@ import re
 
 __author__ = 'Andrea Esuli'
 
-badchars = re.compile(r'[^A-Za-z0-9_. ]+|^\.|\.$|^ | $|^$')
+badchars = re.compile(r'[^A-Za-z\d_. ]+|^\.|\.$|^ | $|^$')
 badnames = re.compile(r'(aux|com[1-9]|con|lpt[1-9]|prn)(\.|$)')
 
 

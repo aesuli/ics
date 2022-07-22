@@ -1,10 +1,10 @@
 import csv
+import multiprocessing
 import os
 import pickle
 import random
 import shutil
 from collections import defaultdict, Counter
-from contextlib import nullcontext
 from uuid import uuid4
 
 import cherrypy
@@ -12,7 +12,7 @@ import numpy
 from cherrypy.lib.static import serve_file
 
 from ics.classifier.classifier import YES_LABEL, NO_LABEL
-from ics.db.sqlalchemydb import SQLAlchemyDB, ClassificationMode, LabelSource
+from ics.db.sqlalchemydb import ClassificationMode, LabelSource
 from ics.util.util import get_fully_portable_file_name, bool_to_string
 
 __author__ = 'Andrea Esuli'
@@ -24,22 +24,17 @@ CSV_LARGE_FIELD = 1024 * 1024 * 10
 
 
 class ClassifierCollectionService(object):
-    def __init__(self, db_connection_string, data_dir):
-        self._db_connection_string = db_connection_string
-        self._db = SQLAlchemyDB(db_connection_string)
+    def __init__(self, db, data_dir):
+        self._db = db
         self._download_dir = os.path.join(data_dir, 'classifiers', 'downloads')
         os.makedirs(self._download_dir, exist_ok=True)
         self._upload_dir = os.path.join(data_dir, 'classifiers', 'uploads')
         os.makedirs(self._upload_dir, exist_ok=True)
 
-    def close(self):
-        self._db.close()
-
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
         return False
 
     @cherrypy.expose
@@ -144,6 +139,7 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def update(self, **data):
+        username = cherrypy.request.login
         try:
             name = data['name']
         except KeyError:
@@ -174,13 +170,6 @@ class ClassifierCollectionService(object):
                         cherrypy.response.status = 400
                         return 'Must specify a vector of assigned labels (y)'
 
-        try:
-            synchro = data['synchro']
-            if synchro == 'false' or synchro == 'False':
-                synchro = False
-        except KeyError:
-            synchro = False
-
         if isinstance(X, str):
             X = [X]
         if isinstance(y, str):
@@ -190,17 +179,14 @@ class ClassifierCollectionService(object):
             cherrypy.response.status = 400
             return 'Must specify the same numbers of strings and labels'
 
-        if synchro:
-            _update_trainingset(self._db, name, X, y)
-            _update_model(self._db, name, X, y)
-            return []
-        else:
-            job_id_model = self._db.create_job(_update_model, (self._db_connection_string, name, X, y),
-                                               description='update model')
-            job_id_training = self._db.create_job(_update_trainingset, (self._db_connection_string, name, X, y),
-                                                  description='update training set')
+        usernames = [username]*len(X)
 
-            return [job_id_model, job_id_training]
+        job_id_model = self._db.create_job(_update_model, (name, X, y, usernames),
+                                           description=f'update model "{name}" with {len(X)} examples')
+        job_id_training = self._db.create_job(_update_trainingset, (name, X, y, usernames),
+                                              description=f'update training set "{name}" with {len(X)} examples')
+
+        return [job_id_model, job_id_training]
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -283,7 +269,7 @@ class ClassifierCollectionService(object):
     def delete(self, name):
         try:
             self._db.delete_classifier(name)
-        except KeyError as e:
+        except KeyError:
             cherrypy.response.status = 404
             return '%s does not exist' % name
         else:
@@ -315,7 +301,7 @@ class ClassifierCollectionService(object):
             self._db.add_classifier_label(name, label_name)
         except KeyError:
             cherrypy.response.status = 404
-            return '%s does not exist' % (name)
+            return '%s does not exist' % name
         except Exception as e:
             cherrypy.response.status = 500
             return 'Error (%s)' % str(e)
@@ -368,12 +354,12 @@ class ClassifierCollectionService(object):
             entry['update'] = str(self._db.get_training_id_last_update_time(name, id_))
             if classification_mode == ClassificationMode.SINGLE_LABEL:
                 entry['labels'] = []
-                for label, assigned in labels:
+                for label, assigned, username in labels:
                     if assigned:
-                        entry['labels'] = [(name, label)]
+                        entry['labels'] = [(name, label, username)]
                         break
             elif classification_mode == ClassificationMode.MULTI_LABEL:
-                entry['labels'] = [(name, (label, assigned)) for label, assigned in labels]
+                entry['labels'] = [(name, (label, assigned), username) for label, assigned, username in labels]
 
         return batch
 
@@ -417,14 +403,14 @@ class ClassifierCollectionService(object):
                             labels = self._db.get_labels_of_training_id(name, id_)
                             row = [id_, text]
                             if classification_mode == ClassificationMode.SINGLE_LABEL:
-                                for label, assigned in labels:
+                                for label, assigned, username in labels:
                                     if assigned:
-                                        row.append(f'{name}:{label}{LabelSource.HUMAN_LABEL.value}')
+                                        row.append(f'{name}:{label}{LabelSource.HUMAN_LABEL.value}({username})')
                                         break
                             else:
-                                for label, assigned in labels:
+                                for label, assigned, username in labels:
                                     row.append(
-                                        f'{name}:{label}:{bool_to_string(assigned, YES_LABEL, NO_LABEL)}{LabelSource.HUMAN_LABEL.value}')
+                                        f'{name}:{label}:{bool_to_string(assigned, YES_LABEL, NO_LABEL)}{LabelSource.HUMAN_LABEL.value}({username})')
                             writer.writerow(row)
                         added = len(rows) > 0
             except:
@@ -453,6 +439,7 @@ class ClassifierCollectionService(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def upload_training_data(self, **data):
+        username = cherrypy.request.login
         try:
             file = data['file']
         except KeyError:
@@ -483,8 +470,9 @@ class ClassifierCollectionService(object):
                 if len(row) < 3:
                     continue
                 for classifier_label in row[2:]:
-                    if classifier_label.endswith(LabelSource.HUMAN_LABEL.value):
-                        classifier_label = classifier_label[:-len(LabelSource.HUMAN_LABEL.value)]
+                    position = classifier_label.find(LabelSource.HUMAN_LABEL.value)
+                    if position>0:
+                        classifier_label = classifier_label[:position]
                     elif classifier_label.endswith(LabelSource.MACHINE_LABEL.value):
                         classifier_label = classifier_label[:-len(LabelSource.MACHINE_LABEL.value)]
                     split_values = classifier_label.split(':')
@@ -534,12 +522,12 @@ class ClassifierCollectionService(object):
 
         for classifier_name in classifiers_definition:
             jobs.append(self._db.create_job(_update_from_file, (
-                _update_model, 'utf-8', self._db_connection_string, fullpath, classifier_name),
-                                            description='update model \'%s\' from file' % classifier_name))
+                _update_model, 'utf-8', fullpath, classifier_name, username),
+                                            description=f'update model {classifier_name} from file'))
             jobs.append(self._db.create_job(_update_from_file,
-                                            (_update_trainingset, 'utf-8', self._db_connection_string, fullpath,
-                                             classifier_name),
-                                            description='update training set \'%s\' from file' % classifier_name))
+                                            (_update_trainingset, 'utf-8', fullpath,
+                                             classifier_name, username),
+                                            description=f'update training set {classifier_name} from file'))
 
         return jobs
 
@@ -724,8 +712,8 @@ class ClassifierCollectionService(object):
                     self.delete(new_name[label])
                     self._db.create_classifier(new_name[label], [label], ClassificationMode.MULTI_LABEL)
                 jobs.append(self._db.create_job(_extract_label_classifier,
-                                                (self._db_connection_string, name, label, new_name[label]),
-                                                description=f'extract label classifier \'{new_name[label]}\''))
+                                                (name, label, new_name[label]),
+                                                description=f'extract label classifier "{new_name[label]}"'))
         return jobs
 
     @cherrypy.expose
@@ -795,11 +783,9 @@ class ClassifierCollectionService(object):
                 self._db.create_classifier(name, labels, classification_mode)
 
             jobs = list()
-            jobs.append(self._db.create_job(_merge_trainingsets, (
-                self._db_connection_string, name, sources),
+            jobs.append(self._db.create_job(_merge_trainingsets, (name, sources),
                                             description=f'merging training sets from {sources} to "{name}"'))
-            jobs.append(self._db.create_job(_merge_models, (
-                self._db_connection_string, name, sources),
+            jobs.append(self._db.create_job(_merge_models, (name, sources),
                                             description=f'merging models from {sources} to "{name}"'))
         return jobs
 
@@ -810,46 +796,36 @@ class ClassifierCollectionService(object):
         return ics.__version__
 
 
-def _update_trainingset(db_connection, name, X, y):
+def _update_trainingset(db, classifier_name, X, y, usernames):
     cherrypy.log(
-        'ClassifierCollectionService._update_trainingset(name="' + name + '", len(X)="' + str(len(X)) + '")')
-    if type(db_connection) == str:
-        context_manager = SQLAlchemyDB
-    else:
-        context_manager = nullcontext
-    with context_manager(db_connection) as db:
-        with db._lock_classifier_training_documents(name):
-            db.create_training_examples(name, list(zip(X, y)))
+        f'{multiprocessing.current_process().name}: ClassifierCollectionService._update_trainingset(classifier_name="{classifier_name}", len(X)="{len(X)}")')
+    with db._lock_classifier_training_documents(classifier_name):
+        db.create_training_examples(classifier_name, X, y, usernames)
     return 'done'
 
 
-def _update_model(db_connection, name, X, y):
+def _update_model(db, classifier_name, X, y, usernames):
     if len(X) > 0:
-        if type(db_connection) == str:
-            context_manager = SQLAlchemyDB
-        else:
-            context_manager = nullcontext
-        with context_manager(db_connection) as db:
-            if len(X) < MIN_BATCH_SIZE:
-                label_counts = Counter([example[0] for example in y])
-                for label, count in label_counts.items():
-                    missing = MIN_BATCH_SIZE - count
-                    for additional_example in db.get_classifier_random_examples_with_label(name, label, missing):
-                        X.append(additional_example.document.text)
-                        y.append([label, additional_example.assigned])
+        if len(X) < MIN_BATCH_SIZE:
+            label_counts = Counter([example[0] for example in y])
+            for label, count in label_counts.items():
+                missing = MIN_BATCH_SIZE - count
+                for additional_example in db.get_classifier_random_examples_with_label(classifier_name, label, missing):
+                    X.append(additional_example.document.text)
+                    y.append([label, additional_example.assigned])
 
-            cherrypy.log(
-                'ClassifierCollectionService._update_model(name="' + name + '", len(X)="' + str(len(X)) + '")')
-            with db._lock_classifier_model(name):
-                model = db.get_classifier_model(name)
-                model.learn(X, y)
-                db.update_classifier_model(name, model)
+        cherrypy.log(
+            f'{multiprocessing.current_process().name}: ClassifierCollectionService._update_model(classifier_name="{classifier_name}", len(X)="{len(X)}")')
+        with db._lock_classifier_model(classifier_name):
+            model = db.get_classifier_model(classifier_name)
+            model.learn(X, y)
+            db.update_classifier_model(classifier_name, model)
     return 'done'
 
 
-def _update_from_file(update_function, encoding, db_connection_string, filename, classifier_name):
+def _update_from_file(db, update_function, encoding, filename, classifier_name, username):
     cherrypy.log(
-        f'ClassifierCollectionService._update_from_file(filename="{filename}", classifier_name="{classifier_name}")')
+        f'{multiprocessing.current_process().name}: ClassifierCollectionService._update_from_file(filename="{filename}", classifier_name="{classifier_name}", username={username})')
     if csv.field_size_limit() < CSV_LARGE_FIELD:
         csv.field_size_limit(CSV_LARGE_FIELD)
     with open(filename, encoding=encoding, errors='ignore') as file:
@@ -863,8 +839,9 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
             text = row[1]
             classifiers_labels = row[2:]
             for classifier_label in classifiers_labels:
-                if classifier_label.endswith(LabelSource.HUMAN_LABEL.value):
-                    classifier_label = classifier_label[:-len(LabelSource.HUMAN_LABEL.value)]
+                position = classifier_label.find(LabelSource.HUMAN_LABEL.value)
+                if position>0:
+                    classifier_label = classifier_label[:position]
                 elif classifier_label.endswith(LabelSource.MACHINE_LABEL.value):
                     classifier_label = classifier_label[:-len(LabelSource.MACHINE_LABEL.value)]
 
@@ -881,41 +858,90 @@ def _update_from_file(update_function, encoding, db_connection_string, filename,
                     X.append(text)
                     y.append(label)
             if len(X) >= MAX_BATCH_SIZE:
-                update_function(db_connection_string, classifier_name, X, y)
+                update_function(db, classifier_name, X, y, [username]*len(X))
                 X = []
                 y = []
         if len(X) > 0:
-            update_function(db_connection_string, classifier_name, X, y)
+            update_function(db, classifier_name, X, y, [username]*len(X))
     return 'done'
 
 
-def _extract_label_classifier(db_connection_string, classifier, label_to_extract, new_name):
+def _extract_label_classifier(db, classifier, label_to_extract, new_name):
     cherrypy.log(
-        f'ClassifierCollectionService._extract_label_classifier(classifier="{classifier}", label="{label_to_extract}")')
-    with SQLAlchemyDB(db_connection_string) as db:
-        model = db.get_classifier_model(classifier)
-        db.update_classifier_model(new_name, model.get_label_classifier(label_to_extract))
-        batchsize = MAX_BATCH_SIZE
-        block = 0
-        added = True
-        while added:
-            batch = list()
-            added = False
-            for example in db.get_classifier_examples_with_label(classifier, label_to_extract, block * batchsize,
-                                                                 batchsize):
-                batch.append((example.document.text, (label_to_extract, example.assigned)))
-                added = True
-            if len(batch) > 0:
-                with db._lock_classifier_training_documents(new_name):
-                    db.create_training_examples(new_name, batch)
-            block += 1
+        f'{multiprocessing.current_process().name}: ClassifierCollectionService._extract_label_classifier(classifier="{classifier}", label="{label_to_extract}")')
+    model = db.get_classifier_model(classifier)
+    db.update_classifier_model(new_name, model.get_label_classifier(label_to_extract))
+    batchsize = MAX_BATCH_SIZE
+    block = 0
+    added = True
+    while added:
+        batch_X = list()
+        batch_y = list()
+        batch_usernames = list()
+        added = False
+        for example in db.get_classifier_examples_with_label(classifier, label_to_extract, block * batchsize,
+                                                             batchsize):
+            batch_X.append(example.document.text)
+            batch_y.append((label_to_extract, example.assigned))
+            batch_usernames.append( example.user.name)
+            added = True
+        if len(batch_X) > 0:
+            with db._lock_classifier_training_documents(new_name):
+                db.create_training_examples(new_name, batch_X, batch_y, batch_usernames)
+        block += 1
     return 'done'
 
 
-def _merge_trainingsets(db_connection_string, name, sources):
+def _merge_trainingsets(db, name, sources):
     sources = list(sources)
-    cherrypy.log(f'ClassifierCollectionService._merge_trainingsets(name="{name}", sources={sources})')
-    with SQLAlchemyDB(db_connection_string) as db:
+    cherrypy.log(
+        f'{multiprocessing.current_process().name}: ClassifierCollectionService._merge_trainingsets(name="{name}", sources={sources})')
+    sizes = list()
+
+    for source in sources:
+        sizes.append(db.get_training_document_count(source))
+    max_size = max(sizes)
+    paddings = list()
+    for size in sizes:
+        paddings.append(size - max_size)
+
+    batchsize = MAX_BATCH_SIZE // len(sources)
+    added = True
+    while added:
+        added = False
+        batch_X = list()
+        batch_y = list()
+        batch_username = list()
+        for i, source in enumerate(sources):
+            if paddings[i] < 0:
+                paddings[i] += batchsize
+                paddings[i] = min(paddings[i], 0)
+                continue
+            for text, id in db.get_training_documents(source, paddings[i], batchsize):
+                for label, assigned, username in db.get_labels_of_training_id(source, id):
+                    batch_X.append(text)
+                    if assigned:
+                        batch_y.append((label, YES_LABEL))
+                    else:
+                        batch_y.append((label, NO_LABEL))
+                    batch_username.append(username)
+                    added = True
+            paddings[i] += batchsize
+        if len(batch_X) > 0:
+            _update_trainingset(db, name, batch_X, batch_y, batch_username)
+    return 'done'
+
+
+def _merge_models(db, name, sources):
+    sources = list(sources)
+    cherrypy.log(
+        f'{multiprocessing.current_process().name}: ClassifierCollectionService._merge_models(name="{name}", sources={sources})')
+    if len(sources) == 1:
+        model = db.get_classifier_model(sources[0])
+        model.rename(name)
+        db.update_classifier_model(name, model)
+    else:
+        # TODO
         sizes = list()
 
         for source in sources:
@@ -929,69 +955,27 @@ def _merge_trainingsets(db_connection_string, name, sources):
         added = True
         while added:
             added = False
-            batchX = list()
-            batchy = list()
+            batch_X = list()
+            batch_y = list()
+            batch_username = list()
             for i, source in enumerate(sources):
                 if paddings[i] < 0:
                     paddings[i] += batchsize
                     paddings[i] = min(paddings[i], 0)
                     continue
                 for text, id in db.get_training_documents(source, paddings[i], batchsize):
-                    for label, assigned in db.get_labels_of_training_id(source, id):
-                        batchX.append(text)
+                    for label, assigned, username in db.get_labels_of_training_id(source, id):
+                        batch_X.append(text)
                         if assigned:
-                            batchy.append((label, YES_LABEL))
+                            batch_y.append((label, YES_LABEL))
                         else:
-                            batchy.append((label, NO_LABEL))
+                            batch_y.append((label, NO_LABEL))
+                        batch_username.append(username)
                         added = True
                 paddings[i] += batchsize
-            if len(batchX) > 0:
-                _update_trainingset(db, name, batchX, batchy)
-    return 'done'
-
-
-def _merge_models(db_connection_string, name, sources):
-    sources = list(sources)
-    cherrypy.log(f'ClassifierCollectionService._merge_models(name="{name}", sources={sources})')
-    with SQLAlchemyDB(db_connection_string) as db:
-        if len(sources) == 1:
-            model = db.get_classifier_model(sources[0])
-            model.rename(name)
-            db.update_classifier_model(name, model)
-        else:
-            # TODO
-            sizes = list()
-
-            for source in sources:
-                sizes.append(db.get_training_document_count(source))
-            max_size = max(sizes)
-            paddings = list()
-            for size in sizes:
-                paddings.append(size - max_size)
-
-            batchsize = MAX_BATCH_SIZE // len(sources)
-            added = True
-            while added:
-                added = False
-                batchX = list()
-                batchy = list()
-                for i, source in enumerate(sources):
-                    if paddings[i] < 0:
-                        paddings[i] += batchsize
-                        paddings[i] = min(paddings[i], 0)
-                        continue
-                    for text, id in db.get_training_documents(source, paddings[i], batchsize):
-                        for label, assigned in db.get_labels_of_training_id(source, id):
-                            batchX.append(text)
-                            if assigned:
-                                batchy.append((label, YES_LABEL))
-                            else:
-                                batchy.append((label, NO_LABEL))
-                            added = True
-                    paddings[i] += batchsize
-                if len(batchX) > 0:
-                    pairs = list(zip(batchX, batchy))
-                    random.shuffle(pairs)
-                    batchX, batchy = zip(*pairs)
-                    _update_model(db, name, batchX, batchy)
+            if len(batch_X) > 0:
+                triplets = list(zip(batch_X, batch_y, batch_username))
+                random.shuffle(triplets)
+                batch_X, batch_y, batch_username = zip(*triplets)
+                _update_model(db, name, batch_X, batch_y, batch_username)
     return 'done'

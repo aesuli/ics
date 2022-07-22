@@ -4,15 +4,14 @@ import cherrypy
 from mako.lookup import TemplateLookup
 
 import ics.apps.media as media
-from ics.db import SQLAlchemyDB
 
 __author__ = 'Andrea Esuli'
 
 
 class WebApp(object):
-    def __init__(self, db_connection_string, user_auth_path, admin_path, classifier_path,
+    def __init__(self, db, user_auth_path, admin_path, classifier_path,
                  dataset_path, jobs_path, name, public_path = None):
-        self._db = SQLAlchemyDB(db_connection_string)
+        self._db = db
         self._media_dir = media.__path__[0]
         self._template_data = {'user_auth_path': user_auth_path,
                                'admin_path': admin_path,
@@ -39,14 +38,10 @@ class WebApp(object):
                  },
         }
 
-    def close(self):
-        self._db.close()
-
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
         return False
 
     @property

@@ -1,4 +1,5 @@
 import csv
+import multiprocessing
 import os
 import shutil
 from random import randint
@@ -9,7 +10,7 @@ import numpy as np
 from cherrypy.lib.static import serve_file
 
 from ics.classifier.classifier import NO_LABEL, YES_LABEL
-from ics.db.sqlalchemydb import SQLAlchemyDB, Job, ClassificationMode, LabelSource
+from ics.db.sqlalchemydb import Job, ClassificationMode, LabelSource
 from ics.util.util import get_fully_portable_file_name, bool_to_string
 
 __author__ = 'Andrea Esuli'
@@ -21,22 +22,17 @@ QUICK_CLASSIFICATION_BATCH_SIZE = 100
 
 
 class DatasetCollectionService(object):
-    def __init__(self, db_connection_string, data_dir):
-        self._db_connection_string = db_connection_string
-        self._db = SQLAlchemyDB(db_connection_string)
+    def __init__(self, db, data_dir):
+        self._db = db
         self._download_dir = os.path.join(data_dir, 'datasets', 'downloads')
         os.makedirs(self._download_dir, exist_ok=True)
         self._upload_dir = os.path.join(data_dir, 'datasets', 'uploads')
         os.makedirs(self._upload_dir, exist_ok=True)
 
-    def close(self):
-        self._db.close()
-
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
         return False
 
     @cherrypy.expose
@@ -112,8 +108,8 @@ class DatasetCollectionService(object):
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
-        job_id = self._db.create_job(_create_dataset_documents, (self._db_connection_string, dataset_name, fullpath),
-                                     description='upload to dataset \'%s\'' % dataset_name)
+        job_id = self._db.create_job(_create_dataset_documents, (dataset_name, fullpath),
+                                     description=f'upload to dataset {dataset_name}')
 
         return [job_id]
 
@@ -142,8 +138,8 @@ class DatasetCollectionService(object):
     @cherrypy.tools.json_out()
     def delete(self, name):
         job_id = self._db.create_job(_delete_dataset,
-                                     (self._db_connection_string, name),
-                                     description='delete dataset \'%s\'' % name)
+                                     (name,),
+                                     description=f'delete dataset {name}')
         return [job_id]
 
     @cherrypy.expose
@@ -407,10 +403,8 @@ class DatasetCollectionService(object):
             return 'An up-to-date classification is already available.'
 
         job_id = self._db.create_job(_classify,
-                                     (self._db_connection_string, datasetname, classifiers, fullpath),
-                                     description='classify dataset \'%s\' with %s' % (
-                                         datasetname,
-                                         ', '.join(['\'%s\'' % classifier for classifier in classifiers])))
+                                     (datasetname, classifiers, fullpath),
+                                     description=f'classify dataset {datasetname} with classifiers {classifiers}')
 
         self._db.create_classification_job(datasetname, classifiers, job_id, fullpath)
 
@@ -426,7 +420,7 @@ class DatasetCollectionService(object):
             result = list()
             to_delete = list()
             if page is None:
-                jobs = self._db.get_classification_jobs()
+                jobs = self._db.get_classification_jobs(name)
             else:
                 jobs = self._db.get_classification_jobs(name)[
                        int(page) * int(page_size):(int(page) + 1) * int(page_size)]
@@ -484,105 +478,101 @@ class DatasetCollectionService(object):
         return ics.__version__
 
 
-def _classify(db_connection_string, datasetname, classifiers, fullpath):
-    cherrypy.log('DatasetCollectionService._classify(datasetname="' + datasetname + '", classifiers="' + str(
-        classifiers) + '", fullpath="' + fullpath + '")')
-    with SQLAlchemyDB(db_connection_string) as db:
-        tempfile = fullpath + '.tmp'
+def _classify(db, datasetname, classifiers, fullpath):
+    cherrypy.log(f'{multiprocessing.current_process().name}: DatasetCollectionService._classify(datasetname="{datasetname}", classifiers="{classifiers}", fullpath="{fullpath}")')
+    tempfile = fullpath + '.tmp'
+    try:
+        with open(tempfile, 'w', encoding='utf-8', newline='') as file:
+            writer = csv.writer(file, lineterminator='\n')
+            header = list()
+            header.append('#id')
+            header.append('text')
+            classification_modes = dict()
+            for classifier in classifiers:
+                if db.classifier_exists(classifier):
+                    classification_modes[classifier] = db.get_preferred_classification_mode(classifier)
+                    header.append(
+                        f'{classifier} = {classification_modes[classifier].value}, ({", ".join(db.get_classifier_labels(classifier))})')
+            writer.writerow(header)
+
+            batch_count = 0
+            found = True
+            while found:
+                found = False
+                X = list()
+                id = list()
+                for document in db.get_dataset_documents(datasetname, offset=batch_count * MAX_BATCH_SIZE,
+                                                         limit=MAX_BATCH_SIZE):
+                    id.append(document.external_id)
+                    X.append(document.text)
+
+                if len(X) > 0:
+                    cols = list()
+                    cols.append(id)
+                    cols.append(X)
+                    for classifier in classification_modes:
+                        classification_mode = classification_modes[classifier]
+                        if classification_mode == ClassificationMode.SINGLE_LABEL:
+                            cols.append([
+                                            f'{classifier}:{label}{bool_to_string(gold, LabelSource.HUMAN_LABEL.value, LabelSource.MACHINE_LABEL.value)}'
+                                            for label, gold in
+                                            db.classify(classifier, X, classification_mode=classification_mode)])
+                        elif classification_mode == ClassificationMode.MULTI_LABEL:
+                            label_lists = zip(*db.classify(classifier, X, classification_mode=classification_mode))
+                            for label_list in label_lists:
+                                cols.append(
+                                    [
+                                        f'{classifier}:{label}:{bool_to_string(assigned, YES_LABEL, NO_LABEL)}{bool_to_string(gold, LabelSource.HUMAN_LABEL.value, LabelSource.MACHINE_LABEL.value)}'
+                                        for label, assigned, gold
+                                        in label_list])
+                    for row in zip(*cols):
+                        writer.writerow(row)
+                    found = True
+                batch_count += 1
         try:
-            with open(tempfile, 'w', encoding='utf-8', newline='') as file:
-                writer = csv.writer(file, lineterminator='\n')
-                header = list()
-                header.append('#id')
-                header.append('text')
-                classification_modes = dict()
-                for classifier in classifiers:
-                    if db.classifier_exists(classifier):
-                        classification_modes[classifier] = db.get_preferred_classification_mode(classifier)
-                        header.append(
-                            f'{classifier} = {classification_modes[classifier].value}, ({", ".join(db.get_classifier_labels(classifier))})')
-                writer.writerow(header)
-
-                batch_count = 0
-                found = True
-                while found:
-                    found = False
-                    X = list()
-                    id = list()
-                    for document in db.get_dataset_documents(datasetname, offset=batch_count * MAX_BATCH_SIZE,
-                                                             limit=MAX_BATCH_SIZE):
-                        id.append(document.external_id)
-                        X.append(document.text)
-
-                    if len(X) > 0:
-                        cols = list()
-                        cols.append(id)
-                        cols.append(X)
-                        for classifier in classification_modes:
-                            classification_mode = classification_modes[classifier]
-                            if classification_mode == ClassificationMode.SINGLE_LABEL:
-                                cols.append([
-                                                f'{classifier}:{label}{bool_to_string(gold, LabelSource.HUMAN_LABEL.value, LabelSource.MACHINE_LABEL.value)}'
-                                                for label, gold in
-                                                db.classify(classifier, X, classification_mode=classification_mode)])
-                            elif classification_mode == ClassificationMode.MULTI_LABEL:
-                                label_lists = zip(*db.classify(classifier, X, classification_mode=classification_mode))
-                                for label_list in label_lists:
-                                    cols.append(
-                                        [
-                                            f'{classifier}:{label}:{bool_to_string(assigned, YES_LABEL, NO_LABEL)}{bool_to_string(gold, LabelSource.HUMAN_LABEL.value, LabelSource.MACHINE_LABEL.value)}'
-                                            for label, assigned, gold
-                                            in label_list])
-                        for row in zip(*cols):
-                            writer.writerow(row)
-                        found = True
-                    batch_count += 1
-            try:
-                os.unlink(fullpath)
-            except FileNotFoundError:
-                pass
-            os.rename(tempfile, fullpath)
-        except Exception as e:
-            try:
-                os.unlink(tempfile)
-            except FileNotFoundError:
-                pass
-            try:
-                os.unlink(fullpath)
-            except FileNotFoundError:
-                pass
-            raise
+            os.unlink(fullpath)
+        except FileNotFoundError:
+            pass
+        os.rename(tempfile, fullpath)
+    except Exception:
+        try:
+            os.unlink(tempfile)
+        except FileNotFoundError:
+            pass
+        try:
+            os.unlink(fullpath)
+        except FileNotFoundError:
+            pass
+        raise
     return 'done'
 
 
-def _create_dataset_documents(db_connection_string, dataset_name, filename):
+def _create_dataset_documents(db, dataset_name, filename):
     cherrypy.log(
-        'DatasetCollectionService._create_dataset_documents(dataset_name="' + dataset_name + '", filename="' + filename + '")')
-    with SQLAlchemyDB(db_connection_string) as db:
-        if not db.dataset_exists(dataset_name):
-            db.create_dataset(dataset_name)
-        if csv.field_size_limit() < CSV_LARGE_FIELD:
-            csv.field_size_limit(CSV_LARGE_FIELD)
-        with open(filename, 'r', encoding='utf-8', errors='ignore') as file:
-            reader = csv.reader(file)
-            external_ids_and_contents = list()
-            for row in reader:
-                if len(row) > 1:
-                    document_name = row[0].strip()
-                    if len(document_name) == 0 or document_name[0] == '#':
-                        continue
-                    content = row[1]
-                    external_ids_and_contents.append((document_name, content))
-                if len(external_ids_and_contents) >= MAX_BATCH_SIZE:
-                    db.create_dataset_documents(dataset_name, external_ids_and_contents)
-                    external_ids_and_contents = list()
-            if len(external_ids_and_contents) > 0:
+        f'{multiprocessing.current_process().name}: DatasetCollectionService._create_dataset_documents(dataset_name="{dataset_name}", filename="{filename}")')
+    if not db.dataset_exists(dataset_name):
+        db.create_dataset(dataset_name)
+    if csv.field_size_limit() < CSV_LARGE_FIELD:
+        csv.field_size_limit(CSV_LARGE_FIELD)
+    with open(filename, 'r', encoding='utf-8', errors='ignore') as file:
+        reader = csv.reader(file)
+        external_ids_and_contents = list()
+        for row in reader:
+            if len(row) > 1:
+                document_name = row[0].strip()
+                if len(document_name) == 0 or document_name[0] == '#':
+                    continue
+                content = row[1]
+                external_ids_and_contents.append((document_name, content))
+            if len(external_ids_and_contents) >= MAX_BATCH_SIZE:
                 db.create_dataset_documents(dataset_name, external_ids_and_contents)
+                external_ids_and_contents = list()
+        if len(external_ids_and_contents) > 0:
+            db.create_dataset_documents(dataset_name, external_ids_and_contents)
     return 'done'
 
 
-def _delete_dataset(db_connection_string, name):
-    cherrypy.log('DatasetCollectionService._delete_dataset(dname="' + name + '")')
-    with SQLAlchemyDB(db_connection_string) as db:
-        db.delete_dataset(name)
+def _delete_dataset(db, name):
+    cherrypy.log(f'{multiprocessing.current_process().name}: DatasetCollectionService._delete_dataset(dname="{name}")')
+    db.delete_dataset(name)
     return 'done'

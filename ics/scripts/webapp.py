@@ -84,25 +84,26 @@ def main():
     try:
         with TemporaryDirectory(dir=args.data_dir, prefix='ics-data_') as data_dir, \
                 TemporaryDirectory(dir=args.log_dir, prefix='ics-log_') as log_dir, \
+                SQLAlchemyDB(args.db_connection_string) as db,  \
                 BackgroundProcessor(args.db_connection_string, os.cpu_count() - 2,
                                     initializer=setup_background_processor_log,
                                     initargs=(os.path.join(log_dir, 'bpaccess'),
                                               os.path.join(log_dir, 'bpapp'))) as background_processor, \
-                WebApp(args.db_connection_string, args.user_auth_path, args.admin_app_path,
+                WebApp(db, args.user_auth_path, args.admin_app_path,
                        args.classifier_path, args.dataset_path, args.jobs_path, args.name,
                        args.public_app_path) as main_app, \
-                WebPublic(args.db_connection_string, args.ip_auth_path, args.key_auth_path,
+                WebPublic(db, args.ip_auth_path, args.key_auth_path,
                           args.classifier_path, args.name, args.main_app_path) as public_app, \
-                WebAdmin(args.db_connection_string, args.main_app_path, args.user_auth_path,
+                WebAdmin(db, args.main_app_path, args.user_auth_path,
                          args.ip_auth_path, args.key_auth_path, args.classifier_path, args.dataset_path, args.jobs_path,
                          args.name) as admin_app, \
-                ClassifierCollectionService(args.db_connection_string, data_dir) as classifier_service, \
-                DatasetCollectionService(args.db_connection_string, data_dir) as dataset_service, \
-                JobsService(args.db_connection_string) as jobs_service, \
-                UserControllerService(args.db_connection_string, args.min_password_length) as user_auth_controller, \
-                IPControllerService(args.db_connection_string, args.ip_hourly_limit, args.ip_request_limit,
+                ClassifierCollectionService(db, data_dir) as classifier_service, \
+                DatasetCollectionService(db, data_dir) as dataset_service, \
+                JobsService(db) as jobs_service, \
+                UserControllerService(db, args.min_password_length) as user_auth_controller, \
+                IPControllerService(db, args.ip_hourly_limit, args.ip_request_limit,
                                     args.allow_unknown_ips) as ip_auth_controller, \
-                KeyControllerService(args.db_connection_string) as key_auth_controller:
+                KeyControllerService(db) as key_auth_controller:
             setup_log(os.path.join(log_dir, 'access'), os.path.join(log_dir, 'app'))
 
             background_processor.start()
