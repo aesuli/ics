@@ -11,6 +11,7 @@ component of the system is an unobtrusive observer of the users' activities, nev
 adapting and updating its models in response to their actions, and always available to perform automatic
 classifications.
 
+* [Publication](#publication)
 * [Installation](#installation)
 * [Starting the main app](#startmain)
 * [Login](#login)
@@ -18,6 +19,12 @@ classifications.
 * [Additional apps](#apps)
 * [Video tutorials](#videos)
 * [License](#license)
+
+## <a name="publication"></a> Publication
+
+ICS is described in the paper:
+
+[A. Esuli, "ICS: Total Freedom in Manual Text Classification Supported by Unobtrusive Machine Learning," in IEEE Access, vol. 10, pp. 64741-64760, 2022, doi: 10.1109/ACCESS.2022.3184009](https://doi.org/10.1109/ACCESS.2022.3184009)
 
 ## <a name="installation"></a> Installation
 
