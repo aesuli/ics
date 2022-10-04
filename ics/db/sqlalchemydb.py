@@ -919,12 +919,20 @@ class SQLAlchemyDB(object):
             dataset = session.query(Dataset).filter(
                 Dataset.name == dataset_name).one()
             values = dict()
-            for external_id, content in external_ids_and_contents:
-                values[external_id] = {'text': content,
-                                       'md5': md5(
-                                           content.encode('utf-8')).hexdigest(),
-                                       'dataset_id': dataset.id,
-                                       'external_id': external_id}
+            for external_id, content, creation_datetime in external_ids_and_contents:
+                if creation_datetime is None:
+                    values[external_id] = {'text': content,
+                                           'md5': md5(
+                                               content.encode('utf-8')).hexdigest(),
+                                           'dataset_id': dataset.id,
+                                           'external_id': external_id}
+                else:
+                    values[external_id] = {'text': content,
+                                           'md5': md5(
+                                               content.encode('utf-8')).hexdigest(),
+                                           'dataset_id': dataset.id,
+                                           'external_id': external_id,
+                                           'creation': creation_datetime}
             stmt = insert(DatasetDocument.__table__).values(
                 list(values.values()))
             stmt = stmt.on_conflict_do_update(

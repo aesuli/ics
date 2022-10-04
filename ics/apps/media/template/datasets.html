@@ -200,6 +200,9 @@ ${parent.head()}
         var data = new FormData()
         data.append("file", $('#dataFile')[0].files[0]);
         data.append("name", name);
+        if(document.getElementById('uploadformat').value=="hasdate") {
+            data.append("has_creation_datetime","True");
+        }
         $.ajax({
             type: "POST",
             url: "${dataset_path}/upload",
@@ -346,6 +349,13 @@ ${parent.head()}
                     </select></p>
                 <p><label class="margined">Data file:</label>
                     <input class="w3-input" type="file" id="dataFile"/></p>
+                <p>
+                    <label class="margined">Format:</label>
+                    <select class="w3-select" id="uploadformat">
+                        <option value="nodate">Id,Text</option>
+                        <option value="hasdate">Id,IsoDateTime,Text</option>
+                    </select>
+                </p>
                 <p>
                     <input class="w3-input" id="upload_button" type="submit" value="Upload"/>
                     <span class="w3-center" style="display:none" id="upload_button_wait">Uploading</span>
