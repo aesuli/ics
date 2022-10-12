@@ -265,7 +265,12 @@ ${parent.head()}
             </header>
             <form id="create_classifier" class="w3-container" action="#" method="post">
                 <p>
-                    <label for="classifier_name">Classifier:</label>
+                    <label for="classifier_name" class="popup" onclick="popup(this,'classifierpopup')">Classifier:</label>
+                    <div id="classifierpopup" class="w3-margin popuptext">
+                        <p>Select the classifier to produce an automatic classification of the dataset.</p>
+                        <p>The automatic classification is performed by a background process (showing 'running' in the status as it goes on).</p>
+                        <p>Once completed the dataset with the automatically assigned labels can be downloaded as a CSV file.</p>
+                    </div>
                     <select class="w3-select" id="classifier_name">
                     </select></p>
                 <p>

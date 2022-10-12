@@ -700,7 +700,12 @@ ${parent.head()}
                     <label for="merge_name">Name:</label>
                     <input class="w3-input" type="text" id="merge_name"/></p>
                 <p>
-                    <label for="comb_from">From:</label>
+                    <label for="comb_from" class="popup" onclick="popup(this,'frompopup')">From:</label>
+                    <div id="frompopup" class="w3-margin popuptext">
+                        <p>Select one ore more classifiers to merge.</p>
+                        <p>If only one classifier is selected, a simple copy is made.</p>
+                        <p>If multiple classifiers are selected, their labels are merged together.</p>
+                    </div>
                     <select class="w3-select" multiple id="comb_from" style="width:230px;">
                     </select></p>
                 <p>
@@ -727,7 +732,27 @@ ${parent.head()}
                 <h3 class="w3-theme">Upload labeled documents</h3>
             </header>
             <form enctype="multipart/form-data" id="upload_form" class="w3-container" action="#" method="post">
-                <p><label class="margined">Data file:</label>
+                <p><label class="margined popup" onclick="popup(this,'datafilepopup')">Data file:</label>
+                    <div id="datafilepopup" class="w3-margin popuptext">
+                        <p>Data file is a CSV file with at least two columns.</p>
+                        <p>First column contains a unique ID string.</p>
+                        <p>Second column contains the text.</p>
+                        <p>Any column after the second is the assignment of a label.</p>
+                        <p>For <strong>single-label</strong> classifiers, the assignment has the form
+                            <strong>classifiername:labelname</strong>, with the implicit information that the text is
+                            a negative example for any other label defined for the classifier.</p>
+                        <p>For <strong>multi-label</strong> classifiers, the assignment has the form
+                            <strong>classifiername:labelname:yes</strong> or
+                            <strong>classifiername:labelname:yes</strong></p>.
+                            No implicit information derives from this assignment with respect to the other labels of
+                            the classifier.</p>
+                        <p>If a classifier does not already exist, it is created with the classification mode used in
+                            the file, and set of labels appearing in
+                            the file.</p>
+                        <p>If a classifier already exist, the uploaded data must use the same classification mode of
+                        the existing classifier, and cannot use labels that are not already defined in the existing
+                            classifier.</p>
+                    </div>
                     <input class="w3-input" type="file" id="dataFile"/></p>
                 <p>
                     <input class="w3-input" id="upload_button" type="submit" value="Upload"/>
