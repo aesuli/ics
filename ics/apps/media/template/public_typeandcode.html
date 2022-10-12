@@ -279,24 +279,31 @@ Editing the text resets the label assignment. Hit 'Classify' again when needed."
     <div class="w3-panel w3-padding">
         <div class="w3-card">
             <header class="w3-container w3-text-theme">
-                <h4>Service access info:</h4>
+            <span class="popup" onclick="popup(this,'accessinfo')">Service access info:</span>
             </header>
+            <div id="accessinfo" class="w3-margin popuptext">
+                <p>IP-based access is the default access method when accessing the service without login or a key.</p>
+                <p>A Key-based access requires inserting an identification key (a long alfa-numeric string) in the text box below.</p>
+                <p>An empty or wrong key will back up to IP-based access.</p>
+                <p>All access methods may set a limit to the number of requests per hour and their total number.</p>
+                <p>A value for the request limit equal to "n/a" means no access.</p>
+                <p>A value equal to "-1" means unlimited requests.</p>
+            </div>
             <div class="w3-panel w3-left" id="infoip">
-                <div class="w3-container w3-tooltip">IP-based access <div class="w3-text w3-theme w3-tag w3-small w3-round">${ip}</div></div>
-                <div class="w3-container">IP requests this hour: <span id="ip_request_count">0</span> - <span title="a value of -1 means no limit">limit</span>: <span id="ip_hourly_limit">0</span></div>
-                <div class="w3-container">Total IP requests: <span id="ip_total">0</span> - <span
-                        style=' text-decoration: underline; text-decoration-style: dotted'
-                        title="a value of -1 means no limit">limit</span>: <span id="ip_total_limit">0</span></div>
+                <div class="w3-container">IP-based access</div>
+                <div class="w3-container">IP: ${ip}</div>
+                <div class="w3-container">IP requests this hour: <span id="ip_request_count">0</span> - <span>limit</span>: <span id="ip_hourly_limit">0</span></div>
+                <div class="w3-container">Total IP requests: <span id="ip_total">0</span> - <span>limit</span>: <span id="ip_total_limit">0</span></div>
             </div>
             <div class="w3-panel w3-left w3-border-theme w3-border-left" id="infokey">
-                <div class="w3-container"><label class="w3-tooltip" for="authkey">Key-based access
-                    <span class="w3-text w3-theme w3-tag w3-small w3-round">An empty or wrong key will back up to IP access.</span></label><input
+                <div class="w3-container"><label class="w3-tooltip" for="authkey">Key-based access.</label></div>
+                <div class="w3-container"><input
                         type="password" id="authkey" placeholder="copy key here"></div>
                 <div class="w3-container">Key requests this hour: <span
-                        id="key_request_count">0</span> - <span title="a value of -1 means no limit">limit</span>: <span
+                        id="key_request_count">0</span> - <span>limit</span>: <span
                         id="key_hourly_limit">0</span></div>
                 <div class="w3-container">Total key requests: <span
-                        id="key_total">0</span> - <span title="a value of -1 means no limit">limit</span>:
+                        id="key_total">0</span> - <span>limit</span>:
                     <span id="key_total_limit">0</span></div>
             </div>
             <div class="w3-container w3-padding"></div>

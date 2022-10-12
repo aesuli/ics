@@ -52,3 +52,9 @@ function equalArray(arr1, arr2) {
 	}
 	return true;
 };
+
+function popup(sourceElement, elementId) {
+  sourceElement.classList.toggle("show");
+  var popup = document.getElementById(elementId);
+  popup.classList.toggle("show");
+}

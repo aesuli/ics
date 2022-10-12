@@ -200,6 +200,9 @@ ${parent.head()}
         var data = new FormData()
         data.append("file", $('#dataFile')[0].files[0]);
         data.append("name", name);
+        if(document.getElementById('uploadformat').value=="hasdate") {
+            data.append("has_creation_datetime","True");
+        }
         $.ajax({
             type: "POST",
             url: "${dataset_path}/upload",
@@ -340,12 +343,28 @@ ${parent.head()}
             </header>
             <form enctype="multipart/form-data" id="upload_form" class="w3-container" action="#" method="post">
                 <p>
-                    <label for="up_to" class="w3-tooltip">Upload to:<span class="w3-text w3-theme w3-tag w3-small w3-round">
-                        Select an existing dataset or type a new name to create it</span></label>
+                    <label for="up_to" class="popup" onclick="popup(this,'uploadinfo')">Upload to:</label>
+                    <span class="popuptext" id="uploadinfo">
+                        Select an existing dataset to add documents to or type a new name to create it</span>
                     <select class="w3-select" id="up_to">
                     </select></p>
                 <p><label class="margined">Data file:</label>
                     <input class="w3-input" type="file" id="dataFile"/></p>
+                <p>
+                    <label class="margined popup" onclick="popup(this,'formatinfo')">Format:</label>
+                    <div class="popuptext" id="formatinfo">
+                        <ul>
+                            <li>   <strong>Id,Text</strong>: a csv file, with two columns, the first is a unique ID, the second the text content.</li>
+                            <li><strong>Id,IsoDateTime,Text</strong>: text is in the third column, the second one contains the creation date formated
+                                as specified by the <a href="https://docs.python.org/library/datetime.html#datetime.datetime.fromisoformat" target="_blank">datetime.fromisoformat</a>
+                                function. E.g., "2011-11-04 00:05:23".</li>
+                        </ul>
+                   </div>
+                    <select class="w3-select" id="uploadformat">
+                        <option value="nodate">Id,Text</option>
+                        <option value="hasdate">Id,IsoDateTime,Text</option>
+                    </select>
+                </p>
                 <p>
                     <input class="w3-input" id="upload_button" type="submit" value="Upload"/>
                     <span class="w3-center" style="display:none" id="upload_button_wait">Uploading</span>

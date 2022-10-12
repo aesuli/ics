@@ -12,6 +12,7 @@
     margin: 6px;
     border: 1px solid lightgray;
 }
+
 .multiscoreline .scoreline {
     padding: 2px;
     margin: 3px;
@@ -43,3 +44,40 @@
     color: #555555;
     border: 1px solid #AAAAAA;
 }
+
+.popup {
+  position: relative;
+  display: inline-block;
+}
+
+.popup::after {
+  content: "?";
+  cursor: pointer;
+  color: #009688;
+  margin-left: 4px;
+  padding-left: 4px;
+  padding-right: 4px;
+  border-width: 1px;
+  border-radius: 36px;
+  border-style: solid;
+  border-color: #009688;
+}
+
+.popup.show::after {
+  content: "×";
+}
+
+.popuptext {
+  display: none;
+  background-color: #555;
+  color: #fff;
+  text-align: left;
+  border-radius: 6px;
+  padding: 8px;
+  z-index: 1;
+}
+
+.show {
+  display: block;
+}
+
