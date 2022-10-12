@@ -1,4 +1,5 @@
 import csv
+import datetime
 import multiprocessing
 import os
 import shutil
@@ -70,10 +71,10 @@ class DatasetCollectionService(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def add_document(self, name, document_name, document_content):
+    def add_document(self, name, document_name, document_content, creation_datetime=None):
         if not self._db.dataset_exists(name):
             self._db.create_dataset(name)
-        self._db.create_dataset_documents(name, ((document_name, document_content),))
+        self._db.create_dataset_documents(name, ((document_name, document_content, creation_datetime),))
         return 'Ok'
 
     @cherrypy.expose
@@ -99,6 +100,13 @@ class DatasetCollectionService(object):
             cherrypy.response.status = 400
             return 'Must upload a file'
 
+        try:
+            has_creation_datetime = data['has_creation_datetime']
+            if has_creation_datetime == 'false' or has_creation_datetime == 'False':
+                has_creation_datetime = False
+        except KeyError:
+            has_creation_datetime = False
+
         if not self._db.dataset_exists(dataset_name):
             self._db.create_dataset(dataset_name)
 
@@ -108,7 +116,7 @@ class DatasetCollectionService(object):
         with open(fullpath, 'wb') as outfile:
             shutil.copyfileobj(file.file, outfile)
 
-        job_id = self._db.create_job(_create_dataset_documents, (dataset_name, fullpath),
+        job_id = self._db.create_job(_create_dataset_documents, (dataset_name, fullpath, has_creation_datetime),
                                      description=f'upload to dataset {dataset_name}')
 
         return [job_id]
@@ -143,7 +151,7 @@ class DatasetCollectionService(object):
         return [job_id]
 
     @cherrypy.expose
-    def download(self, name):
+    def download(self, name, with_creation_datetime=False):
         if not self._db.dataset_exists(name):
             cherrypy.response.status = 404
             return '\'%s\' does not exist' % name
@@ -155,7 +163,10 @@ class DatasetCollectionService(object):
                 with open(fullpath, 'w', encoding='utf-8', newline='') as file:
                     writer = csv.writer(file, lineterminator='\n')
                     for document in self._db.get_dataset_documents(name):
-                        writer.writerow([document.external_id, document.text])
+                        if with_creation_datetime:
+                            writer.writerow([document.external_id, document.text])
+                        else:
+                            writer.writerow([document.external_id, document.creation, document.text])
             except:
                 os.unlink(fullpath)
 
@@ -335,7 +346,8 @@ class DatasetCollectionService(object):
     @cherrypy.tools.json_out()
     def next_unlabeled_document_id(self, name, classifier_name, start_from, filter=None):
         try:
-            doc_id = self._db.get_dataset_next_documents_without_labels(name, classifier_name, start_from, filter, 1)[0].id
+            doc_id = self._db.get_dataset_next_documents_without_labels(name, classifier_name, start_from, filter, 1)[
+                0].id
             return self._db.get_dataset_document_position_by_id(name, doc_id)
         except:
             cherrypy.response.status = 400
@@ -361,7 +373,8 @@ class DatasetCollectionService(object):
     @cherrypy.tools.json_out()
     def prev_unlabeled_document_id(self, name, classifier_name, start_from, filter=None):
         try:
-            doc_id = self._db.get_dataset_prev_documents_without_labels(name, classifier_name, start_from, filter, 1)[0].id
+            doc_id = self._db.get_dataset_prev_documents_without_labels(name, classifier_name, start_from, filter, 1)[
+                0].id
             return self._db.get_dataset_document_position_by_id(name, doc_id)
         except:
             cherrypy.response.status = 400
@@ -479,7 +492,8 @@ class DatasetCollectionService(object):
 
 
 def _classify(db, datasetname, classifiers, fullpath):
-    cherrypy.log(f'{multiprocessing.current_process().name}: DatasetCollectionService._classify(datasetname="{datasetname}", classifiers="{classifiers}", fullpath="{fullpath}")')
+    cherrypy.log(
+        f'{multiprocessing.current_process().name}: DatasetCollectionService._classify(datasetname="{datasetname}", classifiers="{classifiers}", fullpath="{fullpath}")')
     tempfile = fullpath + '.tmp'
     try:
         with open(tempfile, 'w', encoding='utf-8', newline='') as file:
@@ -514,9 +528,9 @@ def _classify(db, datasetname, classifiers, fullpath):
                         classification_mode = classification_modes[classifier]
                         if classification_mode == ClassificationMode.SINGLE_LABEL:
                             cols.append([
-                                            f'{classifier}:{label}{bool_to_string(gold, LabelSource.HUMAN_LABEL.value, LabelSource.MACHINE_LABEL.value)}'
-                                            for label, gold in
-                                            db.classify(classifier, X, classification_mode=classification_mode)])
+                                f'{classifier}:{label}{bool_to_string(gold, LabelSource.HUMAN_LABEL.value, LabelSource.MACHINE_LABEL.value)}'
+                                for label, gold in
+                                db.classify(classifier, X, classification_mode=classification_mode)])
                         elif classification_mode == ClassificationMode.MULTI_LABEL:
                             label_lists = zip(*db.classify(classifier, X, classification_mode=classification_mode))
                             for label_list in label_lists:
@@ -547,9 +561,9 @@ def _classify(db, datasetname, classifiers, fullpath):
     return 'done'
 
 
-def _create_dataset_documents(db, dataset_name, filename):
+def _create_dataset_documents(db, dataset_name, filename, has_creation_datetime):
     cherrypy.log(
-        f'{multiprocessing.current_process().name}: DatasetCollectionService._create_dataset_documents(dataset_name="{dataset_name}", filename="{filename}")')
+        f'{multiprocessing.current_process().name}: DatasetCollectionService._create_dataset_documents(dataset_name="{dataset_name}", filename="{filename}", has_creation_datetime={has_creation_datetime})')
     if not db.dataset_exists(dataset_name):
         db.create_dataset(dataset_name)
     if csv.field_size_limit() < CSV_LARGE_FIELD:
@@ -562,8 +576,16 @@ def _create_dataset_documents(db, dataset_name, filename):
                 document_name = row[0].strip()
                 if len(document_name) == 0 or document_name[0] == '#':
                     continue
-                content = row[1]
-                external_ids_and_contents.append((document_name, content))
+                if has_creation_datetime:
+                    try:
+                        creation_datetime = datetime.datetime.fromisoformat(row[1].strip())
+                    except ValueError:
+                        creation_datetime = None
+                    content = row[2]
+                else:
+                    creation_datetime = None
+                    content = row[1]
+                external_ids_and_contents.append((document_name, content, creation_datetime))
             if len(external_ids_and_contents) >= MAX_BATCH_SIZE:
                 db.create_dataset_documents(dataset_name, external_ids_and_contents)
                 external_ids_and_contents = list()
