@@ -7,6 +7,8 @@ here = pathlib.Path(__file__).parent.resolve()
 
 long_description = (here / 'README.md').read_text(encoding='utf-8')
 
+requirements_list = (here / 'requirements.txt').read_text(encoding='utf-8').split()
+
 
 def get_version(rel_path):
     init_content = (here / rel_path).read_text(encoding='utf-8')
@@ -49,11 +51,9 @@ setup(
         'License :: OSI Approved :: BSD License',
 
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.10',
     ],
 
     keywords='text, classification, labeling, machine learning, active learning',
@@ -62,18 +62,9 @@ setup(
 
     include_package_data=True,
 
-    python_requires='>=3.6, <4',
+    python_requires='>=3.8',
 
-    install_requires=['cherrypy',
-                      'mako',
-                      'numpy',
-                      'psycopg2',
-                      'scikit-learn',
-                      'sqlalchemy',
-                      'configargparse',
-                      'passlib',
-                      'requests',
-                      'twiget'],
+    install_requires=requirements_list,
 
     entry_points={
         'console_scripts': scripts

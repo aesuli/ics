@@ -11,6 +11,7 @@
 The :mod:`sklearn.feature_extraction.text` submodule gathers utilities to
 build feature vectors from text documents.
 """
+from numbers import Integral
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -18,6 +19,7 @@ from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.feature_extraction._hashing_fast import transform
 from sklearn.feature_extraction.text import _VectorizerMixin
 from sklearn.preprocessing import normalize
+from sklearn.utils._param_validation import StrOptions, Interval
 
 
 class LightweightRandomIndexingVectorizer(TransformerMixin, _VectorizerMixin,
@@ -148,6 +150,24 @@ class LightweightRandomIndexingVectorizer(TransformerMixin, _VectorizerMixin,
     CountVectorizer, TfidfVectorizer
 
     """
+
+    _parameter_constraints: dict = {
+        "input": [StrOptions({"filename", "file", "content"})],
+        "encoding": [str],
+        "decode_error": [StrOptions({"strict", "ignore", "replace"})],
+        "strip_accents": [StrOptions({"ascii", "unicode"}), None, callable],
+        "lowercase": ["boolean"],
+        "preprocessor": [callable, None],
+        "tokenizer": [callable, None],
+        "stop_words": [StrOptions({"english"}), list, None],
+        "token_pattern": [str, None],
+        "ngram_range": [tuple],
+        "analyzer": [StrOptions({"word", "char", "char_wb"}), callable],
+        "n_features": [Interval(Integral, 1, np.iinfo(np.int32).max, closed="left")],
+        "norm": [StrOptions({"l1", "l2"}), None],
+        "dtype": "no_validation",
+        "transform_mode" : [StrOptions({"once","twice"})]
+    }
 
     def __init__(self, input='content', encoding='utf-8',
                  decode_error='strict', strip_accents=None,

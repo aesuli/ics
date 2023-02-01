@@ -1,11 +1,12 @@
 cherrypy
+configargparse
 mako
 numpy
-psycopg2
-scikit-learn
-sqlalchemy
-configargparse
 passlib
+psycopg2
 requests
+scikit-learn
 scipy
 setuptools
+sqlalchemy
+twiget
