@@ -28,8 +28,14 @@
 </section>
 
 <footer class="w3-container w3-text-theme w3-padding w3-tiny">
-    <span>Version ${version} - &copy; 2022 <a href="http://esuli.it">Andrea Esuli</a></span> <span
+    <p><span>Version ${version} - &copy; 2022-2023 <a href="http://esuli.it">Andrea Esuli</a></span> <span
         class="w3-right">Cookie info: this website uses only one session cookie to manage login.</span>
+    </p>
+    % if engine_name == 'sqlite':
+    <p class="w3-yellow pointer w3-right" onclick="popup(this,'sqlitepopup')">Warning</p>
+    <div id="sqlitepopup" class="w3-pale-yellow popuptext">This instance of ${name} uses an SQLite database engine. This could result in a
+        slow response when load is high. The use of a PostgreSQL database is recommended.</div>
+    % endif
 </footer>
 </body>
 </html>

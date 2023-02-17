@@ -1,0 +1,39 @@
+version: "0.1.9"
+
+networks:
+  ics-net:
+
+services:
+  db:
+    image: "postgres:latest"
+    environment:
+      - POSTGRES_USER=ics
+      - POSTGRES_PASSWORD=ics
+      - POSTGRES_DB=ics
+    volumes:
+      - ${DB_DATA:-db-data}:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      ics-net:
+
+  ics:
+    image: "andreaesuli/ics:latest"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_started
+    volumes:
+      - ${ICS_DATA:-ics-data}:/ics/data
+      - ${ICS_LOG:-ics-log}:/ics/log
+    ports:
+      - "${ICS_HOST:-127.0.0.1}:${ICS_PORT:-8080}:8080"
+    environment:
+      - DB_CONNECTION_STRING=postgresql://ics:ics@db:5432/ics
+    networks:
+      ics-net:
+
+volumes:
+  db-data:
+  ics-data:
+  ics-log:
