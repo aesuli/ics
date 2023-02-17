@@ -5,6 +5,7 @@ from logging import handlers
 from tempfile import TemporaryDirectory
 
 import cherrypy
+from cherrypy.process.plugins import SignalHandler
 from configargparse import ArgParser
 from sqlalchemy.exc import OperationalError
 
@@ -208,10 +209,12 @@ def main():
             cherrypy.tree.mount(key_auth_controller, args.key_auth_path, config=conf_key_auth_service)
             cherrypy.tree.mount(jobs_service, args.jobs_path, config=conf_generic_service_with_login)
 
-            if hasattr(cherrypy.engine, "signal_handler"):
-                cherrypy.engine.signal_handler.subscribe()
-            if hasattr(cherrypy.engine, "console_control_handler"):
-                cherrypy.engine.console_control_handler.subscribe()
+            signal_handler = SignalHandler(cherrypy.engine)
+            signal_handler.handlers['SIGTERM'] = cherrypy.engine.exit
+            signal_handler.handlers['SIGHUP'] = cherrypy.engine.exit
+            signal_handler.handlers['SIGQUIT'] = cherrypy.engine.exit
+            signal_handler.handlers['SIGINT'] = cherrypy.engine.exit
+            signal_handler.subscribe()
 
             cherrypy.engine.subscribe('stop', background_processor.stop)
 
@@ -229,7 +232,10 @@ def main():
     except OperationalError as oe:
         print('Database error')
         print(oe)
+        return -1
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())

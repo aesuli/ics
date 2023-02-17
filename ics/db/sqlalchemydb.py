@@ -339,12 +339,15 @@ class Lock(Base):
 
 
 class SQLAlchemyDB(object):
-    def __init__(self, name: str, poolclass=None):
-        self._engine = create_engine(name, poolclass=poolclass)
+    def __init__(self, db_connection_string: str, poolclass=None):
+        self._engine = create_engine(db_connection_string, poolclass=poolclass)
         Base.metadata.create_all(self._engine)
         self._sessionmaker = scoped_session(sessionmaker(bind=self._engine))
         configure_mappers()
         self._preload_data()
+
+    def engine_name(self):
+        return self._engine.name
 
     def _preload_data(self):
         with self.session_scope() as session:

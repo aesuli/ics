@@ -28,74 +28,172 @@ ICS is described in the paper:
 
 ## <a name="installation"></a> Installation
 
-### Installation: using pip (recommended)
+You can have a working installation of ICS in many ways:
+
+- [Docker](#docker) (for a single user)
+- [Docker compose](#docker-compose) (recommended for most cases)
+- [Pip install](#pip)
+- [From source](#from-source)
+
+### Docker
+
+A quick way have a running instance of ICS is to use [Docker](https://docker.com).
+
+```shell
+docker run -p 8080:8080 andreaesuli/ics
+```
+
+This command pulls the ICS image from Docker hub and runs it, publishing the application on port 8080 of the host machine, accessible from any interface.
+Once started ICS is accessible from the host machine using a browser at the address [http://127.0.0.1:8080](http://127.0.0.1:8080)
+
+To have ICS accessible only from the local host machine add local ip address:
+
+```shell
+docker run -p 127.0.0.1:8080:8080 andreaesuli/ics
+```
+
+__NOTE:__ by default the ICS image uses the SQLite database engine, which can results in performance drops caused by the access to DB, specially when multiple users access the system.
+A configuration using PostgreSQL is recommended. It can be easily set up using docker compose.
+
+#### Data persistence
+
+ICS image use volumes to keep information persistent:
+- ics-db stores the sqlite file, this is the only volume that should be saved to keep the state of the application.
+- ics-data stores the files that are uploaded or downloaded from the system. It is defined for inspection in case of failures, it is not necessary to save it.
+- ics-log stores the log files. It is defined for inspection in case of failures, it is not necessary to save it.
+
+### Docker compose
+
+An instance of ICS using PostgreSQL can be obtained downloading the [docker-compose.yml](https://github.com/aesuli/ics/raw/main/docker-compose.yml) file to a local directory and running
+
+```shell
+docker compose up
+```
+from that directory.
+
+#### Host and port
+
+The environment variables ``ICS_HOST`` and ``ICS_PORT`` define the interface and port on which ICS is accessible on the host machine.
+Default is 127.0.0.1 and 8080.
+
+#### Data persistence
+
+The compose-based version of ICS use volumes to keep information persistent:
+- db-data stores the PostgreSQL, this is the only volume that should be saved to keep the state of the application.
+- ics-data stores the files that are uploaded or downloaded from the system. It is defined for inspection in case of failures, it is not necessary to save it.
+- ics-log stores the log files. It is defined for inspection in case of failures, it is not necessary to save it.
+
+A volume can be linked to a path on the host machine by defining an environment variable (or by editing the docker-compose.yml file):
+- DB_DATA for the db-data volume (recommended)
+- ICS_DATA for the ics-data volume (not necessary)
+- ICS_LOG for the ics-log volume (not necessary)
+
+For example, on Windows:
+```shell
+set DB_DATA=D:\ics_db_data
+docker compose up
+```
+
+On Linux/Mac:
+```shell
+DB_DATA=/var/lib/ics/data docker compose up
+```
+
+### Pip
 
 The suggested way to quickly set up the python enviroment is to use
 the [Anaconda/Miniconda distribution](https://www.anaconda.com/products/distribution) and the `conda` package manager to
 create the virtual enviroment.
 
+```shell
+conda create -n ics python
+conda activate ics
+````
+
 ICS is published as a [`pip` package](https://pypi.org/project/ics-pkg).
 
-```
-> conda create -n ics python
-> conda activate ics
-> pip install ics-pkg
+```shell
+pip install ics-pkg
 ```
 
-### Installation: from source
+The last required step is to [configure a database](#db-configuration).
+
+### From source
 
 Download source code from [GitHub repo](https://github.com/aesuli/ics).
+Create a virtual environment and install the required packages.
 
-```
-> cd [directory with ICS code]
-> conda create -n ics --file requirements.txt
-> conda activate ics
+```shell
+cd [directory with ICS code]
+conda create -n ics python
+conda activate ics
+pip install -r requirements.txt
 ```
 
-Note: twiget is not listed as a requirement, as it is needed only by the twitter uploader script (`pip install twiget`).
+The last required step is to [configure a database](#db-configuration).
 
 ### DB configuration
 
-ICS requires a database to store its data.
+Docker installation already includes the setup of the DB, so you can skip this section.
+If you installed ICS using pip or the source code you must set up a DB.
 
-By default, ICS assumes the use of a database named 'ics' by a user named 'ics' (with password 'ics').
+The use of [PostgreSQL](https://www.postgresql.org/) is recommended to avoid performance drops caused by the access to 
+DB, specially when multiple users access the system.
+Howerever, ICS can also work using other DB engines, such as [SQLite](https://www.sqlite.org/).
 
-ICS is tested to work with [PostgreSQL](https://www.postgresql.org/). These are the SQL commands to create the required
-user and database on PostgreSQL.
+#### SQLite
+
+Running ICS using SQLite as the DB only require to pass a ``--db_connection_string`` argument to the launch script:
+
+```shell
+ics-webapp --db_connection_string sqlite:///ics.sqlite
+```
+
+SQLite is
+
+#### PostgreSQL
+
+By default ICS assumes to connect to PostgreSQL, using a database named 'ics' and a user named 'ics' (with password 'ics').
+
+These are the SQL commands to create the required user and database on PostgreSQL.
 
 ```
-    CREATE USER ics WITH PASSWORD 'ics';
-    CREATE DATABASE ics;
-    GRANT ALL PRIVILEGES ON DATABASE ics to ics;
+CREATE USER ics WITH PASSWORD 'ics';
+CREATE DATABASE ics;
+GRANT ALL PRIVILEGES ON DATABASE ics to ics;
 ```
 
 These command can be issued using the `psql` SQL shell (or using pgAdmin, or similar db frontends).
 
 The tables required by ICS are created automatically at the first run.
 
-## <a name="startmain"></a> Starting the main app
+## <a name="startmain"></a> The main app
+
+Running the docker image automatically starts the main application, which can be accessed with a browser at the ip and 
+port defined with the docker launch command or docker compose file.
+Installations that do not use docker can run ics by using the ics-webapp script.
 
 Activate the virtual environment:
-
-```
-> conda activate ics
+```shell
+conda activate ics
 ```
 
 When installed using `pip`, the main application can be started with the command:
 
-```
-> ics-webapp
+```shell
+ics-webapp
 ```
 
 When working on source code, it can be launched from the `ics-webapp.py` script:
 
-```
 Linux/Mac:
->PYTHONPATH=. python ics/scripts/ics-webapp.py
-
+```shell
+PYTHONPATH=. python ics/scripts/ics-webapp.py
+```
 Windows:
->set PYTHONPATH=. 
->python ics/scripts/ics-webapp.py
+```shell
+set PYTHONPATH=. 
+python ics/scripts/ics-webapp.py
 ```
 
 When launched, the app will print the URL at which it is accessible.
@@ -111,27 +209,33 @@ When launched, the app will print the URL at which it is accessible.
 ## <a name="login"></a> Login
 
 After the installation, only the `admin` user is defined, with password `adminadmin`.
+Change the default password on the first run.
 
 ## <a name="configuration"></a> Configuration
 
-A configuration for `ics-start` can be saved to a file using the `-s` argument with the filename to use. For example,
+A configuration for `ics-webapp` can be saved to a file using the `-s` argument with the filename to use. For example,
 this command creates a `default.conf` file that lists all the default values (if any other argument is used in the
 command, the value of the argument is saved in the configuration file).
 
-```
-> ics-start -s default.conf
+```shell
+ics-webapp -s default.conf
 ```
 
 A configuration file can be used to set the launch arguments, using the `-c` argument:
 
-```
-> ics-start -c myinstance.conf
+```shell
+ics-webapp -c myinstance.conf
 ```
 
 Any additional argument passed on the command line overrides the one specified in the configuration file.
 
 ## <a name="apps"></a> Additional apps
 
+These apps are clients that connect to the ICS web applications.
+
+If you run ICS from Docker you must install them in a local python environment (``pip install ics-pkg``, note that you don't need to set up the DB for them)
+
+If ICS is not running on the local machine with default port, you must use the ``--host [ip address or name]`` and/or the ``--port [number]`` arguments.
 ### Command line interface
 
 When the ics-webapp is running, ICS can be also accessed from command line

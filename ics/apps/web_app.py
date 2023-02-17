@@ -20,7 +20,9 @@ class WebApp(object):
                                'jobs_path': jobs_path,
                                'public_path': public_path,
                                'name': name,
-                               'version': self.version()}
+                               'version': self.version(),
+                               'engine_name': db.engine_name(),
+                               }
         self._lookup = TemplateLookup(os.path.join(self._media_dir, 'template'), input_encoding='utf-8',
                                       output_encoding='utf-8')
 
