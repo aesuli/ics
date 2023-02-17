@@ -101,7 +101,7 @@ DB_DATA=/var/lib/ics/data docker compose up
 
 ### Pip
 
-The suggested way to quickly set up the python enviroment is to use
+The suggested way to quickly set up the python environment is to use
 the [Anaconda/Miniconda distribution](https://www.anaconda.com/products/distribution) and the `conda` package manager to
 create the virtual enviroment.
 
@@ -149,7 +149,7 @@ Running ICS using SQLite as the DB only require to pass a ``--db_connection_stri
 ics-webapp --db_connection_string sqlite:///ics.sqlite
 ```
 
-SQLite is
+For use with multiple users it is recommended to set up ICS to use the PostgreSQL database.
 
 #### PostgreSQL
 
