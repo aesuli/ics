@@ -18,7 +18,7 @@ services:
       ics-net:
 
   ics:
-    image: "andreaesuli/ics:latest"
+    image: "ghcr.io/aesuli/ics:latest"
     restart: unless-stopped
     depends_on:
       db:

@@ -40,7 +40,7 @@ You can have a working installation of ICS in many ways:
 A quick way have a running instance of ICS is to use [Docker](https://docker.com).
 
 ```shell
-docker run -p 8080:8080 andreaesuli/ics
+docker run -p 8080:8080 ghcr.io/aesuli/ics
 ```
 
 This command pulls the ICS image from Docker hub and runs it, publishing the application on port 8080 of the host machine, accessible from any interface.
@@ -49,7 +49,7 @@ Once started ICS is accessible from the host machine using a browser at the addr
 To have ICS accessible only from the local host machine add local ip address:
 
 ```shell
-docker run -p 127.0.0.1:8080:8080 andreaesuli/ics
+docker run -p 127.0.0.1:8080:8080 ghcr.io/aesuli/ics
 ```
 
 __NOTE:__ by default the ICS image uses the SQLite database engine, which can results in performance drops caused by the access to DB, specially when multiple users access the system.
@@ -101,7 +101,7 @@ DB_DATA=/var/lib/ics/data docker compose up
 
 ### Pip
 
-The suggested way to quickly set up the python enviroment is to use
+The suggested way to quickly set up the python environment is to use
 the [Anaconda/Miniconda distribution](https://www.anaconda.com/products/distribution) and the `conda` package manager to
 create the virtual enviroment.
 
@@ -149,7 +149,7 @@ Running ICS using SQLite as the DB only require to pass a ``--db_connection_stri
 ics-webapp --db_connection_string sqlite:///ics.sqlite
 ```
 
-SQLite is
+For use with multiple users it is recommended to set up ICS to use the PostgreSQL database.
 
 #### PostgreSQL
 
