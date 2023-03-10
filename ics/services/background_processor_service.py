@@ -21,24 +21,25 @@ __author__ = 'Andrea Esuli'
 LOOP_WAIT = 0.1
 
 
-def setup_background_processor_log(access_filename, app_filename):
+def setup_background_processor_log(access_filename, app_filename, environment):
     path = os.path.dirname(access_filename)
     os.makedirs(path, exist_ok=True)
     path = os.path.dirname(app_filename)
     os.makedirs(path, exist_ok=True)
 
-    cherrypy.config.update({  # 'environment': 'production',
+    cherrypy.config.update({
+        'environment': environment,
         'log.error_file': '',
         'log.access_file': ''})
 
     process = multiprocessing.current_process()
 
-    error_handler = handlers.TimedRotatingFileHandler(app_filename + '-' + str(process.name) + '.log',
+    error_handler = handlers.TimedRotatingFileHandler(f'{app_filename}-{process.name.replace(":","_")}.log',
                                                       when='midnight')
     error_handler.setLevel(logging.DEBUG)
     cherrypy.log.error_log.addHandler(error_handler)
 
-    access_handler = handlers.TimedRotatingFileHandler(access_filename + '-' + str(process.name) + '.log',
+    access_handler = handlers.TimedRotatingFileHandler(f'{access_filename}-{process.name.replace(":","_")}.log',
                                                        when='midnight')
     access_handler.setLevel(logging.DEBUG)
     cherrypy.log.access_log.addHandler(access_handler)
@@ -81,12 +82,12 @@ def job_launcher(id, f, *args, **kwargs):
 
 
 def bp_pool_initializer(db_connection_string, initializer, *initargs):
+    if initializer is not None:
+        initializer(*initargs)
     cherrypy.log(f'BackgroundProcessor: adding {multiprocessing.current_process().name} to pool', severity=logging.INFO)
     global process_db
     process_db = SQLAlchemyDB(db_connection_string, NullPool)
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    if initializer is not None:
-        initializer(*initargs)
 
 
 class BackgroundProcessor(Process):
@@ -95,7 +96,8 @@ class BackgroundProcessor(Process):
         self._stop_event = multiprocessing.Event()
         self._pool_size = pool_size
         self._db_connection_string = db_connection_string
-        self._initializer = partial(bp_pool_initializer, db_connection_string, initializer)
+        self._initializer = initializer
+        self._pool_initializer = partial(bp_pool_initializer, db_connection_string, initializer)
         if initargs is None:
             initargs = []
         self._initargs = initargs
@@ -103,8 +105,9 @@ class BackgroundProcessor(Process):
         self._semaphore = BoundedSemaphore(self._pool_size)
 
     def run(self):
+        self._initializer(*self._initargs)
         with SQLAlchemyDB(self._db_connection_string) as db, \
-                Pool(processes=self._pool_size, initializer=self._initializer, initargs=self._initargs) as pool:
+                Pool(processes=self._pool_size, initializer=self._pool_initializer, initargs=self._initargs) as pool:
             cherrypy.log('BackgroundProcessor: started', severity=logging.INFO)
             while not self._stop_event.is_set():
                 try:

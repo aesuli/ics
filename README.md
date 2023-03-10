@@ -30,10 +30,27 @@ ICS is described in the paper:
 
 You can have a working installation of ICS in many ways:
 
+- [Single file executable](#single-file-executable) (to start using ICS)
 - [Docker](#docker) (for a single user)
-- [Docker compose](#docker-compose) (recommended for most cases)
+- [Docker compose](#docker-compose) (for larger installation)
 - [Pip install](#pip)
 - [From source](#from-source)
+
+### Single file executable
+
+Executable files of ICS are downloadable from the [releases page](https://github.com/aesuli/ics/releases).
+Once downloaded it can be run and have a working instance of ICS, provided a [database is configured](#db-configuration).
+
+```shell
+ics-webapp
+```
+
+
+The executable are from source using [pyinstaller](https://pyinstaller.org/):
+
+```shell
+pyinstaller -F ics\scripts\webapp.py --add-data="ics\apps\media;ics\apps\media" --collect-all sklearn --name ics-webapp
+```
 
 ### Docker
 
@@ -52,8 +69,8 @@ To have ICS accessible only from the local host machine add local ip address:
 docker run -p 127.0.0.1:8080:8080 ghcr.io/aesuli/ics
 ```
 
-__NOTE:__ by default the ICS image uses the SQLite database engine, which can results in performance drops caused by the access to DB, specially when multiple users access the system.
-A configuration using PostgreSQL is recommended. It can be easily set up using docker compose.
+__NOTE:__ by default the ICS image uses the SQLite database engine, which may result in reduced efficiency and functionalities.
+A configuration using PostgreSQL is strongly recommended. It can be easily set up using docker compose.
 
 #### Data persistence
 
@@ -134,27 +151,13 @@ The last required step is to [configure a database](#db-configuration).
 
 ### DB configuration
 
-Docker installation already includes the setup of the DB, so you can skip this section.
-If you installed ICS using pip or the source code you must set up a DB.
-
-The use of [PostgreSQL](https://www.postgresql.org/) is recommended to avoid performance drops caused by the access to 
-DB, specially when multiple users access the system.
-Howerever, ICS can also work using other DB engines, such as [SQLite](https://www.sqlite.org/).
-
-#### SQLite
-
-Running ICS using SQLite as the DB only require to pass a ``--db_connection_string`` argument to the launch script:
-
-```shell
-ics-webapp --db_connection_string sqlite:///ics.sqlite
-```
-
-For use with multiple users it is recommended to set up ICS to use the PostgreSQL database.
+The Docker compose installation already includes the setup of the PostgreSQL database, so you can skip this section.
+Any another requires to have a database available to connect to.
+The use of [PostgreSQL](https://www.postgresql.org/) is strongly recommended.
 
 #### PostgreSQL
 
-By default ICS assumes to connect to PostgreSQL, using a database named 'ics' and a user named 'ics' (with password 'ics').
-
+To connect to PostgreSQL, a dedicated DB must be created.
 These are the SQL commands to create the required user and database on PostgreSQL.
 
 ```
@@ -163,9 +166,32 @@ CREATE DATABASE ics;
 GRANT ALL PRIVILEGES ON DATABASE ics to ics;
 ```
 
-These command can be issued using the `psql` SQL shell (or using pgAdmin, or similar db frontends).
-
+These commands can be issued using the `psql` SQL shell (or using pgAdmin, or similar db frontends).
 The tables required by ICS are created automatically at the first run.
+
+Then ICS can be launched passing the DB connection string:
+
+```shell
+ics-webapp --db_connection_string postgresql://ics:ics@localhost:5432/ics
+```
+
+The above connection string is the correct one for a locally running database, change it according to your configuration.
+
+#### SQLite
+
+By default ICS uses SQLite as the DB, yet please note that **the use of SQLite is intended only for a first exploration of ICS and that using PostgreSQL is strongly recommended**.
+Using SQLite can result in reduced efficiency and some functionalities may be missing or not properly working.
+
+To use SQLite use the following ``--db_connection_string`` argument to the launch script:
+
+```shell
+ics-webapp --db_connection_string sqlite:///ics.sqlite
+```
+
+This is the default connection string, it creates the DB file in the current working directory.
+Change it to point to the path where you want to store your file.
+
+Again, PostgreSQL is the recommended database.
 
 ## <a name="startmain"></a> The main app
 
