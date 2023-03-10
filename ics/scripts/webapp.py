@@ -1,4 +1,5 @@
 import logging
+import multiprocessing
 import os
 import sys
 from logging import handlers
@@ -7,8 +8,9 @@ from tempfile import TemporaryDirectory
 import cherrypy
 from cherrypy.process.plugins import SignalHandler
 from configargparse import ArgParser
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ArgumentError, NoSuchModuleError
 
+import ics
 from ics.apps import WebAdmin
 from ics.apps import WebApp
 from ics.apps import WebPublic
@@ -29,13 +31,14 @@ from ics.util.util import str_to_bool
 __author__ = 'Andrea Esuli'
 
 
-def setup_log(access_filename, app_filename):
+def setup_log(access_filename, app_filename, environment):
     path = os.path.dirname(access_filename)
     os.makedirs(path, exist_ok=True)
     path = os.path.dirname(app_filename)
     os.makedirs(path, exist_ok=True)
 
-    cherrypy.config.update({  # 'environment': 'production',
+    cherrypy.config.update({
+        'environment': environment,
         'log.error_file': '',
         'log.access_file': ''})
 
@@ -48,11 +51,16 @@ def setup_log(access_filename, app_filename):
     cherrypy.log.access_log.addHandler(access_handler)
 
 
+CONNECT_SQLITE_DB = 'sqlite:///ics.sqlite'
+CONNECT_PGSQL_DB = 'postgresql://ics:ics@localhost:5432/ics'
+
+
 def main():
+    multiprocessing.freeze_support()
     parser = ArgParser()
     parser.add_argument('-c', '--config', help='read configuration from a file', is_config_file=True)
     parser.add_argument('-s', '--save', help='saves configuration to a file', is_write_out_config_file_arg=True)
-    parser.add_argument('--db_connection_string', type=str, default='postgresql://ics:ics@localhost:5432/ics')
+    parser.add_argument('--db_connection_string', type=str, default=CONNECT_SQLITE_DB)
     parser.add_argument('--log_dir', help='local directory for log files', type=str, default=None)
     parser.add_argument('--data_dir', help='local directory where uploaded/downloaded file are placed', type=str,
                         default=None)
@@ -80,16 +88,42 @@ def main():
     parser.add_argument('--jobs_path', help='server path of the jobs web service', type=str,
                         default='/service/jobs/')
     parser.add_argument('--min_password_length', help='minimum password length', type=int, default=8)
+    parser.add_argument('--devel', help='use it to get more log info', action='store_true')
+    parser.add_argument('--version', help='prints the version and exits', action='store_true')
     args = parser.parse_args(sys.argv[1:])
+
+    if args.version:
+        print(f'{ics.__version__}')
+        return 0
+
+    print(f'Starting {args.name} {ics.__version__} with the following configuration:')
+    print(' '.join([f'--{key} {value}' for key, value in args.__dict__.items()]))
+
+    if args.db_connection_string != CONNECT_PGSQL_DB:
+        print()
+        print(f'WARNING: this instance of {args.name} is not using the recommended PostgreSQL database configuration.')
+        print(f'This can result in reduced efficiency and some functionalities may be missing or not properly working.')
+        print(
+            f'The use of PostgreSQL is recommended, e.g., --db_connection_string postgresql://ics:ics@localhost:5432/ics.')
+        print(f'More info on how to setup it at https://github.com/aesuli/ics#db-configuration')
+
+    print()
+    print(f'Serving on http://{args.host}:{args.port}', flush=True)
+
+    if args.devel:
+        environment = None
+    else:
+        environment = 'production'
 
     try:
         with TemporaryDirectory(dir=args.data_dir, prefix='ics-data_') as data_dir, \
                 TemporaryDirectory(dir=args.log_dir, prefix='ics-log_') as log_dir, \
-                SQLAlchemyDB(args.db_connection_string) as db,  \
+                SQLAlchemyDB(args.db_connection_string) as db, \
                 BackgroundProcessor(args.db_connection_string, os.cpu_count() - 2,
                                     initializer=setup_background_processor_log,
                                     initargs=(os.path.join(log_dir, 'bpaccess'),
-                                              os.path.join(log_dir, 'bpapp'))) as background_processor, \
+                                              os.path.join(log_dir, 'bpapp'),
+                                              environment)) as background_processor, \
                 WebApp(db, args.user_auth_path, args.admin_app_path,
                        args.classifier_path, args.dataset_path, args.jobs_path, args.name,
                        args.public_app_path) as main_app, \
@@ -105,7 +139,7 @@ def main():
                 IPControllerService(db, args.ip_hourly_limit, args.ip_request_limit,
                                     args.allow_unknown_ips) as ip_auth_controller, \
                 KeyControllerService(db) as key_auth_controller:
-            setup_log(os.path.join(log_dir, 'access'), os.path.join(log_dir, 'app'))
+            setup_log(os.path.join(log_dir, 'access'), os.path.join(log_dir, 'app'), environment)
 
             background_processor.start()
 
@@ -229,13 +263,15 @@ def main():
                         handler.flush()
                     handler_list.removeHandler(handler)
 
-    except OperationalError as oe:
+    except (OperationalError, ArgumentError, NoSuchModuleError) as e:
         print('Database error')
-        print(oe)
+        print(e)
+        print()
+        print('Have you set up a database following the instructions? See https://github.com/aesuli/ics#db-configuration')
         return -1
 
     return 0
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

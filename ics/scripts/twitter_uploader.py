@@ -44,7 +44,7 @@ def main():
             bearer = input_file.readline().strip()
     except:
         print(f'Cannot load the bearer token from {args.bearer_filename}')
-        exit(-1)
+        sys.exit(-1)
 
     client = ClientSession(args.protocol, args.host, args.port, dataset_path=args.dataset_path,
                            user_auth_path=args.user_auth_path)
@@ -55,7 +55,7 @@ def main():
         client.login(username, getpass.getpass('Password: '))
     except Exception as e:
         print(f'Login failed: {e.args[0]}')
-        exit(-1)
+        sys.exit(-1)
 
     twigetcli = TwiGetCLIBase(bearer)
 

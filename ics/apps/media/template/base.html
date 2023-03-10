@@ -31,10 +31,11 @@
     <p><span>Version ${version} - &copy; 2022-2023 <a href="http://esuli.it">Andrea Esuli</a></span> <span
         class="w3-right">Cookie info: this website uses only one session cookie to manage login.</span>
     </p>
-    % if engine_name == 'sqlite':
-    <p class="w3-yellow pointer w3-right" onclick="popup(this,'sqlitepopup')">Warning</p>
-    <div id="sqlitepopup" class="w3-pale-yellow popuptext">This instance of ${name} uses an SQLite database engine. This could result in a
-        slow response when load is high. The use of a PostgreSQL database is recommended.</div>
+    % if engine_name != 'postgresql':
+    <p class="w3-red w3-padding pointer w3-right" onclick="popup(this,'sqlitepopup')"><b>Warning</b></p>
+    <div id="sqlitepopup" class="w3-pale-yellow popuptext">WARNING: this instance of ${name} is not using the recommented PostgreSQL database configuration.<br/>
+    This can result in reduced efficiency and some functionalities may be missing or not properly working.<br />
+    The use of PostgreSQL is strongly recommended. More info on how to setup it at <a href="https://github.com/aesuli/ics#db-configuration">https://github.com/aesuli/ics</a></div>
     % endif
 </footer>
 </body>

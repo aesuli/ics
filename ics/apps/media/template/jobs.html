@@ -162,12 +162,6 @@ ${parent.head()}
             custom_error(errMsg.responseText);
         });
         return false;
-        if(!confirm('Please confirm the DELETE request, proceed?'))
-            return;
-        $.ajax({
-            type:'POST',
-            url:'${jobs_path}/delete_all_done'})
-        .done(update);
     };
 
     function delete_all_jobs() {
@@ -188,12 +182,6 @@ ${parent.head()}
             custom_error(errMsg.responseText);
         });
         return false;
-        if(!confirm('Please confirm the DELETE request, proceed?'))
-            return;
-        $.ajax({
-            type:'POST',
-            url:'${jobs_path}/delete_all'})
-        .done(update);
     };
 
     function delete_job() {

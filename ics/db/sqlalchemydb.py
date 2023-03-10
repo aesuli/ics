@@ -346,6 +346,15 @@ class SQLAlchemyDB(object):
         configure_mappers()
         self._preload_data()
 
+    @classmethod
+    def test_connection(cls, db_connection_string):
+        engine = create_engine(db_connection_string)
+        try:
+            with engine.connect():
+                return True
+        except OperationalError:
+            return False
+
     def engine_name(self):
         return self._engine.name
 
