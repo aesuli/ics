@@ -23,8 +23,8 @@ ADD requirements.txt .
 
 RUN python3 -m venv ~/venv
 ENV PATH="~/venv/bin:$PATH"
-RUN pip3 install -r requirements.txt
-RUN pip3 install psycopg2
+RUN pip install -r requirements.txt
+RUN pip install psycopg2
 
 VOLUME /ics/db
 VOLUME /ics/data
