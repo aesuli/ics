@@ -46,10 +46,11 @@ ics-webapp
 ```
 
 
-The executable are from source using [pyinstaller](https://pyinstaller.org/):
+The executable are built from source using [pyinstaller](https://pyinstaller.org/):
 
 ```shell
-pyinstaller -F ics\scripts\webapp.py --add-data="ics\apps\media;ics\apps\media" --collect-all sklearn --name ics-webapp
+pip install pyinstaller platformdirs
+pyinstaller -F ics\scripts\webapp.py --add-data="ics\apps\media;ics\apps\media" --collect-all sklearn --collect-all dateutil --name ics-webapp
 ```
 
 ### Docker
