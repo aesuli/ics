@@ -21,8 +21,8 @@ WORKDIR /ics
 ADD ics ics
 ADD requirements.txt .
 
-RUN pip install -r requirements.txt
-RUN pip install psycopg2
+RUN pip3 install -r requirements.txt
+RUN pip3 install psycopg2
 
 VOLUME /ics/db
 VOLUME /ics/data
