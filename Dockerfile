@@ -4,7 +4,7 @@ LABEL version="0.2.1"
 
 RUN apt update
 RUN apt upgrade -y
-RUN apt install -y python3 python3-pip python3-venv libpq-dev
+RUN apt install -y python3 python3-pip libpq-dev
 
 EXPOSE 8080
 
@@ -21,10 +21,8 @@ WORKDIR /ics
 ADD ics ics
 ADD requirements.txt .
 
-RUN python3 -m venv ~/venv
-ENV PATH="~/venv/bin:$PATH"
-RUN pip install -r requirements.txt
-RUN pip install psycopg2
+RUN pip install -r requirements.txt --break-system-packages
+RUN pip install psycopg2 --break-system-packages
 
 VOLUME /ics/db
 VOLUME /ics/data
