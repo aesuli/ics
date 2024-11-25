@@ -4,7 +4,7 @@ LABEL version="0.2.1"
 
 RUN apt update
 RUN apt upgrade -y
-RUN apt install -y python3 python3-pip libpq-dev
+RUN apt install -y python3 python3-pip python3-venv libpq-dev
 
 EXPOSE 8080
 
