@@ -56,7 +56,6 @@ CONNECT_PGSQL_DB = 'postgresql://ics:ics@localhost:5432/ics'
 
 
 def main():
-    multiprocessing.freeze_support()
     parser = ArgParser()
     parser.add_argument('-c', '--config', help='read configuration from a file', is_config_file=True)
     parser.add_argument('-s', '--save', help='saves configuration to a file', is_write_out_config_file_arg=True)
@@ -274,4 +273,6 @@ def main():
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
+    multiprocessing.set_start_method('spawn')
     sys.exit(main())

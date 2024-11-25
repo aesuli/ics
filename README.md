@@ -157,7 +157,13 @@ The use of [PostgreSQL](https://www.postgresql.org/) is strongly recommended.
 
 #### PostgreSQL
 
-To connect to PostgreSQL, a dedicated DB must be created.
+To use PostgreSQL an additional package must be installed:
+
+```shell
+pip install psycopg2
+```
+
+Then, to connect to PostgreSQL, a dedicated DB must be created.
 These are the SQL commands to create the required user and database on PostgreSQL.
 
 ```

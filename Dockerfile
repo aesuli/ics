@@ -1,6 +1,6 @@
 FROM ubuntu
 
-LABEL version="0.1.9"
+LABEL version="0.2.1"
 
 RUN apt update
 RUN apt upgrade -y
@@ -22,6 +22,7 @@ ADD ics ics
 ADD requirements.txt .
 
 RUN pip install -r requirements.txt
+RUN pip install psycopg2
 
 VOLUME /ics/db
 VOLUME /ics/data
