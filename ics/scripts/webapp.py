@@ -52,7 +52,7 @@ def setup_log(access_filename, app_filename, environment):
 
 
 CONNECT_SQLITE_DB = 'sqlite:///ics.sqlite'
-CONNECT_PGSQL_DB = 'postgresql://ics:ics@localhost:5432/ics'
+CONNECT_PGSQL_DB_START = 'postgresql://'
 
 
 def main():
@@ -98,7 +98,7 @@ def main():
     print(f'Starting {args.name} {ics.__version__} with the following configuration:')
     print(' '.join([f'--{key} {value}' for key, value in args.__dict__.items()]))
 
-    if args.db_connection_string != CONNECT_PGSQL_DB:
+    if not args.db_connection_string.startswith(CONNECT_PGSQL_DB_START):
         print()
         print(f'WARNING: this instance of {args.name} is not using the recommended PostgreSQL database configuration.')
         print(f'This can result in reduced efficiency and some functionalities may be missing or not properly working.')
