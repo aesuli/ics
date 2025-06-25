@@ -1,7 +1,7 @@
 import pathlib
 from os import walk
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 here = pathlib.Path(__file__).parent.resolve()
 
@@ -24,7 +24,7 @@ scripts = [f"ics-{script[:-3].replace('_', '-')}=ics.scripts.{script[:-3]}:main"
            next(walk(here / 'ics/scripts/'), (None, None, []))[2] if not script.startswith('_')]
 
 setup(
-    name='ics-pkg',
+    name='ics_pkg',
 
     version=get_version("ics/__init__.py"),
 
@@ -37,7 +37,7 @@ setup(
     author='Andrea Esuli',
     author_email='andrea@esuli.it',
 
-    license='BSD',
+    license='BSD-3-Clause',
 
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -47,8 +47,6 @@ setup(
         'Programming Language :: Python',
         'Topic :: Software Development',
         'Topic :: Scientific/Engineering',
-
-        'License :: OSI Approved :: BSD License',
 
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.8',
@@ -60,7 +58,7 @@ setup(
 
     keywords='text, classification, labeling, machine learning, active learning',
 
-    packages=find_packages(include=['ics', 'ics.*']),
+    packages=find_namespace_packages(include=['ics', 'ics.*']),
 
     include_package_data=True,
 
